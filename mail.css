@@ -371,10 +371,14 @@ max-height:min(312px,50dvh);overflow:auto;overscroll-behavior:contain;padding:va
 .suggestion{display:flex;align-items:center;gap:var(--s-3);min-height:var(--h-lg);padding:var(--s-1) var(--s-4);cursor:pointer}
 .suggestion.on{background:var(--c-row-hover)}
 .suggestion .avatar{flex:none;width:32px;height:32px;font-size:var(--t-md)}
-.suggestion > span:last-child{display:flex;flex-direction:column;min-width:0}
+.suggestion > .suggestion-text{display:flex;flex-direction:column;min-width:0}
 .suggestion b,.suggestion small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .suggestion b{font-weight:var(--w-regular);color:var(--c-text)}.suggestion small{color:var(--c-text-3);font-size:var(--t-xs)}
 .suggestion mark{background:none;color:inherit;font-weight:var(--w-bold)}
+
+.keys-tag{display:inline-flex;flex:none;align-items:center;gap:var(--s-1);margin-left:auto;padding-left:var(--s-2);color:var(--c-text-2);font-size:var(--t-xs);font-weight:var(--w-medium);white-space:nowrap}
+.keys-tag svg.i{width:16px;height:16px;fill:currentColor}
+@media (max-width:480px){.keys-tag > span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}}
 .line > label{flex:0 0 56px;color:var(--c-text-3);white-space:nowrap;cursor:text}.line:focus-within > label{color:var(--c-primary)}
 .line input{flex:1;min-width:0;height:var(--h-md);border:0;outline:0;background:transparent;font-size:var(--t-md)}
 .reveal{display:flex;gap:var(--s-1)}
