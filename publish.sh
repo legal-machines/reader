@@ -6,6 +6,7 @@
 # the same site as the mail page.
 set -e
 cd "$(dirname "$0")"
+python3 make-keys.py
 shasum -a 256 *.html *.mjs *.css CNAME > SHA256SUMS
 git add -A
 git diff --cached --quiet || git commit -q -m "${1:-Update the reader}"

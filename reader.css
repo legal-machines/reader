@@ -68,3 +68,11 @@ iframe.html{display:block;width:100%;min-height:80px;border:0}
 .done{color:var(--c-good);font-weight:500}
 .handed{padding:var(--s-3) var(--s-4);border-radius:var(--r-sm);background:var(--c-good-soft);color:var(--c-on-good-soft);font-weight:500}
 @media (max-width:640px){.card{padding:var(--s-4)}.sealed{flex-direction:column;gap:var(--s-3);padding:var(--s-4)}}
+
+/* Writing (compose.html): plain fields in the Mail app's composer look */
+body.compose main{display:flex;flex-direction:column;gap:var(--s-2)}
+.compose .subject,.compose .body{width:100%;border:0;border-bottom:1px solid var(--c-surface-3);background:transparent;color:var(--c-text);font:16px/1.5 var(--f-sans);outline:0}
+.compose .subject{height:44px;padding:0 var(--s-1)}
+.compose .body{min-height:240px;padding:var(--s-2) var(--s-1);border-bottom:0;resize:none;overflow:hidden}
+.compose .subject:focus,.compose .body:focus{border-color:var(--c-primary)}
+.seal-hint{margin:0;padding:var(--s-2) var(--s-3);border-radius:var(--r-sm);background:var(--c-good-soft);color:var(--c-on-good-soft)}

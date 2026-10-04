@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; form-action 'none'; base-uri 'none'">
+<title>Mail Reader: write</title>
+<link rel="stylesheet" href="reader.css">
+<script type="module" src="compose.mjs"></script>
+</head>
+<body class="embed compose">
+<main>
+  <input class="subject" id="subject" type="text" placeholder="Subject" autocomplete="off" aria-label="Subject">
+  <textarea class="body" id="body" placeholder="Message" aria-label="Message"></textarea>
+  <p class="hint seal-hint">Written here and encrypted on this device, to the recipients' keys and yours. The mail page and its server get only the encrypted message.</p>
+</main>
+</body>
+</html>
