@@ -16,6 +16,7 @@ import {icon} from './icons.mjs';
 import {KEYS} from './keys.mjs';
 import {chip, explained, markFor, setExplained} from './mark.mjs';
 import * as vault from './vault.mjs';
+import {openWith, recipientsOf} from './decrypt.mjs';
 
 const form = document.getElementById('compose'), subject = document.getElementById('subject'), editor = document.getElementById('editor');
 const tools = document.getElementById('tools'), filesBox = document.getElementById('files'), dock = document.getElementById('mark-dock');
@@ -371,6 +372,29 @@ async function message({to, cc}) {
   return inner.slice(0, cut) + filler + '\r\n' + inner.slice(cut);
 }
 
+// Answering or forwarding an encrypted message: Mail hands over its
+// encrypted text (its server has it anyway); with your key open, the reader
+// opens it here and starts the new one as Mail would any other: "Re: " and
+// the real subject, and the old text quoted under the signature.
+async function answer(armored, forward) {
+  try {
+    const ids = await recipientsOf(armored), s = await vault.state();
+    const keyId = ids.find(id => s.keyIds.includes(id));
+    if (!keyId) return;
+    const m = await openWith(armored, s.infos[keyId]);
+    if (typed) return;
+    const base = (m.subject || '').replace(/^\s*((re|fwd?|aw|wg)\s*:\s*)+/i, '');
+    if (!subject.value && base) subject.value = (forward ? 'Fwd: ' : 'Re: ') + base;
+    let text = m.text;
+    if (text === undefined && m.html !== undefined) text = new DOMParser().parseFromString(m.html, 'text/html').body?.innerText || '';
+    const date = m.date && !isNaN(new Date(m.date)) ? new Date(m.date).toLocaleString(undefined, {dateStyle: 'medium', timeStyle: 'short'}) : '';
+    const said = forward ? '---------- Forwarded message ----------' : `On ${date}, ${m.from || 'the sender'} wrote:`;
+    const quote = escape((text || '').trim()).replace(/\r?\n/g, '<br>');
+    editor.insertAdjacentHTML('beforeend', `<br><br><div class="quoted">${escape(said)}</div>` + (forward ? `<div>${quote}</div>` : `<blockquote>${quote}</blockquote>`));
+    untouched = editor.innerHTML;
+  } catch (e) {}  // locked, or not a message for this key: the subject stays to write
+}
+
 // What Mail hands over at the start (the signature and its notice, and the
 // quote of a reply) is made plain markup: text, line breaks, links, bold,
 // small gray type and quotes, nothing that runs or loads.
@@ -408,6 +432,7 @@ addEventListener('message', async e => {
     if (typeof d.subject === 'string') subject.value = d.subject.slice(0, 998);
     editor.innerHTML = clean(d.html);
     untouched = editor.innerHTML;
+    if (d.original && typeof d.original.armored === 'string' && d.original.armored.length <= 4e6) answer(d.original.armored, d.original.mode === 'forward');
     if (typeof d.channel === 'string' && /^page-[\w-]{8,64}$/.test(d.channel)) {
       // The reader's Send (send.mjs) asks for the message here, once you
       // press it; Mail cannot have it encrypted at any other time.

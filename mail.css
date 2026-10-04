@@ -31,7 +31,7 @@
 
 *{box-sizing:border-box}
 
-html{-webkit-tap-highlight-color:transparent}
+html{-webkit-tap-highlight-color:transparent;background:var(--c-bg)}  
 :focus:not(:focus-visible){outline:none}
 .icon-button:active,.menu-item:active,.folders a:active,.text:active,.text-link:active,.tab:active,.dock-tab:active,.settings-nav a:active,
 .outlined:active,.fold-rows:active,.star:active,.imp:active{background-color:color-mix(in srgb,currentColor 10%,transparent)}html,body{margin:0;min-height:100%}
