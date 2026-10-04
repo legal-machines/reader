@@ -112,7 +112,8 @@ body.compose-frame{height:100vh;overflow:hidden}
 p,li{text-wrap:pretty}
 /* The reader's Send (send.html), in Mail's row of buttons. */
 body.send-frame{overflow:hidden}
-.send-frame .composer-actions{display:inline-flex;flex-wrap:nowrap;align-items:center;gap:var(--s-2);padding:0}
+.send-frame .composer-actions{display:inline-flex;flex-wrap:nowrap;align-items:center;gap:var(--s-2);width:max-content;padding:0}
+.send-frame .send{flex:none;white-space:nowrap}
 .send-frame .send-pin{margin:0;width:calc(3 * var(--h-md))}
 .send-frame .send-pin input{height:var(--h-md)}
 /* A letter sealed by its sender's key (seal.mjs): one quiet line over it. */

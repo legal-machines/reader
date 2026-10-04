@@ -20,7 +20,13 @@ let parentOrigin = null, ready = false, records = [], minutes = 15, from = '', p
 // and start a header of Mail's choosing inside the sealed message.
 const ADDRESS = /^[a-z0-9._%+-]{1,64}@[a-z0-9-]{1,63}(\.[a-z0-9-]{1,63})+$/;
 const tell = m => { if (parentOrigin) parent.postMessage(m, parentOrigin); };
-const report = () => { const r = document.getElementById('actions').getBoundingClientRect(); tell({type: 'reader-size', width: Math.ceil(r.width), height: Math.ceil(r.height)}); };
+// The button's own size, whatever room the frame has now; nothing while
+// Mail keeps the frame hidden (End to end off), which lays it out at nothing.
+const report = () => {
+  if (!innerWidth || !innerHeight) return;
+  const r = document.getElementById('actions').getBoundingClientRect();
+  if (r.width && r.height) tell({type: 'reader-size', width: Math.ceil(r.width), height: Math.ceil(r.height)});
+};
 new ResizeObserver(report).observe(document.getElementById('actions'));
 
 // The message from the one composer in this tab, found here, not named by
