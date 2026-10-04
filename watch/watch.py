@@ -158,12 +158,14 @@ def check_dns(domain, ds_required):
                 problems.append(f"the DS of {domain} at its registry does not match deSEC's key")
     elif ds_required:
         problems.append(f"the DS of {domain} at its registry is gone (DNSSEC is off for it)")
-    host = READERS[domain][0]
-    cname = [c.lower() for c in records("ns1.desec.io", host, "CNAME")]
-    if not cname and not records("ns1.desec.io", host, "A"):
-        notes.append(f"{host}: deSEC did not answer")
-    elif cname != [PAGES_NAME]:
-        problems.append(f"{host} points to {', '.join(cname) or 'an address'} at deSEC, not to GitHub Pages")
+    # The reader, and the Web Key Directory (other people's apps take our keys
+    # from it), are GitHub Pages sites.
+    for host in (READERS[domain][0], f"openpgpkey.{domain}"):
+        cname = [c.lower() for c in records("ns1.desec.io", host, "CNAME")]
+        if not cname and not records("ns1.desec.io", host, "A"):
+            notes.append(f"{host}: deSEC did not answer")
+        elif cname != [PAGES_NAME]:
+            problems.append(f"{host} points to {', '.join(cname) or 'an address'} at deSEC, not to GitHub Pages")
     return problems, seen
 
 
