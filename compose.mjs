@@ -17,14 +17,14 @@ import {keyOf} from './seal.mjs';
 import {chip, explained, markFor, setExplained} from './mark.mjs';
 import * as vault from './vault.mjs';
 import {openWith, recipientsOf} from './decrypt.mjs';
+import {fromOurFrame, readerFrames} from './tab.mjs';
 
 const form = document.getElementById('compose'), subject = document.getElementById('subject'), editor = document.getElementById('editor');
 const tools = document.getElementById('tools'), filesBox = document.getElementById('files'), dock = document.getElementById('mark-dock');
 document.getElementById('e2e-label').innerHTML = icon('lock') + '<span>End to end</span>';
 const pictureInput = document.getElementById('pictures'), filesInput = document.getElementById('attach'), dropHint = form.querySelector('.drop-hint');
 const LIMIT = 15 * 1024 * 1024;  // the files of one message, as the mail server takes them encrypted
-let parentOrigin = null, from = '', own = null, channel = null, started = false, typed = false;
-const instance = crypto.randomUUID();
+let parentOrigin = null, from = '', own = null, started = false, typed = false;
 // An address as it may stand in a header (as send.mjs checks it): nothing
 // that could end the line and start a header of Mail's choosing.
 const ADDRESS = /^[a-z0-9._%+-]{1,64}@[a-z0-9-]{1,63}(\.[a-z0-9-]{1,63})+$/;
@@ -516,27 +516,36 @@ addEventListener('message', async e => {
     editor.innerHTML = clean(d.html);
     untouched = editor.innerHTML;
     if (d.original && typeof d.original.armored === 'string' && d.original.armored.length <= 4e6) answer(d.original.armored, d.original.mode);
-    if (typeof d.channel === 'string' && /^page-[\w-]{8,64}$/.test(d.channel)) {
-      // The reader's Send (send.mjs) asks for the message here, once you
-      // press it; Mail cannot have it encrypted at any other time.
-      channel = new BroadcastChannel(d.channel);
-      channel.onmessage = async m => {
-        const x = m.data || {};
-        // Only a composer someone has typed into answers, with its own ID:
-        // Mail cannot slip in a second one, filled with its own words, for
-        // Send to seal in your name (send.mjs refuses two answers).
-        if (x.type !== 'compose-message' || typeof x.id !== 'string' || !typed) return;
-        const s = v => Array.isArray(v) ? v.filter(a => typeof a === 'string').slice(0, 100) : [];
-        try {
-          channel.postMessage({type: 'message', id: x.id, from: instance,
-                               text: await message({to: s(x.to).map(a => a.toLowerCase()), cc: s(x.cc).map(a => a.toLowerCase()), from: typeof x.from === 'string' ? x.from : ''})});
-          dirty = false;
-        } catch (err) {
-          channel.postMessage({type: 'message', id: x.id, from: instance, error: err.message});
-        }
-      };
-    }
+    for (const w of readerFrames('send.html')) w.postMessage({type: 'compose-hello'}, location.origin);  // Send shows us whom it encrypts to
     showSeal();
+  }
+});
+
+// The reader's Send (send.mjs), in this tab, finds this composer itself and
+// asks for the message once you press it; Mail cannot have it encrypted at
+// any other time, nor have Send ask another composer. Only a composer you
+// have typed into answers: one Mail filled with its own words does not.
+const listShown = (to, cc, bcc) => {
+  const line = document.getElementById('sealed-for'), who = document.getElementById('sealed-who');
+  const all = [...to, ...cc];
+  who.classList.toggle('empty', !all.length && !bcc.length);
+  who.innerHTML = !all.length && !bcc.length ? 'Add who it is for above' :
+    escape(all.join(', ')) + (bcc.length ? `${all.length ? ' ' : ''}<span class="bcc">Bcc</span> ${escape(bcc.join(', '))}` : '');
+  line.title = 'Only these addresses and yours can open this message';
+};
+addEventListener('message', async e => {
+  if (!fromOurFrame(e, 'send.html')) return;
+  const x = e.data || {};
+  const s = v => Array.isArray(v) ? v.filter(a => typeof a === 'string').map(a => a.toLowerCase()).slice(0, 100) : [];
+  if (x.type === 'send-shows') { listShown(s(x.to), s(x.cc), s(x.bcc)); return; }
+  if (x.type !== 'compose-message' || typeof x.id !== 'string') return;
+  const reply = m => e.source.postMessage({type: 'message', id: x.id, ...m}, location.origin);
+  if (!typed) { reply({error: 'Click into the message first, then press Send.'}); return; }
+  try {
+    reply({text: await message({to: s(x.to), cc: s(x.cc), from: typeof x.from === 'string' ? x.from : ''})});
+    dirty = false;
+  } catch (err) {
+    reply({error: err.message});
   }
 });
 if (parent !== window) parent.postMessage({type: 'reader-ready'}, '*');

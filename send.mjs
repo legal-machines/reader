@@ -1,7 +1,7 @@
 // Send, for a message written end to end: the reader's own button, in
 // Mail's row of buttons. Only a press here has the message encrypted: it
-// asks the composer (compose.mjs) for the text on this site's channel,
-// seals it with your key (seal.mjs; Touch ID first if encrypted mail is
+// finds the composer (compose.mjs) among this tab's frames itself, asks it
+// for the text, seals it with your key (seal.mjs; Touch ID first if encrypted mail is
 // locked), encrypts it to the recipients' keys (keys.mjs) and hands Mail the
 // encrypted message to send. Mail cannot have a draft encrypted behind your
 // back, nor learn from it how much you have written.
@@ -12,9 +12,10 @@ import {keyOf, seal} from './seal.mjs';
 import * as vault from './vault.mjs';
 import {all, valid} from './store.mjs';
 import {openpgpLib} from './decrypt.mjs';
+import {fromOurFrame, readerFrames} from './tab.mjs';
 
 const button = document.getElementById('send'), pinField = document.querySelector('.send-pin'), pin = document.getElementById('pin');
-let parentOrigin = null, channel = null, records = [], minutes = 15, from = '', people = {to: [], cc: [], bcc: []}, busy = false;
+let parentOrigin = null, ready = false, records = [], minutes = 15, from = '', people = {to: [], cc: [], bcc: []}, busy = false;
 // An address as it may stand in a header: nothing that could end the line
 // and start a header of Mail's choosing inside the sealed message.
 const ADDRESS = /^[a-z0-9._%+-]{1,64}@[a-z0-9-]{1,63}(\.[a-z0-9-]{1,63})+$/;
@@ -22,22 +23,31 @@ const tell = m => { if (parentOrigin) parent.postMessage(m, parentOrigin); };
 const report = () => { const r = document.getElementById('actions').getBoundingClientRect(); tell({type: 'reader-size', width: Math.ceil(r.width), height: Math.ceil(r.height)}); };
 new ResizeObserver(report).observe(document.getElementById('actions'));
 
-// The message from the composer you typed in. Every composer on the
-// channel that someone typed into answers; more than one, and nothing is
-// sent: Mail may have slipped in a second one with words of its own.
+// The message from the one composer in this tab, found here, not named by
+// Mail. A second one, and nothing is sent: Mail may have slipped it in with
+// words of its own.
 const ask = (to, cc) => new Promise((resolve, reject) => {
-  const id = crypto.randomUUID(), answers = new Map();
-  const hear = m => { if (m.data?.type === 'message' && m.data.id === id && typeof m.data.from === 'string') answers.set(m.data.from, m.data); };
-  channel.addEventListener('message', hear);
-  channel.postMessage({type: 'compose-message', id, to, cc, from});
-  setTimeout(() => {
-    channel.removeEventListener('message', hear);
-    const all = [...answers.values()];
-    if (all.length > 1) return reject(new Error('More than one message answered: nothing was sent. Reload the page.'));
-    if (!all.length) return reject(new Error('Click into the message first, then press Send.'));
-    if (typeof all[0].text === 'string') resolve(all[0].text); else reject(new Error(all[0].error || 'The message could not be read.'));
-  }, 400);
+  const composers = readerFrames('compose.html');
+  if (composers.length > 1) return reject(new Error('This page holds a second end-to-end message: nothing was sent. Reload the page.'));
+  if (!composers.length) return reject(new Error('There is no message to send on this page.'));
+  const id = crypto.randomUUID(), w = composers[0];
+  const done = () => { removeEventListener('message', hear); clearTimeout(timer); };
+  const hear = m => {
+    if (m.source !== w || !fromOurFrame(m, 'compose.html') || m.data?.type !== 'message' || m.data.id !== id) return;
+    done();
+    if (typeof m.data.text === 'string') resolve(m.data.text); else reject(new Error(m.data.error || 'The message could not be read.'));
+  };
+  const timer = setTimeout(() => { done(); reject(new Error('The message did not answer: nothing was sent. Reload the page.')); }, 3000);
+  addEventListener('message', hear);
+  w.postMessage({type: 'compose-message', id, to, cc, from}, location.origin);
 });
+
+// The composer shows whom the message will be encrypted to, from the very
+// list this button uses, inside the reader where Mail cannot change it.
+const share = () => {
+  for (const w of readerFrames('compose.html')) w.postMessage({type: 'send-shows', ...people}, location.origin);
+};
+addEventListener('message', e => { if (e.data?.type === 'compose-hello' && fromOurFrame(e, 'compose.html')) share(); });
 
 // Where the browser can tell (Chrome), Send works only while it is in plain
 // view: not under something laid over it, not see-through, not moved.
@@ -48,7 +58,7 @@ if (!inView) {
 }
 
 button.addEventListener('click', async e => {
-  if (busy || !channel || !e.isTrusted) return;
+  if (busy || !ready || !e.isTrusted) return;
   if (!inView) { tell({type: 'reader-error', message: 'Send is covered by something on the page: nothing was sent.'}); return; }
   busy = true;
   button.disabled = true;
@@ -103,15 +113,17 @@ addEventListener('message', e => {
   parentOrigin = e.origin;
   const d = e.data || {};
   if (Number.isFinite(d.vw)) widths(d.vw);
-  if (d.type === 'send-init' && !channel && typeof d.channel === 'string' && /^page-[\w-]{8,64}$/.test(d.channel)) {
-    channel = new BroadcastChannel(d.channel);
+  if (d.type === 'send-init' && !ready) {
+    ready = true;
     records = Array.isArray(d.records) ? d.records.filter(valid).slice(0, 20) : [];
     minutes = [0, 5, 15, 30, 60].includes(d.minutes) ? d.minutes : 15;
     from = typeof d.from === 'string' && ADDRESS.test(d.from.toLowerCase()) ? d.from.toLowerCase() : '';
     report();
+    share();
   } else if (d.type === 'send-people') {
-    const s = v => Array.isArray(v) ? v.filter(a => typeof a === 'string').slice(0, 100) : [];
+    const s = v => Array.isArray(v) ? v.filter(a => typeof a === 'string').map(a => a.toLowerCase()).slice(0, 100) : [];
     people = {to: s(d.to), cc: s(d.cc), bcc: s(d.bcc)};
+    share();
   } else if (d.type === 'send-label' && typeof d.label === 'string') {
     // Send now, or Schedule send once a time is picked in Mail's menu.
     button.textContent = d.label === 'schedule' ? 'Schedule send' : 'Send now';

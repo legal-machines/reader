@@ -71,6 +71,14 @@ body.compose-frame{height:100vh;overflow:hidden}
 .fields.tail{padding-top:0;border-top-left-radius:0;border-top-right-radius:0}
 .e2e-label{display:inline-flex;align-items:center;gap:var(--s-1);flex:none;padding-right:var(--s-2);color:var(--c-good);font-size:var(--t-xs);font-weight:var(--w-medium);white-space:nowrap}
 .e2e-label svg.i{width:var(--icon-sm);height:var(--icon-sm);fill:currentColor}
+/* Whom Send encrypts to, from Send's own list (Mail's To and Cc lines above
+   are Mail's): a field line like the others, its label in the label column,
+   the addresses as supporting text that wraps. */
+.sealed-for{align-items:flex-start;padding-top:var(--s-3);padding-bottom:var(--s-3)}
+.sealed-for > .line-label{flex:0 0 56px;color:var(--c-text-3);white-space:nowrap;line-height:20px}
+.sealed-list{flex:1;min-width:0;padding:0 0 0 2px;color:var(--c-text-2);font-size:var(--t-md);line-height:20px;overflow-wrap:anywhere}
+.sealed-list.empty{color:var(--c-text-3)}
+.sealed-list .bcc{color:var(--c-text-3);font-weight:var(--w-medium)}
 /* The text and, at its foot, your mark while you type: a flat Material 3
    assist chip (32 px, its 18 px icon, no shadow, at his wish), a card while it
    explains itself; in with the emphasized decelerate curve, out with the
@@ -111,3 +119,5 @@ body.send-frame{overflow:hidden}
 .seal-line{display:flex;align-items:center;gap:var(--s-2);margin:0 0 var(--s-3);color:var(--c-text-2);font-size:var(--t-xs)}
 .seal-line span{min-width:0;text-wrap:balance;overflow-wrap:anywhere}
 .seal-line svg.i{flex:none;width:var(--icon-sm);height:var(--icon-sm);fill:var(--c-good)}
+.seal-line.none svg.i{fill:var(--c-text-2)}
+.badge.plain{background:var(--c-surface-3);color:var(--c-text-2)}

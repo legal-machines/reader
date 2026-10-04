@@ -94,6 +94,12 @@ const sizeText = n => n < 1024 ? `${n} B` : n < 1048576 ? `${Math.round(n / 1024
 const picture = f => ['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(f.type) && f.data.length <= 8 * 1024 * 1024;
 const shownFiles = m => m.files.filter(f => !(m.html !== undefined && f.id && f.type.startsWith('image/') && m.html.includes('cid:' + f.id)));
 
+// Whether the letter is sealed by the mailbox it says it is from.
+const sealHolds = m => {
+  const sealed = m.seal || {state: 'none'}, inside = addressOf(m.from);
+  return sealed.state === 'ok' && (!inside || sealed.inside);
+};
+
 // The letter, as Mail shows any message: its text, pictures and attachments.
 function letterHtml(m) {
   // Anyone can encrypt to a public key and write any sender inside; the
@@ -115,7 +121,10 @@ function letterHtml(m) {
     : sealed.state === 'ok' ? `<div class="reader-alert" role="alert">${icon('warning')}<div><b>Written with someone else's key</b><p>It says it is from ${escape(inside)}, ` +
                               `but it was sealed with the key of another mailbox, at ${escape(sealed.domain)}.</p></div></div>`
     : sealed.state === 'bad' ? `<div class="reader-alert" role="alert">${icon('warning')}<div><b>Its seal does not hold</b><p>Do not trust who it says it is from, ` +
-                               `nor its links and requests.</p></div></div>` : '';
+                               `nor its links and requests.</p></div></div>`
+    // No seal: encrypted to your public key, which anyone can do, the mail
+    // server among them (it encrypts mail between our mailboxes on arrival).
+    : `<p class="seal-line none">${icon('warning')}<span>Not sealed: anyone who has your public key, the mail server included, could have written it</span></p>`;
   let body;
   if (m.html !== undefined) body = '<iframe class="mail-frame" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" title="Message"></iframe>';
   else if (m.text !== undefined) body = `<pre class="plain">${linkify(m.text)}</pre>`;
@@ -126,7 +135,10 @@ function letterHtml(m) {
     (f.type === 'application/pdf' ? `<a class="icon-button" data-pdf="${i}" target="_blank" rel="noopener" title="Open" aria-label="Open">${icon('open')}</a>` : '') +
     `<a class="icon-button" data-file="${i}" download="${escape(f.name)}" title="Download" aria-label="Download">${icon('download')}</a></span>`).join('');
   const date = m.date && !isNaN(new Date(m.date)) ? new Date(m.date).toLocaleString(undefined, {dateStyle: 'medium', timeStyle: 'short'}) : m.date;
-  const head = framed ? '' : `<div class="letter-head"><span class="badge">${icon('lock')}<span>End-to-end encrypted</span></span></div>` +
+  // End to end only with a seal that holds; otherwise it was encrypted, but
+  // nothing shows by whom.
+  const head = framed ? '' : `<div class="letter-head">` + (sealed.state === 'ok' && (!inside || sealed.inside)
+      ? `<span class="badge">${icon('lock')}<span>End-to-end encrypted</span></span>` : `<span class="badge plain">${icon('lock')}<span>Encrypted</span></span>`) + '</div>' +
     (m.subject ? `<h2>${escape(m.subject)}</h2>` : '') + `<p class="meta">${escape(other || !m.from ? sentFrom : m.from)}${date ? `<br>${escape(date)}` : ''}</p>`;
   return '<article class="letter">' + head + verified + warning + body + (thumbs ? `<div class="thumbs">${thumbs}</div>` : '') +
          (list ? `<div class="attachments">${list}</div>` : '') + '</article>';
@@ -181,6 +193,9 @@ async function reveal(m) {
   } else view.replaceChildren(stage);
   await fill(m);
   report();
+  // Mail's header says "End-to-end encrypted" only for a letter whose seal
+  // holds; until the reader says so, it says "Encrypted".
+  tell({type: 'reader-seal', sealed: sealHolds(m)});
   if (!moving) return;
   requestAnimationFrame(() => requestAnimationFrame(() => {
     before.classList.add('leaving');

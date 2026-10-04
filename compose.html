@@ -23,11 +23,12 @@
 <link rel="modulepreload" href="seal.mjs">
 <link rel="modulepreload" href="decrypt.mjs">
 <link rel="modulepreload" href="sealed-core.mjs">
+<link rel="modulepreload" href="tab.mjs">
 <script type="module" src="compose.mjs"></script>
 </head>
 <body class="embed compose-frame">
 <form class="pane composer" id="compose" autocomplete="off">
-  <div class="fields tail"><div class="line" data-line="subject"><label for="subject">Subject</label><input id="subject" type="text" enterkeyhint="next"><span class="e2e-label" id="e2e-label"></span></div></div>
+  <div class="fields tail"><div class="line sealed-for" id="sealed-for"><span class="line-label">For</span><span class="sealed-list empty" id="sealed-who">Add who it is for above</span></div><div class="line" data-line="subject"><label for="subject">Subject</label><input id="subject" type="text" enterkeyhint="next"><span class="e2e-label" id="e2e-label"></span></div></div>
   <div class="editor-box"><div class="editor" id="editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Message"></div>
     <div class="mark-dock" id="mark-dock" data-shown="false" aria-live="polite"></div></div>
   <div class="attachments" id="files"></div>

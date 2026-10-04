@@ -16,7 +16,7 @@ git diff --cached --quiet || git commit -q -m "${1:-Update the reader}"
 git push -q origin main
 out="$(mktemp -d)"
 git archive HEAD | tar -x -C "$out"
-echo seal.dzyza.com > "$out/CNAME"
+printf seal.dzyza.com > "$out/CNAME"  # as GitHub writes it, no line end: its own commits then change nothing
 (cd "$out" && python3 make-keys.py --keys-page dzyza.com > /dev/null && python3 make-pins.py > /dev/null && shasum -a 256 *.html *.mjs *.js *.css CNAME > SHA256SUMS && git init -q && git add -A &&
  git -c user.name="Alexander Dzyza" -c user.email="quirites.suijuris@gmail.com" commit -q -m "${1:-Update the reader}" &&
  git push -q --force https://github.com/legal-machines/reader2.git HEAD:main)
