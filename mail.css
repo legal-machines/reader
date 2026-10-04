@@ -726,11 +726,10 @@ table.who-reads tr td:last-child{border-radius:0 var(--r-sm) var(--r-sm) 0}table
 .cipher[hidden]{display:none}
 .sealed-msg{position:relative}
 .sealed-msg > .sealed-card,.sealed-msg > .reader-alert{margin-top:var(--s-3)}
-.reader-frame{transition:height var(--d-medium1) var(--ease-standard)}
-.reader-hub{display:block;width:100%;height:0;margin:0 0 var(--s-3);border:0;background:transparent;transition:height var(--d-medium1) var(--ease-standard)}
+.reader-hub{display:block;width:100%;height:0;margin:0 0 var(--s-3);border:0;background:transparent}
 .reader-hub[hidden]{display:none}
 .reader-hub + nav.tabs,.reader-hub + .list{margin-top:0}
-@media (prefers-reduced-motion:reduce){.reader-frame,.reader-hub,.list-head{transition:none}}
+@media (prefers-reduced-motion:reduce){.list-head{transition:none}}
 
 .seal-note span,.notice-strip span,.hint,.sealed-text p,.reader-alert p,.status-tile p,.snackbar span{text-wrap:balance}
 p,li,dd{text-wrap:pretty}

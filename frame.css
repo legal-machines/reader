@@ -9,14 +9,16 @@ body{margin:0;padding:0;min-height:0}
 .unlock .field{max-width:320px;margin:var(--s-3) 0 0}
 .unlock .alert{margin:var(--s-3) 0 0}
 .unlock .alert .text{margin-left:var(--s-1)}
-/* The message: the encrypted text gives way to the letter. */
+/* The message: the encrypted text gives way to the letter (embed.mjs):
+   Material 3 fade through, on opacity and transform only. */
 .stage{position:relative}
-.stage + .cipher.leaving,#view > .cipher.leaving{position:absolute;top:0;left:0;right:0;pointer-events:none;animation:cipher-out var(--d-long1) var(--ease-emphasized-accel) forwards}
-@keyframes cipher-out{to{opacity:0;filter:blur(2px)}}
-@media (prefers-reduced-motion:reduce){.stage + .cipher.leaving,#view > .cipher.leaving,.letter.arriving{animation:none}}
-.letter.arriving{-webkit-mask-image:linear-gradient(#000 0 40%,transparent 60%);mask-image:linear-gradient(#000 0 40%,transparent 60%);
-  -webkit-mask-size:100% 250%;mask-size:100% 250%;animation:letter-in var(--d-long2) var(--ease-emphasized-decel) both}
-@keyframes letter-in{from{-webkit-mask-position:0 100%;mask-position:0 100%}to{-webkit-mask-position:0 0;mask-position:0 0}}
+.stage.pending{opacity:0}
+#view > .cipher.held{position:absolute;top:0;left:0;right:0;pointer-events:none}
+#view > .cipher.leaving{animation:fade-out var(--d-short2) var(--ease-standard-accel) forwards}
+.stage.arriving{transform-origin:50% 0;animation:fade-through-in var(--d-short4) var(--ease-emphasized-decel) var(--d-short2) both}
+@keyframes fade-out{to{opacity:0}}
+@keyframes fade-through-in{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){#view > .cipher.leaving,.stage.arriving{animation:none}}
 #view{position:relative}
 /* The hub: one Unlock for every encrypted message on the page, as a
    Material 3 two-line list item on a container surface. A PIN and an
@@ -104,4 +106,5 @@ body.send-frame{overflow:hidden}
 .send-frame .send-pin input{height:var(--h-md)}
 /* A letter sealed by its sender's key (seal.mjs): one quiet line over it. */
 .seal-line{display:flex;align-items:center;gap:var(--s-2);margin:0 0 var(--s-3);color:var(--c-text-2);font-size:var(--t-xs)}
+.seal-line span{min-width:0;text-wrap:balance;overflow-wrap:anywhere}
 .seal-line svg.i{flex:none;width:var(--icon-sm);height:var(--icon-sm);fill:var(--c-good)}

@@ -29,14 +29,17 @@ const tell = message => { if (parentOrigin && framed) parent.postMessage(message
 // that fits, and its height goes out in steps of 32 pixels.
 const WIDTHS = [280, 320, 360, 400, 480, 560, 640, 720, 800, 960, 1120, 1280];
 let laid = 0;
+// (The encrypted text before it is no secret: it keeps the full width and
+// its exact height, so it stands exactly where Mail's own copy of it stood.)
 function layout() {
   if (!framed) return;
-  const w = WIDTHS.filter(x => x <= innerWidth).pop() || WIDTHS[0];
-  if (w !== laid) { laid = w; view.style.width = w + 'px'; }
+  const w = shown ? WIDTHS.filter(x => x <= innerWidth).pop() || WIDTHS[0] : 0;
+  if (w !== laid) { laid = w; view.style.width = w ? w + 'px' : ''; }
 }
 const report = () => {
   layout();
-  tell({type: 'reader-height', height: Math.ceil(document.documentElement.getBoundingClientRect().height / 32) * 32});
+  const h = document.documentElement.getBoundingClientRect().height;
+  tell({type: 'reader-height', height: shown ? Math.ceil(h / 32) * 32 : Math.ceil(h)});
 };
 new ResizeObserver(report).observe(document.documentElement);
 
@@ -104,10 +107,13 @@ function letterHtml(m) {
   // The sender's seal (seal.mjs): written with the key of a mailbox here,
   // which no one else holds, or a seal that does not hold.
   const sealed = m.seal || {state: 'none', addresses: []};
-  // With the date sealed inside, so an old message passed off as new shows its own.
-  const sealedOn = m.date && !isNaN(new Date(m.date)) ? ', ' + new Date(m.date).toLocaleString(undefined, {dateStyle: 'medium', timeStyle: 'short'}) : '';
+  // With the time sealed inside, so an old message passed off as new shows
+  // its own: today the hour, this year the day, before that the year too.
+  const d = m.date && !isNaN(new Date(m.date)) ? new Date(m.date) : null, now = new Date();
+  const sealedOn = !d ? '' : d.toDateString() === now.toDateString() ? ' at ' + d.toLocaleTimeString(undefined, {timeStyle: 'short'})
+    : ' on ' + d.toLocaleDateString(undefined, d.getFullYear() === now.getFullYear() ? {day: 'numeric', month: 'short'} : {day: 'numeric', month: 'short', year: 'numeric'});
   const verified = sealed.state === 'ok' && (!inside || sealed.addresses.includes(inside))
-    ? `<p class="seal-line">${icon('verified_user')}<span>Sealed with the key of ${escape(inside || sealed.addresses[0])}${escape(sealedOn)}</span></p>`
+    ? `<p class="seal-line">${icon('verified_user')}<span>Sealed by ${escape(inside || sealed.addresses[0])}${escape(sealedOn)}</span></p>`
     : sealed.state === 'ok' ? `<div class="reader-alert" role="alert">${icon('warning')}<div><b>Written with someone else's key</b><p>It says it is from ${escape(inside)}, ` +
                               `but it was sealed with the key of ${escape(sealed.addresses.join(', '))}.</p></div></div>`
     : sealed.state === 'bad' ? `<div class="reader-alert" role="alert">${icon('warning')}<div><b>Its seal does not hold</b><p>Do not trust who it says it is from, ` +
@@ -141,42 +147,49 @@ function fill(m) {
     a.querySelector('img').src = url;
   });
   const frame = view.querySelector('iframe.mail-frame');
+  let loaded = Promise.resolve();
   if (frame) {
-    frame.addEventListener('load', () => {
-      frame.style.height = frame.contentDocument.documentElement.scrollHeight + 'px';
-      frame.style.visibility = 'visible';
-      report();
+    loaded = new Promise(done => {
+      frame.addEventListener('load', () => {
+        frame.style.height = frame.contentDocument.documentElement.scrollHeight + 'px';
+        frame.style.visibility = 'visible';
+        report();
+        done();
+      });
+      setTimeout(done, 800);
     });
     frame.srcdoc = '<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data:; style-src \'unsafe-inline\'">' +
       '<base target="_blank"><style>' + LETTER_CSS + '</style></head><body>' + inert(m.html, m.files) + '</body></html>';
   }
+  return loaded;
 }
 
-// The encrypted text gives way to the letter: its characters stir for a
-// moment, and the letter is uncovered from the top as they fade.
-function reveal(m) {
+// The encrypted text gives way to the letter in Material 3's fade through:
+// the letter is laid out first, unseen, so the frame takes its new height
+// once; then the encrypted text fades out and the letter fades in, growing
+// a little, on opacity and transform alone, which the graphics card draws.
+async function reveal(m) {
   const before = view.querySelector('.cipher');
   for (const u of urls) URL.revokeObjectURL(u);
   urls = [];
   const stage = document.createElement('div');
   stage.className = 'stage';
   stage.innerHTML = letterHtml(m);
-  if (before && !still.matches) {
-    before.classList.add('leaving');
-    stage.querySelector('.letter').classList.add('arriving');
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-    const original = before.textContent, start = performance.now();
-    const stir = now => {
-      if (!before.isConnected) return;
-      if (now - start > 450) return before.remove();  // Material 3 long1
-      before.textContent = original.replace(/\S/g, c => Math.random() < 0.4 ? chars[Math.random() * 64 | 0] : c);
-      requestAnimationFrame(stir);
-    };
-    requestAnimationFrame(stir);
+  const moving = before && !still.matches;
+  if (moving) {
+    stage.classList.add('pending');
+    before.classList.add('held');
     view.replaceChildren(stage, before);
   } else view.replaceChildren(stage);
-  fill(m);
+  await fill(m);
   report();
+  if (!moving) return;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    before.classList.add('leaving');
+    before.addEventListener('animationend', () => before.remove(), {once: true});
+    stage.classList.remove('pending');
+    stage.classList.add('arriving');
+  }));
 }
 
 function locked() {

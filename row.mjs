@@ -28,7 +28,10 @@ function place(boxes) {
   }
 }
 
-// The words appear out of a stir of characters, left to right.
+// The words take the place of encrypted characters, left to right: the
+// characters still to go stay put (nothing flickers); only the edge moves,
+// over Material 3's long1 (450 ms) on its emphasized decelerate curve.
+const ease = t => 1 - Math.pow(1 - t, 4);
 function write(el, text, lock) {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
   const holder = document.createElement('span');
@@ -37,12 +40,14 @@ function write(el, text, lock) {
   if (lock) el.insertAdjacentHTML('beforeend', `<span class="lock">${LOCK}</span>`);
   el.append(holder);
   if (still.matches) { holder.textContent = text; return; }
-  const start = performance.now(), length = Math.min(text.length, 160);
+  const length = Math.min(text.length, 160);
+  const cipher = [...text.slice(0, length)].map(c => c === ' ' ? ' ' : chars[Math.random() * 64 | 0]).join('');
+  const start = performance.now();
+  let last = -1;
   const step = now => {
-    const t = Math.min(1, (now - start) / 450), done = Math.floor(t * length);
-    holder.textContent = text.slice(0, done) + [...text.slice(done, length)].map(c => c === ' ' ? ' ' : chars[Math.random() * 64 | 0]).join('') + text.slice(length);
+    const t = Math.min(1, (now - start) / 450), done = Math.round(ease(t) * length);
+    if (done !== last) { last = done; holder.textContent = text.slice(0, done) + cipher.slice(done) + text.slice(length); }
     if (t < 1) requestAnimationFrame(step);
-    else holder.textContent = text;
   };
   requestAnimationFrame(step);
 }
