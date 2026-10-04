@@ -12,6 +12,10 @@ import {MAIL_SITES} from './sites.mjs';
 const view = document.getElementById('view');
 const LOCK = '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>';
 let parentOrigin = null, armored = null, handedRecords = [], sentFrom = '', hideTimer = null, urls = [];
+// Inside a conversation the subject goes to the Mail app's title line, shown
+// by this site's subject frame (title.mjs): the channel, and what it shows now.
+let titleChannel = null, shownSubject = '';
+const announce = text => { shownSubject = text; titleChannel?.postMessage({subject: text}); };
 // Shown inside a message (a frame), or in a tab of its own that the Mail
 // app opened for the message (a site whose frames cannot share this
 // browser's key, see sites.mjs).
@@ -79,6 +83,7 @@ let capable = null;
 const canOpen = () => (capable ||= crypto.subtle.importKey('raw', new Uint8Array(32).fill(9), {name: 'X25519'}, false, []).then(() => true, () => false));
 
 async function prepare() {
+  if (shownSubject) announce('');
   if (!await canOpen())
     return show(card('End-to-end encrypted', 'This browser is too old to open it safely. Update it (Safari 17, Chrome or Edge 133, Firefox 130 or later), or read it in Thunderbird.'));
   let ids = [];
@@ -167,6 +172,10 @@ function render(m) {
   // Mail app hands over the sender its server received the message from.
   const inside = addressOf(m.from), other = sentFrom && inside && inside !== sentFrom;
   const warning = other ? `<p class="warn">It says it is from ${escape(inside)}, but it was sent from ${escape(sentFrom)}. Be careful with links and requests in it.</p>` : '';
+  // In a frame of the Mail app, the letter is its text: the subject goes to
+  // the title line and the sender is the Mail app's own line above.
+  const framed = host === parent;
+  if (framed) announce(m.subject || '');
   const date = m.date && !isNaN(new Date(m.date)) ? new Date(m.date).toLocaleString(undefined, {dateStyle: 'medium', timeStyle: 'short'}) : m.date;
   let body;
   if (m.text !== undefined) body = `<div class="body-text">${linkify(m.text)}</div>`;
@@ -176,8 +185,8 @@ function render(m) {
   const list = files.map((f, i) => `<li><a data-file="${i}" download="${escape(f.name)}">${escape(f.name)}</a><small>${f.data.length < 1024 ? f.data.length + ' B' : Math.round(f.data.length / 1024) + ' KB'}</small></li>`).join('');
   show(`<article class="letter"><div class="letter-head"><span class="badge">${LOCK}<span>End-to-end encrypted</span></span>` +
        `<button class="text" type="button" id="hide">Hide</button></div>` +
-       (m.subject ? `<h2>${escape(m.subject)}</h2>` : '') +
-       `<p class="meta">${escape(other || !m.from ? sentFrom : m.from)}${date ? `<br>${escape(date)}` : ''}</p>${warning}${body}` +
+       (framed ? warning : (m.subject ? `<h2>${escape(m.subject)}</h2>` : '') +
+                 `<p class="meta">${escape(other || !m.from ? sentFrom : m.from)}${date ? `<br>${escape(date)}` : ''}</p>${warning}`) + body +
        (list ? `<ul class="files">${list}</ul>` : '') + '</article>');
   view.querySelectorAll('[data-file]').forEach(a => {
     const f = files[Number(a.dataset.file)], url = URL.createObjectURL(new Blob([f.data], {type: f.type}));
@@ -206,6 +215,10 @@ addEventListener('message', e => {
   armored = e.data.armored;
   handedRecords = Array.isArray(e.data.records) ? e.data.records.filter(valid).slice(0, 20) : [];
   sentFrom = typeof e.data.from === 'string' && e.data.from.length <= 320 ? addressOf(e.data.from) : '';
+  if (!titleChannel && typeof e.data.title === 'string' && /^subject-[\w-]{8,64}$/.test(e.data.title)) {
+    titleChannel = new BroadcastChannel(e.data.title);
+    titleChannel.onmessage = m => { if (m.data?.type === 'title-ready' && shownSubject) titleChannel.postMessage({subject: shownSubject}); };
+  }
   prepare();
 });
 
