@@ -5,13 +5,13 @@
 // make no network requests at all (index.html, its Content-Security-Policy).
 
 import {open} from './sealed-core.mjs';
-import {all, unlock} from './store.mjs';
+import {all, unlock, valid} from './store.mjs';
 import {read, escape, linkify} from './mime.mjs';
 import {MAIL_SITES} from './sites.mjs';
 
 const view = document.getElementById('view');
 const LOCK = '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>';
-let parentOrigin = null, armored = null, hideTimer = null, urls = [];
+let parentOrigin = null, armored = null, handedRecords = [], hideTimer = null, urls = [];
 // Shown inside a message (a frame), or in a tab of its own that the Mail
 // app opened for the message (a site whose frames cannot share this
 // browser's key, see sites.mjs).
@@ -86,16 +86,23 @@ async function prepare() {
       return show(card('End-to-end encrypted', 'This message could not be read as OpenPGP.'));
     }
   }
-  const records = await all();
-  const record = records.find(r => ids.includes(r.keyId));
+  // The sealed keys the Mail app keeps for this mailbox, and any in this
+  // site's storage (which Safari does not share with frames).
+  const records = [...handedRecords];
+  try {
+    for (const r of await all()) if (!records.some(h => h.credentialId === r.credentialId)) records.push({...r, rp: r.rp || location.hostname});
+  } catch (e) {}
+  const fitting = records.filter(r => r.rp === location.hostname && ids.includes(r.keyId));
+  const record = fitting[0];
   if (!record) {
     return show(card('End-to-end encrypted',
       records.length ? 'The key on this browser does not open this message; it was encrypted to another key.'
                      : 'This browser has no key for it yet. Open the message "Your encryption key" in your Inbox and click Add to this browser: then messages open here with Touch ID or your fingerprint.',
       `<div class="actions">${setupLink}</div>`));
   }
-  const pin = record.pinSalt ? '<label class="field"><span>Device PIN</span><input type="password" id="pin" inputmode="numeric" autocomplete="off" required></label>' : '';
-  show(card('End-to-end encrypted', `Only your key opens it. On this browser it opens with ${record.pinSalt ? 'your PIN and ' : ''}Touch ID, your fingerprint or the screen lock.`,
+  const withPin = fitting.some(r => r.pinSalt);
+  const pin = withPin ? '<label class="field"><span>PIN</span><input type="password" id="pin" inputmode="numeric" autocomplete="off"></label>' : '';
+  show(card('End-to-end encrypted', `Only your key opens it: ${withPin ? 'your PIN and ' : ''}Touch ID, your fingerprint or the screen lock.`,
     `<form id="unlock" class="unlock">${pin}<div class="actions"><button class="filled" type="submit">Open</button></div><p class="error" role="alert" hidden></p></form>`));
   document.getElementById('unlock').addEventListener('submit', async e => {
     e.preventDefault();
@@ -104,9 +111,9 @@ async function prepare() {
     error.hidden = true;
     try {
       const loading = openpgpLib();  // downloads while the passkey is asked
-      let key = await unlock(record, document.getElementById('pin')?.value || '');
-      const bytes = await open(await loading, armored, key, record.info);
-      key = null;  // gone with this page; nothing else holds it
+      let {privateKey, record: used} = await unlock(fitting, document.getElementById('pin')?.value || '');
+      const bytes = await open(await loading, armored, privateKey, used.info);
+      privateKey = null;  // gone with this page; nothing else holds it
       render(read(bytes));
       bytes.fill(0);
     } catch (err) {
@@ -178,6 +185,7 @@ addEventListener('message', e => {
   if (!host || e.source !== host || !MAIL_SITES.includes(e.origin) || e.data?.type !== 'reader-open' || typeof e.data.armored !== 'string') return;
   parentOrigin = e.origin;
   armored = e.data.armored;
+  handedRecords = Array.isArray(e.data.records) ? e.data.records.filter(valid).slice(0, 20) : [];
   prepare();
 });
 

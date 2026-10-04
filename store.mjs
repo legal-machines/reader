@@ -1,8 +1,12 @@
-// Where this browser keeps a decryption key: only sealed (AES-GCM) under a
-// key made from the passkey's PRF output (Touch ID, a fingerprint, a security
-// key) and the device PIN. The sealed key sits in this site's IndexedDB,
-// which no other site can open, the mail page included; opened, it becomes
-// a non-extractable WebCrypto key that lives in one page's memory.
+// A decryption key exists outside one page's memory only sealed (AES-GCM)
+// under a key made from a passkey's PRF output (Touch ID, a fingerprint, a
+// security key) and the optional PIN. Only this site can ask the passkey
+// for that output (its RP ID is this exact host name), so the sealed key is
+// kept by the Mail app, in the owner's mailbox settings, and handed to the
+// reader with each message: Safari gives a frame storage of its own, apart
+// from this site's tab, and a synced passkey opens the same sealed key on the
+// owner's other devices. A copy also stays in this tab's IndexedDB. Opened,
+// the key becomes a non-extractable WebCrypto key in one page's memory.
 
 const DB = 'sealed-reader', STORE = 'keys', PBKDF2_ROUNDS = 600000;
 const enc = new TextEncoder();
@@ -11,10 +15,21 @@ export const b64u = bytes => btoa(String.fromCharCode(...new Uint8Array(bytes)))
 export const unb64u = text => Uint8Array.from(atob(text.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
 const random = n => crypto.getRandomValues(new Uint8Array(n));
 
+// Records by passkey (one key may be sealed under several); version 1 kept
+// them by key ID, and its records move over as they are.
 function open() {
   return new Promise((resolve, reject) => {
-    const r = indexedDB.open(DB, 1);
-    r.onupgradeneeded = () => r.result.createObjectStore(STORE, {keyPath: 'keyId'});
+    const r = indexedDB.open(DB, 2);
+    r.onupgradeneeded = e => {
+      const db = r.result;
+      if (e.oldVersion < 1) { db.createObjectStore(STORE, {keyPath: 'credentialId'}); return; }
+      const rows = r.transaction.objectStore(STORE).getAll();
+      rows.onsuccess = () => {
+        db.deleteObjectStore(STORE);
+        const store = db.createObjectStore(STORE, {keyPath: 'credentialId'});
+        for (const row of rows.result) store.put({...row, rp: row.rp || location.hostname, v: row.v || 1});
+      };
+    };
     r.onsuccess = () => resolve(r.result);
     r.onerror = () => reject(r.error);
   });
@@ -29,19 +44,28 @@ async function run(mode, work) {
 }
 export const all = () => run('readonly', s => s.getAll());
 export const put = record => run('readwrite', s => s.put(record));
-export const remove = keyId => run('readwrite', s => s.delete(keyId));
+export const remove = credentialId => run('readwrite', s => s.delete(credentialId));
 
-// The PRF output of the passkey for this record (a touch of Touch ID).
-async function prf(credentialId, salt) {
+// One touch of a passkey that one of these records was sealed under: its
+// record and PRF output.
+async function prf(records) {
+  const one = records.length === 1;
   const got = await navigator.credentials.get({publicKey: {
     challenge: random(32), rpId: location.hostname, userVerification: 'required', timeout: 120000,
-    allowCredentials: [{type: 'public-key', id: unb64u(credentialId)}],
-    extensions: {prf: {eval: {first: unb64u(salt)}}},
+    allowCredentials: records.map(r => ({type: 'public-key', id: unb64u(r.credentialId)})),
+    extensions: {prf: one ? {eval: {first: unb64u(records[0].salt)}}
+                          : {evalByCredential: Object.fromEntries(records.map(r => [r.credentialId, {first: unb64u(r.salt)}]))}},
   }});
   const out = got.getClientExtensionResults().prf?.results?.first;
   if (!out) throw new Error('This browser cannot unlock the key with a passkey.');
-  return new Uint8Array(out);
+  const record = records.find(r => r.credentialId === b64u(got.rawId));
+  if (!record) throw new Error('That passkey belongs to another key.');
+  return {record, out: new Uint8Array(out)};
 }
+
+// What binds the sealed bytes to their record (AES-GCM associated data), so
+// a sealed key cannot be passed off under another record's name.
+const bound = r => r.v === 2 ? {additionalData: enc.encode(`${r.rp}|${r.keyId}|${r.credentialId}|v2`)} : {};
 
 async function sealingKey(prfOut, pin, pinSalt) {
   let pinBits = new Uint8Array(0);
@@ -73,33 +97,44 @@ export async function newPasskey(label) {
   if (result?.enabled === false) throw new Error('This browser or device cannot lock a key with a passkey (Safari 18, Chrome or Edge can).');
   const credentialId = b64u(made.rawId);
   // Some browsers give the PRF output only when the passkey is used.
-  const out = result?.results?.first ? new Uint8Array(result.results.first) : await prf(credentialId, b64u(salt));
+  const out = result?.results?.first ? new Uint8Array(result.results.first) : (await prf([{credentialId, salt: b64u(salt)}])).out;
   return {credentialId, salt: b64u(salt), out};
 }
 
-// Seals the key's PKCS #8 bytes and stores the record; the bytes are wiped.
+// Seals the key's PKCS #8 bytes, keeps the record here and returns it; the
+// bytes are wiped.
 export async function keep(passkey, pin, pkcs8, info, addresses) {
   const pinSalt = b64u(random(16)), iv = random(12);
+  const record = {v: 2, rp: location.hostname, keyId: info.keyId, info, addresses, credentialId: passkey.credentialId, salt: passkey.salt,
+                  pinSalt: pin ? pinSalt : null, iv: b64u(iv), created: new Date().toISOString()};
   const key = await sealingKey(passkey.out, pin, pinSalt);
   passkey.out.fill(0);
-  const sealed = await crypto.subtle.encrypt({name: 'AES-GCM', iv}, key, pkcs8);
+  record.sealed = b64u(await crypto.subtle.encrypt({name: 'AES-GCM', iv, ...bound(record)}, key, pkcs8));
   pkcs8.fill(0);
-  await put({keyId: info.keyId, info, addresses, credentialId: passkey.credentialId, salt: passkey.salt, pinSalt: pin ? pinSalt : null,
-             iv: b64u(iv), sealed: b64u(sealed), created: new Date().toISOString()});
+  await put(record);
+  return record;
 }
 
-// The record's key, opened as a non-extractable X25519 key.
-export async function unlock(record, pin) {
-  const out = await prf(record.credentialId, record.salt);
+// The key of whichever of these records the touched passkey opens, as a
+// non-extractable X25519 key.
+export async function unlock(records, pin) {
+  const {record, out} = await prf(records);
   const key = await sealingKey(out, record.pinSalt ? pin : '', record.pinSalt);
   out.fill(0);
   let pkcs8;
   try {
-    pkcs8 = new Uint8Array(await crypto.subtle.decrypt({name: 'AES-GCM', iv: unb64u(record.iv)}, key, unb64u(record.sealed)));
+    pkcs8 = new Uint8Array(await crypto.subtle.decrypt({name: 'AES-GCM', iv: unb64u(record.iv), ...bound(record)}, key, unb64u(record.sealed)));
   } catch (e) {
     throw new Error(record.pinSalt ? 'Wrong PIN.' : 'This passkey does not open the key.');
   }
   const privateKey = await crypto.subtle.importKey('pkcs8', pkcs8, {name: 'X25519'}, false, ['deriveBits']);
   pkcs8.fill(0);
-  return privateKey;
+  return {privateKey, record};
+}
+
+// A record handed over by the Mail app, checked for shape: anything else is ignored.
+export function valid(r) {
+  return r && typeof r === 'object' && r.rp === location.hostname && /^[0-9a-f]{16}$/.test(r.keyId) && typeof r.credentialId === 'string' &&
+    typeof r.salt === 'string' && typeof r.iv === 'string' && typeof r.sealed === 'string' && r.info && /^[0-9a-f]{40}$/.test(r.info.fingerprint) &&
+    r.info.keyId === r.keyId && Number.isInteger(r.info.hash) && Number.isInteger(r.info.cipher) && Array.isArray(r.addresses);
 }

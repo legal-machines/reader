@@ -19,10 +19,13 @@ const form = document.getElementById('setup'), error = form.querySelector('.erro
 // The key can come from the Mail app instead of a file: its key message
 // (Add to this browser) opens this tab and hands over the key, still locked
 // with its passphrase. Only the Mail app's own addresses are listened to.
-let handed = null;
+let handed = null, mailOrigin = null;
 if (window.opener) {
   addEventListener('message', e => {
-    if (e.source !== window.opener || !MAIL_SITES.includes(e.origin) || e.data?.type !== 'reader-key' || typeof e.data.armored !== 'string') return;
+    if (e.source !== window.opener || !MAIL_SITES.includes(e.origin)) return;
+    if (e.data?.type === 'reader-hello') { mailOrigin = e.origin; return; }  // opened by the Mail app, without a key
+    if (e.data?.type !== 'reader-key' || typeof e.data.armored !== 'string') return;
+    mailOrigin = e.origin;
     handed = e.data.armored;
     document.getElementById('file-field').hidden = true;
     document.getElementById('file').required = false;
@@ -38,7 +41,7 @@ async function list() {
   box.hidden = !records.length;
   box.querySelector('.key-list').innerHTML = records.map(r =>
     `<li><div><b>${escape(r.addresses.join(', '))}</b><small>Added ${escape(r.created.slice(0, 10))}${r.pinSalt ? ', with a PIN' : ''}</small></div>` +
-    `<button class="text" type="button" data-remove="${escape(r.keyId)}">Remove</button></li>`).join('');
+    `<button class="text" type="button" data-remove="${escape(r.credentialId)}">Remove</button></li>`).join('');
   box.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', async () => {
     if (confirm('Remove this key from this browser? Encrypted messages will no longer open here until you add it again.')) { await remove(b.dataset.remove); list(); }
   }));
@@ -65,8 +68,11 @@ form.addEventListener('submit', async e => {
     }
     const addresses = found.userIds.map(u => (/<([^>]+)>/.exec(u) || [, u])[1].toLowerCase());
     const passkey = await newPasskey(addresses[0]);
-    await keep(passkey, pin, pkcs8Of(found.scalar), found.info, addresses);
+    const record = await keep(passkey, pin, pkcs8Of(found.scalar), found.info, addresses);
     found.scalar.fill(0);
+    // The Mail app keeps the sealed key with the mailbox, for frames and for
+    // the owner's other devices; without the passkey it opens nothing.
+    if (mailOrigin && window.opener) window.opener.postMessage({type: 'reader-sealed', record}, mailOrigin);
     form.reset();
     done.textContent = `Ready. Encrypted messages to ${addresses.join(', ')} now open in this browser, right in the Mail app.${handed ? ' You can close this tab.' : ''}`;
     done.hidden = false;
