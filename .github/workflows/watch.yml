@@ -1,21 +1,34 @@
-# Every 15 minutes, from GitHub's side: that GitHub Pages alone serves the
-# Mail Reader (DNS at the registries and deSEC, certificates in the CT logs,
-# the files) and that the webmail serves the files it was deployed with
-# (watch/expected.json). GitHub mails a failed run to the repository's
-# owner, and the mail server's own watch shows it in the webmail.
+# From GitHub's side, every 10 minutes: that GitHub Pages alone serves the
+# Mail Reader and the Web Key Directory (DNS at the registries and deSEC,
+# certificates in the CT logs, the files) and that the webmail serves the
+# files it was deployed with (watch/expected.json). GitHub runs a schedule
+# only every few hours, so each run checks again every 10 minutes for close
+# to six hours (the longest a job may run), and the next one waits its turn
+# (concurrency), so one is always watching. A problem ends the run at once
+# as failed, and GitHub mails a failed run to the repository's owner; the
+# mail server's own watch shows it in the webmail.
 name: Watch
 on:
   schedule:
     - cron: "*/15 * * * *"
   workflow_dispatch:
 permissions: {}
+concurrency:
+  group: watch
+  cancel-in-progress: false
 jobs:
   watch:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 355
     steps:
-      - name: Check
+      - name: Check every 10 minutes
         run: |
           command -v dig >/dev/null || sudo apt-get install -y -qq bind9-dnsutils
-          git clone --quiet --depth 1 "https://github.com/${GITHUB_REPOSITORY}" r
-          python3 r/watch/watch.py github r/watch/expected.json
+          end=$(( $(date +%s) + 340 * 60 ))
+          while :; do
+            rm -rf r
+            git clone --quiet --depth 1 "https://github.com/${GITHUB_REPOSITORY}" r
+            python3 r/watch/watch.py github r/watch/expected.json
+            [ "$(date +%s)" -lt "$end" ] || break
+            sleep 600
+          done
