@@ -742,6 +742,7 @@ p,li,dd{text-wrap:pretty}
 .list-head .tab{min-width:max-content}
 .reader-hub + .list-head{margin-top:0}:root.narrow .list-head > .tabs{padding:var(--s-2) var(--s-4) var(--s-2) var(--s-1)}
 
+#bulk{display:flow-root}  
 .pane > .reader-hub{width:calc(100% - 2 * var(--s-4));margin:var(--s-3) var(--s-4) var(--s-1)}
 .reader-hub.panel{margin:var(--s-2) 0 var(--s-4)}
 .sealed-holder{position:relative}
