@@ -6,6 +6,7 @@ import * as openpgp from './openpgp.min.mjs';
 import {extract, pkcs8Of} from './sealed-core.mjs';
 import {all, keep, newPasskey, remove} from './store.mjs';
 import {escape} from './mime.mjs';
+import {MAIL_SITES} from './sites.mjs';
 
 if (window.top !== window) {
   // Never inside another page: the key file and the PIN are typed only here,
@@ -15,6 +16,21 @@ if (window.top !== window) {
 }
 
 const form = document.getElementById('setup'), error = form.querySelector('.error'), done = document.querySelector('.done');
+// The key can come from the Mail app instead of a file: its key message
+// (Add to this browser) opens this tab and hands over the key, still locked
+// with its passphrase. Only the Mail app's own addresses are listened to.
+let handed = null;
+if (window.opener) {
+  addEventListener('message', e => {
+    if (e.source !== window.opener || !MAIL_SITES.includes(e.origin) || e.data?.type !== 'reader-key' || typeof e.data.armored !== 'string') return;
+    handed = e.data.armored;
+    document.getElementById('file-field').hidden = true;
+    document.getElementById('file').required = false;
+    document.getElementById('handed').hidden = false;
+    document.getElementById('passphrase').focus();
+  });
+  window.opener.postMessage({type: 'reader-ready'}, '*');
+}
 document.getElementById('use-pin').addEventListener('change', e => { document.getElementById('pin-fields').hidden = !e.target.checked; });
 
 async function list() {
@@ -40,7 +56,7 @@ form.addEventListener('submit', async e => {
   const button = form.querySelector('button');
   button.disabled = true;
   try {
-    const text = await document.getElementById('file').files[0].text();
+    const text = handed || await document.getElementById('file').files[0].text();
     let found;
     try {
       found = await extract(openpgp, text, document.getElementById('passphrase').value);
@@ -52,7 +68,7 @@ form.addEventListener('submit', async e => {
     await keep(passkey, pin, pkcs8Of(found.scalar), found.info, addresses);
     found.scalar.fill(0);
     form.reset();
-    done.textContent = `Ready. Encrypted messages to ${addresses.join(', ')} now open in this browser, in the Mail app.`;
+    done.textContent = `Ready. Encrypted messages to ${addresses.join(', ')} now open in this browser, right in the Mail app.${handed ? ' You can close this tab.' : ''}`;
     done.hidden = false;
     list();
   } catch (err) {

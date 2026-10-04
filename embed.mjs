@@ -4,7 +4,6 @@
 // of another site, which the mail page cannot look into; this page may
 // make no network requests at all (index.html, its Content-Security-Policy).
 
-import * as openpgp from './openpgp.min.mjs';
 import {open} from './sealed-core.mjs';
 import {all, unlock} from './store.mjs';
 import {read, escape, linkify} from './mime.mjs';
@@ -34,20 +33,65 @@ const card = (title, text, extra = '') =>
 
 const setupLink = '<a class="tonal" href="setup.html" target="_blank" rel="noopener">Set up this browser</a>';
 
+// OpenPGP.js (about 400 KB) loads only when a message is opened, alongside
+// the passkey prompt; which key a message is for is read here directly.
+let library = null;
+const openpgpLib = () => (library ||= import('./openpgp.min.mjs'));
+
+// The key IDs a message is encrypted to: its Public-Key Encrypted Session Key
+// packets (RFC 9580, sections 4.2 and 5.1), read from the armored text.
+function recipients(text) {
+  const body = text.split(/-----BEGIN PGP MESSAGE-----/)[1]?.split(/-----END PGP MESSAGE-----/)[0];
+  if (!body) throw new Error('no message');
+  const lines = body.trim().split(/\r?\n/);
+  const start = lines.findIndex(l => l.trim() === '');  // after the armor headers
+  const b64 = lines.slice(start + 1).filter(l => !l.startsWith('=')).join('');
+  const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  const ids = [];
+  for (let at = 0; at < bytes.length;) {
+    const head = bytes[at++];
+    if (!(head & 0x80)) throw new Error('not a packet');
+    let tag, length;
+    if (head & 0x40) {  // new format
+      tag = head & 0x3f;
+      const first = bytes[at++];
+      if (first < 192) length = first;
+      else if (first < 224) length = ((first - 192) << 8) + bytes[at++] + 192;
+      else if (first === 255) { length = (bytes[at] << 24 | bytes[at + 1] << 16 | bytes[at + 2] << 8 | bytes[at + 3]) >>> 0; at += 4; }
+      else break;  // partial lengths only follow the session keys
+    } else {  // old format
+      tag = (head >> 2) & 0x0f;
+      const kind = head & 3;
+      if (kind === 3) break;
+      length = 0;
+      for (let i = 0; i < [1, 2, 4][kind]; i++) length = length * 256 + bytes[at++];
+    }
+    if (tag === 1 && bytes[at] === 3) ids.push([...bytes.subarray(at + 1, at + 9)].map(b => b.toString(16).padStart(2, '0')).join(''));
+    else if (tag !== 1 && tag !== 3) break;  // the encrypted data: no more session keys
+    at += length;
+  }
+  return ids;
+}
+
 async function prepare() {
   let ids = [];
   try {
-    const message = await openpgp.readMessage({armoredMessage: armored});
-    ids = message.packets.filterByTag(openpgp.enums.packet.publicKeyEncryptedSessionKey).map(p => p.publicKeyID.toHex());
+    ids = recipients(armored);
   } catch (e) {
-    return show(card('End-to-end encrypted', 'This message could not be read as OpenPGP.'));
+    try {
+      const openpgp = await openpgpLib();
+      const message = await openpgp.readMessage({armoredMessage: armored});
+      ids = message.packets.filterByTag(openpgp.enums.packet.publicKeyEncryptedSessionKey).map(p => p.publicKeyID.toHex());
+    } catch (e2) {
+      return show(card('End-to-end encrypted', 'This message could not be read as OpenPGP.'));
+    }
   }
   const records = await all();
   const record = records.find(r => ids.includes(r.keyId));
   if (!record) {
     return show(card('End-to-end encrypted',
       records.length ? 'The key on this browser does not open this message; it was encrypted to another key.'
-                     : 'This browser has no key for it yet. Set it up once, with your key file, and messages open here with Touch ID.',
+                     : 'This browser has no key for it yet. Open the message "Your encryption key" in your Inbox and click Add to this browser: then messages open here with Touch ID.',
       `<div class="actions">${setupLink}</div>`));
   }
   const pin = record.pinSalt ? '<label class="field"><span>Device PIN</span><input type="password" id="pin" inputmode="numeric" autocomplete="off" required></label>' : '';
@@ -59,8 +103,9 @@ async function prepare() {
     button.disabled = true;
     error.hidden = true;
     try {
+      const loading = openpgpLib();  // downloads while Touch ID is asked
       let key = await unlock(record, document.getElementById('pin')?.value || '');
-      const bytes = await open(openpgp, armored, key, record.info);
+      const bytes = await open(await loading, armored, key, record.info);
       key = null;  // gone with this page; nothing else holds it
       render(read(bytes));
       bytes.fill(0);

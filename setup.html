@@ -18,8 +18,9 @@
   <section class="card" id="keys" hidden><h2>Keys in this browser</h2><ul class="key-list"></ul></section>
   <form class="card" id="setup" autocomplete="off">
     <h2>Add a key</h2>
-    <label class="field"><span>Your secret key file (.asc)</span><input type="file" id="file" accept=".asc,.gpg,.key,.txt,application/pgp-keys" required></label>
-    <label class="field"><span>Its passphrase</span><input type="password" id="passphrase" required></label>
+    <p class="handed" id="handed" hidden>Your key came from your mailbox, locked with its passphrase. Enter the passphrase to add it to this browser.</p>
+    <label class="field" id="file-field"><span>Your secret key file (.asc), or open the message "Your encryption key" in Mail and click Add to this browser</span><input type="file" id="file" accept=".asc,.gpg,.key,.txt,application/pgp-keys" required></label>
+    <label class="field"><span>The key's passphrase</span><input type="password" id="passphrase" required></label>
     <label class="check"><input type="checkbox" id="use-pin"><span>Also ask a PIN with every message</span></label>
     <div id="pin-fields" hidden>
       <label class="field"><span>A PIN for this device (at least 6 characters)</span><input type="password" id="pin" minlength="6" inputmode="numeric"></label>
