@@ -118,7 +118,7 @@ try:
     old = json.load(open(path))
 except (OSError, ValueError):
     old = {}
-if old.get("domains") != expected:
+if old.get("domains") != expected and os.path.isdir(os.path.dirname(path)):  # reader2's copy has no watch/
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     with open(path, "w") as f:
         json.dump({"updated": stamp, "domains": expected}, f, indent=1, sort_keys=True)
