@@ -401,10 +401,6 @@ addEventListener('message', async e => {
       attachChannel.onmessage = m => { if (m.data?.type === 'files' && Array.isArray(m.data.files)) attach(m.data.files); };
     }
     showSeal();
-    if (d.focus) {
-      if (!subject.value) subject.focus();
-      else { const range = document.createRange(); range.setStart(editor, 0); range.collapse(true); restore(range); }
-    }
   } else if (d.type === 'reader-encrypt') {
     const s = v => Array.isArray(v) ? v.filter(a => typeof a === 'string').slice(0, 100) : [];
     try {
@@ -415,8 +411,6 @@ addEventListener('message', async e => {
     } catch (err) {
       tell({type: 'reader-error', message: escape(err.message)});
     }
-  } else if (d.type === 'reader-focus') {
-    if (!subject.value) subject.focus(); else editor.focus();
   }
 });
 if (parent !== window) parent.postMessage({type: 'reader-ready'}, '*');

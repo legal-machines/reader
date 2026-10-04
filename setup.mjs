@@ -32,7 +32,6 @@ if (window.opener) {
     document.getElementById('file-field').hidden = true;
     document.getElementById('file').required = false;
     document.getElementById('handed').hidden = false;
-    document.getElementById('passphrase').focus();
   });
   window.opener.postMessage({type: 'reader-ready'}, '*');
 }
@@ -88,9 +87,9 @@ form.addEventListener('submit', async e => {
     form.reset();
     if (handed) form.hidden = true;  // its work is done; what is left is the mark
     done.innerHTML = `<b>Ready.</b> Encrypted messages to ${escape(addresses.join(', '))} now open in this browser, right in the Mail app.` +
-      `<span class="mark-line"><span class="reader-mark" data-big>${markText(mark)}</span><span><b>This is your mark.</b> The Mail Reader shows these four pictures with ` +
-      `every encrypted message it opens; when you write end to end, they appear in the Subject line as you type. Mail itself cannot show them: type only where they appear like that, ` +
-      `and type your key's passphrase only on this page, with ${escape(location.host)} in the address bar.</span></span>` +
+      `<span class="mark-line"><span class="reader-mark" data-big>${markText(mark)}</span><span><b>This is your mark.</b> When you write end to end, ` +
+      `these four pictures appear in the Subject line as you type. Mail cannot show them: type only where they appear. ` +
+      `Your key's passphrase goes only into this page, at ${escape(location.host)}.</span></span>` +
       (handed ? 'You can close this tab.' : '');
     done.hidden = false;
     list();
