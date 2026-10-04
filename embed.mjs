@@ -8,9 +8,10 @@ import {open} from './sealed-core.mjs';
 import {all, unlock, valid} from './store.mjs';
 import {read, escape, linkify} from './mime.mjs';
 import {MAIL_SITES} from './sites.mjs';
+import {icon} from './icons.mjs';
+import {LETTER_CSS} from './letter.mjs';
 
 const view = document.getElementById('view');
-const LOCK = '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>';
 let parentOrigin = null, armored = null, handedRecords = [], sentFrom = '', hideTimer = null, urls = [];
 // Inside a conversation the subject goes to the Mail app's title line, shown
 // by this site's subject frame (title.mjs): the channel, and what it shows now.
@@ -32,8 +33,10 @@ function show(html) {
   report();
 }
 
+// Drawn with the Mail app's own markup and stylesheet (mail.css), so that
+// the reader looks like the rest of the message: its locked card here.
 const card = (title, text, extra = '') =>
-  `<div class="sealed"><span class="seal-icon">${LOCK}</span><div class="seal-text"><b>${title}</b><p>${text}</p>${extra}</div></div>`;
+  `<div class="sealed-card"><span class="sealed-icon">${icon('lock')}</span><div class="sealed-text"><b>${title}</b><p>${text}</p>${extra}</div></div>`;
 
 const setupLink = '<a class="tonal" href="setup.html" target="_blank" rel="noopener">Set up this browser</a>';
 
@@ -115,10 +118,10 @@ async function prepare() {
   const withPin = fitting.some(r => r.pinSalt);
   const pin = withPin ? '<label class="field"><span>PIN</span><input type="password" id="pin" inputmode="numeric" autocomplete="off"></label>' : '';
   show(card('End-to-end encrypted', `Only your key opens it: ${withPin ? 'your PIN and ' : ''}Touch ID, your fingerprint or the screen lock.`,
-    `<form id="unlock" class="unlock">${pin}<div class="actions"><button class="filled" type="submit">Open</button></div><p class="error" role="alert" hidden></p></form>`));
+    `<form id="unlock" class="unlock">${pin}<div class="actions"><button class="filled" type="submit">Open</button></div><p class="alert" role="alert" hidden></p></form>`));
   document.getElementById('unlock').addEventListener('submit', async e => {
     e.preventDefault();
-    const button = e.target.querySelector('button'), error = e.target.querySelector('.error');
+    const button = e.target.querySelector('button'), error = e.target.querySelector('.alert');
     button.disabled = true;
     error.hidden = true;
     try {
@@ -167,40 +170,57 @@ function inert(html, files) {
 // The address in a From line ("Name <a@b>" or a@b), in lower case.
 const addressOf = text => (/<([^<>\s]+@[^<>\s]+)>/.exec(text)?.[1] || /[^\s<>"',;]+@[^\s<>"',;]+/.exec(text)?.[0] || '').toLowerCase();
 
+// Sizes as the Mail app writes them.
+const sizeText = n => n < 1024 ? `${n} B` : n < 1048576 ? `${Math.round(n / 1024)} KB` : n < 1073741824 ? `${(n / 1048576).toFixed(1)} MB` : `${(n / 1073741824).toFixed(1)} GB`;
+const picture = f => ['image/png', 'image/jpeg', 'image/gif', 'image/webp'].includes(f.type) && f.data.length <= 8 * 1024 * 1024;
+
 function render(m) {
   // Anyone can encrypt to a public key and write any sender inside; the
   // Mail app hands over the sender its server received the message from.
   const inside = addressOf(m.from), other = sentFrom && inside && inside !== sentFrom;
-  const warning = other ? `<p class="warn">It says it is from ${escape(inside)}, but it was sent from ${escape(sentFrom)}. Be careful with links and requests in it.</p>` : '';
-  // In a frame of the Mail app, the letter is its text: the subject goes to
-  // the title line and the sender is the Mail app's own line above.
+  const warning = other ? `<div class="reader-alert" role="alert">${icon('warning')}<div><b>Check who sent it</b><p>It says it is from ${escape(inside)}, ` +
+                          `but it was sent from ${escape(sentFrom)}. Be careful with links and requests in it.</p></div></div>` : '';
+  // In a frame of the Mail app the letter is what the Mail app shows of any
+  // message, with its markup: the text, pictures and attachments. The
+  // subject goes to the title line; the sender is the Mail app's line above.
   const framed = host === parent;
   if (framed) announce(m.subject || '');
-  const date = m.date && !isNaN(new Date(m.date)) ? new Date(m.date).toLocaleString(undefined, {dateStyle: 'medium', timeStyle: 'short'}) : m.date;
   let body;
-  if (m.text !== undefined) body = `<div class="body-text">${linkify(m.text)}</div>`;
-  else if (m.html !== undefined) body = '<iframe class="html" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" title="Message"></iframe>';
-  else body = '<p class="hint">This message has no text.</p>';
+  if (m.text !== undefined) body = `<pre class="plain">${linkify(m.text)}</pre>`;
+  else if (m.html !== undefined) body = '<iframe class="mail-frame" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" title="Message"></iframe>';
+  else body = '';
   const files = m.files.filter(f => !(m.html !== undefined && f.id && f.type.startsWith('image/')));
-  const list = files.map((f, i) => `<li><a data-file="${i}" download="${escape(f.name)}">${escape(f.name)}</a><small>${f.data.length < 1024 ? f.data.length + ' B' : Math.round(f.data.length / 1024) + ' KB'}</small></li>`).join('');
-  show(`<article class="letter"><div class="letter-head"><span class="badge">${LOCK}<span>End-to-end encrypted</span></span>` +
-       `<button class="text" type="button" id="hide">Hide</button></div>` +
-       (framed ? warning : (m.subject ? `<h2>${escape(m.subject)}</h2>` : '') +
-                 `<p class="meta">${escape(other || !m.from ? sentFrom : m.from)}${date ? `<br>${escape(date)}` : ''}</p>${warning}`) + body +
-       (list ? `<ul class="files">${list}</ul>` : '') + '</article>');
-  view.querySelectorAll('[data-file]').forEach(a => {
-    const f = files[Number(a.dataset.file)], url = URL.createObjectURL(new Blob([f.data], {type: f.type}));
-    urls.push(url);
+  const thumbs = files.map((f, i) => picture(f) ? `<a class="thumb" data-view="${i}" target="_blank" rel="noopener" title="${escape(f.name)}"><img data-img="${i}" alt="${escape(f.name)}"></a>` : '').join('');
+  const list = files.map((f, i) => `<span class="attachment">${icon(picture(f) ? 'image' : 'attach')}<span>${escape(f.name)}</span><small>${sizeText(f.data.length)}</small>` +
+    (f.type === 'application/pdf' ? `<a class="icon-button" data-pdf="${i}" target="_blank" rel="noopener" title="Open" aria-label="Open">${icon('open')}</a>` : '') +
+    `<a class="icon-button" data-file="${i}" download="${escape(f.name)}" title="Download" aria-label="Download">${icon('download')}</a></span>`).join('');
+  const date = m.date && !isNaN(new Date(m.date)) ? new Date(m.date).toLocaleString(undefined, {dateStyle: 'medium', timeStyle: 'short'}) : m.date;
+  show('<article class="letter">' +
+       (framed ? '' : `<div class="letter-head"><span class="badge">${icon('lock')}<span>End-to-end encrypted</span></span>` +
+                      `<button class="text" type="button" id="hide">Hide</button></div>` + (m.subject ? `<h2>${escape(m.subject)}</h2>` : '') +
+                      `<p class="meta">${escape(other || !m.from ? sentFrom : m.from)}${date ? `<br>${escape(date)}` : ''}</p>`) +
+       warning + body + (thumbs ? `<div class="thumbs">${thumbs}</div>` : '') + (list ? `<div class="attachments">${list}</div>` : '') + '</article>');
+  // Files only as downloads (or, a PDF or a picture, in the browser's own
+  // viewer): nothing from a message runs as a page of this site.
+  const blob = (f, type) => { const url = URL.createObjectURL(new Blob([f.data], {type})); urls.push(url); return url; };
+  view.querySelectorAll('[data-file]').forEach(a => { a.href = blob(files[Number(a.dataset.file)], 'application/octet-stream'); });
+  view.querySelectorAll('[data-pdf]').forEach(a => { a.href = blob(files[Number(a.dataset.pdf)], 'application/pdf'); });
+  view.querySelectorAll('[data-view]').forEach(a => {
+    const f = files[Number(a.dataset.view)], url = blob(f, f.type);
     a.href = url;
+    a.querySelector('img').src = url;
   });
-  const frame = view.querySelector('iframe.html');
+  const frame = view.querySelector('iframe.mail-frame');
   if (frame) {
-    frame.addEventListener('load', () => { frame.style.height = frame.contentDocument.documentElement.scrollHeight + 'px'; report(); });
+    frame.addEventListener('load', () => {
+      frame.style.height = frame.contentDocument.documentElement.scrollHeight + 'px';
+      frame.style.visibility = 'visible';
+      report();
+    });
     frame.srcdoc = '<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data:; style-src \'unsafe-inline\'">' +
-      '<style>body{margin:0;font:14px/1.5 system-ui,-apple-system,sans-serif;color:CanvasText;background:transparent;overflow-wrap:anywhere}img{max-width:100%;height:auto}</style>' +
-      '</head><body>' + inert(m.html, m.files) + '</body></html>';
+      '<base target="_blank"><style>' + LETTER_CSS + '</style></head><body>' + inert(m.html, m.files) + '</body></html>';
   }
-  document.getElementById('hide').addEventListener('click', prepare);
+  document.getElementById('hide')?.addEventListener('click', prepare);
 }
 
 // The text goes away when the tab has been in the background for two minutes.

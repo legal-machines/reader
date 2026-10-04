@@ -1,0 +1,919 @@
+/* The Mail app's stylesheet, copied by make-styles.py from webmail/src/Assets.h. Do not edit here. */
+/* Tokens. Components use only these. */
+:root{
+--c-bg:#f6f8fc;--c-surface:#fff;--c-surface-2:#f0f4f9;--c-surface-3:#e9eef6;--c-surface-4:#dde3ea;
+--c-text:#1f1f1f;--c-text-2:#444746;--c-text-3:#5f6368;
+--c-primary:#0b57d0;--c-on-primary:#fff;--c-primary-soft:#c2e7ff;--c-on-primary-soft:#001d35;
+--c-selected:#d3e3fd;--c-row-hover:#e7eefa;--c-on-selected:#041e49;--c-read:#f2f6fc;--c-hover:rgba(68,71,70,.08);--c-press:rgba(68,71,70,.1);--c-outline:#747775;--c-outline-variant:#c4c7c5;
+--c-star:#e8a600;--c-important:#e8a600;--c-danger:#b3261e;--c-danger-soft:#f9dedc;--c-on-danger-soft:#410e0b;--c-on-danger:#fff;--c-good:#146c2e;--c-good-soft:#c4eed0;--c-on-good-soft:#072711;--c-warn-soft:#ffdf99;--c-on-warn-soft:#261a00;
+--c-inverse:#303030;--c-on-inverse:#f2f2f2;--c-inverse-accent:#a8c7fa;--c-frame:#fff;
+--c-brand:#0b3a8a;--c-on-brand:#fff;--c-warn:#f9ab00;--c-social:#1a73e8;--c-promotions:#188038;--c-updates:#e37400;--c-updates-badge:#b45309;--c-all:#5f6368;--c-forums:#9334e6;--c-on-badge:#fff;
+--cat-0:#0b57d0;--cat-1:#146c2e;--cat-2:#8b5000;--cat-3:#ba1a1a;--cat-4:#7b4fad;--cat-5:#a8326f;--cat-6:#006a60;--cat-7:#4d616c;--cat-8:#4a5bb5;--cat-9:#6750a4;--cat-10:#00639b;--cat-11:#006876;--cat-12:#386a20;--cat-13:#5b6300;--cat-14:#785a00;--cat-15:#a23f00;--cat-16:#775654;--cat-17:#5f6368;
+--c-tone-0:#1a5fd0;--c-tone-1:#18794e;--c-tone-2:#b3510f;--c-tone-3:#c5221f;--c-tone-4:#7e3ab8;--c-tone-5:#b0346f;--c-tone-6:#0a7a83;--c-tone-7:#5b6b7a;--c-on-tone:#fff;
+--f-sans:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;--f-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+--t-xs:12px;--t-md:14px;--t-lg:16px;--t-2xl:22px;--t-3xl:24px;--lh:1.43;--w-regular:400;--w-medium:500;--w-bold:700;
+--s-1:4px;--s-2:8px;--s-3:12px;--s-4:16px;--s-5:20px;--s-6:24px;--s-7:32px;--s-8:48px;--s-9:64px;
+--h-chip:20px;--h-sm:32px;--h-md:40px;--h-lg:48px;--h-xl:56px;--h-top:64px;--w-nav:256px;--w-who:180px;--w-time:72px;--w-text:880px;--icon:20px;--icon-sm:18px;
+--r-xs:4px;--r-sm:8px;--r-md:12px;--r-lg:16px;--r-xl:28px;--r-full:999px;
+--e-1:0 1px 2px rgba(60,64,67,.3),0 1px 3px 1px rgba(60,64,67,.15);--e-2:0 2px 6px 2px rgba(60,64,67,.15),0 1px 2px rgba(60,64,67,.3);--e-3:0 4px 8px 3px rgba(60,64,67,.15),0 1px 3px rgba(60,64,67,.3);
+--ease:cubic-bezier(.2,0,0,1);--fast:150ms}
+@media (prefers-color-scheme:dark){:root{
+--c-bg:#131314;--c-surface:#1e1f20;--c-surface-2:#26282a;--c-surface-3:#2d2f31;--c-surface-4:#37393b;
+--c-text:#e3e3e3;--c-text-2:#c4c7c5;--c-text-3:#a8aaa8;--c-primary:#a8c7fa;--c-on-primary:#062e6f;--c-primary-soft:#004a77;--c-on-primary-soft:#c2e7ff;
+--c-selected:#004a77;--c-row-hover:#2d333c;--c-on-selected:#d3e3fd;--c-read:#1a1b1c;--c-hover:rgba(227,227,227,.08);--c-press:rgba(227,227,227,.1);--c-outline:#8e918f;--c-outline-variant:#444746;
+--c-star:#fdd663;--c-important:#fdd663;--c-danger:#f2b8b5;--c-danger-soft:#8c1d18;--c-on-danger-soft:#f9dedc;--c-on-danger:#601410;--c-good:#6dd58c;--c-good-soft:#0f5223;--c-on-good-soft:#c4eed0;--c-warn-soft:#5c4300;--c-on-warn-soft:#ffdf99;
+--c-inverse:#e3e3e3;--c-on-inverse:#303030;--c-inverse-accent:#0b57d0;--e-1:0 1px 3px rgba(0,0,0,.6);--e-2:0 2px 8px rgba(0,0,0,.6);--e-3:0 4px 12px rgba(0,0,0,.65);
+--cat-0:#a8c7fa;--cat-1:#6dd58c;--cat-2:#ffb870;--cat-3:#ffb4ab;--cat-4:#dbb8ff;--cat-5:#ffb0cd;--cat-6:#53dbc9;--cat-7:#b4cad6;--cat-8:#bac3ff;--cat-9:#d0bcff;--cat-10:#92ccff;--cat-11:#4fd8eb;--cat-12:#9cd67d;--cat-13:#c4d074;--cat-14:#f6be38;--cat-15:#ffb693;--cat-16:#e7bdb8;--cat-17:#c4c7c5;
+--c-brand:#2a64d6;--c-warn:#fdd663;--c-social:#8ab4f8;--c-promotions:#81c995;--c-updates:#fcad70;--c-updates-badge:#fcad70;--c-all:#c4c7c5;--c-forums:#d7aefb;--c-on-badge:#131314}}
+
+/* Base */
+*{box-sizing:border-box}
+/* A tap shows our own pressed state, never the browser's highlight box, and
+   the ring around a focused control is for the keyboard only. Hover styles
+   apply only where there is a pointer that hovers, so a touch screen does
+   not keep a tapped tab or row looking hovered. */
+html{-webkit-tap-highlight-color:transparent}
+:focus:not(:focus-visible){outline:none}
+.icon-button:active,.menu-item:active,.folders a:active,.text:active,.text-link:active,.tab:active,.dock-tab:active,.settings-nav a:active,
+.outlined:active,.fold-rows:active,.star:active,.imp:active{background-color:color-mix(in srgb,currentColor 10%,transparent)}html,body{margin:0;min-height:100%}
+/* Controls drawn as controls (a tab, a folder, a button that is a link) act
+   as in an app on a long press: no menu of the link, no text selection.
+   Plain links in text, and every field, keep what the browser does. */
+a[class]:not(.addr),button,summary,.folders a,.settings-nav a,.toolbar a,.pop a,.tabs a,.dock-tabs a{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+body{background:var(--c-bg);color:var(--c-text);font:var(--w-regular) var(--t-md)/var(--lh) var(--f-sans);-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%}
+a{color:var(--c-primary);text-decoration:none}
+svg.i{width:var(--icon);height:var(--icon);fill:currentColor;flex:none}
+h1{font-size:var(--t-2xl);font-weight:var(--w-regular);margin:0}h2{font-size:var(--t-lg);font-weight:var(--w-medium);margin:0 0 var(--s-3)}
+button,input,select,textarea{font:inherit;color:inherit}
+input::-webkit-calendar-picker-indicator{display:none!important}
+:focus-visible{outline:3px solid var(--c-primary);outline-offset:2px}
+[hidden]{display:none!important}
+
+/* Buttons: one shape each. Class names here are used for nothing else. */
+.filled,.tonal,.outlined,.text,.text-link{display:inline-flex;align-items:center;justify-content:center;gap:var(--s-2);height:var(--h-md);padding:0 var(--s-6);
+border:0;border-radius:var(--r-full);font-size:var(--t-md);font-weight:var(--w-medium);white-space:nowrap;cursor:pointer;text-decoration:none;
+transition:background-color var(--fast) var(--ease)}
+.filled{background:var(--c-primary);color:var(--c-on-primary)}.filled.danger{background:var(--c-danger);color:var(--c-on-danger)}button:disabled{opacity:.38;cursor:default;box-shadow:none}
+.tonal{background:var(--c-selected);color:var(--c-on-selected)}
+.outlined{border:1px solid var(--c-outline);background:transparent;color:var(--c-primary);padding:0 var(--s-6)}.outlined:has(> svg.i:first-child){padding-left:var(--s-4)}
+.text,.text-link{background:transparent;color:var(--c-primary);padding:0 var(--s-3)}
+/* Hover changes color, never adds a shadow: the button takes a little of its
+   text color, as Material 3 state layers do. */
+@media (hover:hover){.filled:not(:disabled):hover{background:color-mix(in srgb,var(--c-primary) 86%,var(--c-on-primary))}}
+@media (hover:hover){.filled.danger:not(:disabled):hover{background:color-mix(in srgb,var(--c-danger) 86%,var(--c-on-danger))}}
+@media (hover:hover){.tonal:not(:disabled):hover{background:color-mix(in srgb,var(--c-selected) 86%,var(--c-on-selected))}}@media (hover:hover){.outlined:hover,.text:hover,.text-link:hover{background:var(--c-hover)}}
+.filled svg.i,.tonal svg.i,.outlined svg.i,.text-link svg.i{width:var(--icon-sm);height:var(--icon-sm)}
+.text.small{height:var(--h-sm);padding:0 var(--s-3);font-size:var(--t-md)}
+.danger{color:var(--c-danger)}
+.icon-button{display:inline-grid;place-items:center;width:var(--h-md);height:var(--h-md);padding:0;border:0;border-radius:var(--r-full);background:transparent;
+color:var(--c-text-2);cursor:pointer;flex:none;list-style:none;transition:background-color var(--fast) var(--ease)}
+.icon-button::-webkit-details-marker{display:none}
+@media (hover:hover){.icon-button:hover{background:var(--c-hover)}}.icon-button:active{background:var(--c-press)}.icon-button.off{opacity:.38;cursor:default}@media (hover:hover){.icon-button.off:hover{background:transparent}}
+input[type=checkbox],input[type=radio]{-webkit-appearance:none;appearance:none;position:relative;display:inline-grid;place-content:center;flex:none;width:18px;height:18px;margin:0;border:2px solid var(--c-text-2);border-radius:2px;background:transparent;color:var(--c-on-primary);cursor:pointer;transition:background-color var(--fast) var(--ease),border-color var(--fast) var(--ease)}
+input[type=radio]{width:20px;height:20px;border-radius:var(--r-full)}
+input[type=checkbox]::before,input[type=radio]::before{content:"";position:absolute;inset:-12px;border-radius:var(--r-full)}
+@media (hover:hover){input[type=checkbox]:hover::before,input[type=radio]:hover::before{background:var(--c-hover)}}input[type=checkbox]:active::before,input[type=radio]:active::before{background:var(--c-press)}
+input[type=checkbox]:checked,input[type=checkbox]:indeterminate{border-color:var(--c-primary);background:var(--c-primary)}
+input[type=checkbox]:checked::after{content:"";width:5px;height:10px;margin-top:-2px;border:solid currentColor;border-width:0 2px 2px 0;transform:rotate(45deg)}
+input[type=checkbox]:indeterminate::after{content:"";width:10px;height:2px;background:currentColor}
+input[type=radio]:checked{border-color:var(--c-primary)}input[type=radio]:checked::after{content:"";width:10px;height:10px;border-radius:var(--r-full);background:var(--c-primary)}
+input[type=checkbox]:disabled,input[type=radio]:disabled{opacity:.38;cursor:default}
+.field input,.field textarea,.field select,.form.inline input[type=text],.form.inline select,ul.rules input[type=text]{
+width:100%;min-height:var(--h-md);padding:var(--s-2) var(--s-4);border:1px solid var(--c-outline);border-radius:var(--r-xs);background:transparent;color:var(--c-text);font-size:var(--t-lg)}
+.field input,.field select{height:var(--h-xl)}.field textarea{padding:var(--s-4)}
+@media (hover:hover){.field :is(input,textarea,select):hover:not(:focus),.form.inline :is(input,select):hover:not(:focus),ul.rules input:hover:not(:focus){border-color:var(--c-text)}}
+.field input:focus,.field textarea:focus,.field select:focus,.form.inline input:focus,.form.inline select:focus,ul.rules input:focus{outline:0;border-color:var(--c-primary);box-shadow:inset 0 0 0 1px var(--c-primary)}
+
+/* Menus that open from a button (snooze, move, more, schedule) */
+.pop{position:relative;display:inline-block}
+.pop-card{position:absolute;left:0;top:calc(100% + var(--s-1));z-index:30;display:grid;gap:2px;min-width:220px;max-height:60dvh;overflow:auto;padding:var(--s-2);
+border-radius:var(--r-md);background:var(--c-surface);box-shadow:var(--e-2)}
+.pop.right .pop-card{left:auto;right:0}.pop.up .pop-card{top:auto;bottom:calc(100% + var(--s-2))}
+.pop-title{margin:var(--s-1) var(--s-3) var(--s-2);color:var(--c-text-2);font-size:var(--t-xs);font-weight:var(--w-medium)}
+.menu-item{display:flex;align-items:center;gap:var(--s-3);width:100%;min-height:var(--h-md);padding:0 var(--s-3);border:0;border-radius:var(--r-sm);
+background:transparent;color:var(--c-text);text-align:left;cursor:pointer;white-space:nowrap}
+@media (hover:hover){.menu-item:hover{background:var(--c-hover)}}.menu-item svg.i{fill:var(--c-text-2)}
+.pop-card .field{margin:var(--s-2) var(--s-3) 0}.pop-card .tonal{justify-self:end;margin:var(--s-2) var(--s-1) var(--s-1)}
+.pop > summary{list-style:none}.pop > summary::-webkit-details-marker{display:none}
+.pop[open] > summary::before{content:"";position:fixed;inset:0;z-index:29;cursor:default}
+.toolbar:has(.pop[open]){z-index:31}
+
+/* Top bar: menu, mark and name over the navigation, search over the content */
+.top{display:grid;grid-template-columns:var(--w-nav) minmax(0,1fr) auto;align-items:center;height:var(--h-top);padding:var(--s-2) var(--s-4) var(--s-2) 0}
+.logo-cell{display:flex;align-items:center;gap:var(--s-1);min-width:0;padding-left:14px}
+.menu{display:inline-grid;cursor:pointer}
+.logo{display:flex;align-items:center;min-width:0;padding:0 var(--s-2)}
+svg.brand-badge{display:block;flex:none;width:auto;height:30px;aspect-ratio:432.4/192}
+svg.brand-badge rect{fill:var(--c-brand)}svg.brand-badge path{fill:var(--c-on-brand)}
+.brand-text{font-size:var(--t-2xl);font-weight:var(--w-bold);color:var(--c-brand);white-space:nowrap}
+.search{display:flex;align-items:center;gap:var(--s-3);height:var(--h-lg);padding:0 var(--s-4);border-radius:var(--r-xl);background:var(--c-surface-3);
+transition:background-color var(--fast) var(--ease)}
+.search:focus-within{background:var(--c-surface);outline:2px solid var(--c-primary-soft);outline-offset:-2px}.search svg.i{fill:var(--c-text-2)}
+.search input{flex:1;min-width:0;height:100%;border:0;outline:0;background:transparent;font-size:var(--t-lg)}
+.me{display:flex;align-items:center;justify-content:flex-end;gap:var(--s-1);padding-left:var(--s-4)}.me form{display:contents}
+.me-link{display:inline-grid;margin-left:var(--s-2);border-radius:var(--r-full);transition:outline-color var(--fast) var(--ease)}
+@media (hover:hover){.me-link:hover{outline:4px solid var(--c-hover)}}
+.avatar{position:relative;display:inline-grid;place-items:center;flex:none;width:var(--h-sm);height:var(--h-sm);overflow:hidden;border-radius:var(--r-full);
+background:var(--c-primary);color:var(--c-on-primary);font-weight:var(--w-medium)}
+
+.avatar .pic{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.avatar.t0{background:var(--c-tone-0)}.avatar.t1{background:var(--c-tone-1)}.avatar.t2{background:var(--c-tone-2)}.avatar.t3{background:var(--c-tone-3)}
+.avatar.t4{background:var(--c-tone-4)}.avatar.t5{background:var(--c-tone-5)}.avatar.t6{background:var(--c-tone-6)}.avatar.t7{background:var(--c-tone-7)}
+.avatar.t0,.avatar.t1,.avatar.t2,.avatar.t3,.avatar.t4,.avatar.t5,.avatar.t6,.avatar.t7{color:var(--c-on-tone)}
+.avatar .pic.loaded{background:var(--c-surface)}
+
+/* Navigation */
+.app{display:grid;grid-template-columns:var(--w-nav) minmax(0,1fr);align-items:start}
+.nav{position:sticky;top:var(--h-top);display:flex;flex-direction:column;height:calc(100dvh - var(--h-top));overflow:auto;padding:var(--s-1) 0 var(--s-4) var(--s-2)}
+/* Nothing in the column gives up its height to make the column fit (a flex
+   column squeezes the logo and the Compose button first): when it is taller
+   than the window it scrolls, with every part at its own size. */
+.nav > *{flex:none}
+.nav-brand{display:none}
+.compose-button{display:flex;align-items:center;gap:var(--s-3);height:var(--h-xl);margin:0 var(--s-2) var(--s-3) 0;padding:0 var(--s-6) 0 var(--s-4);border-radius:var(--r-lg);
+background:var(--c-primary-soft);color:var(--c-on-primary-soft);font-weight:var(--w-medium);transition:background-color var(--fast) var(--ease)}
+.compose-button svg.i{transition:transform 240ms var(--ease)}
+@media (hover:hover){.compose-button:hover{background:color-mix(in srgb,var(--c-primary-soft) 78%,var(--c-primary))}}
+@media (hover:hover){.compose-button:hover svg.i{transform:rotate(-14deg) translate(-1px,-1px)}}
+@media (prefers-reduced-motion:reduce){.compose-button svg.i{transition:none}@media (hover:hover){.compose-button:hover svg.i{transform:none}}}
+.folders{display:flex;flex-direction:column}
+.folders a{display:flex;align-items:center;gap:var(--s-4);height:var(--h-sm);margin-right:var(--s-2);padding:0 var(--s-3) 0 var(--s-4);
+border-radius:0 var(--r-lg) var(--r-lg) 0;color:var(--c-text)}
+@media (hover:hover){.folders a:hover{background:var(--c-hover)}}.folders a.on{background:var(--c-selected);color:var(--c-on-selected);font-weight:var(--w-bold)}
+.folders a svg.i{fill:var(--c-text-2)}.folders a.on svg.i{fill:var(--c-on-selected)}
+.folders .label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.count{font-size:var(--t-xs);font-weight:var(--w-bold)}
+.group{margin:var(--s-4) 0 var(--s-1) var(--s-4);color:var(--c-text-2);font-size:var(--t-xs);font-weight:var(--w-medium)}
+.nav-end{display:flex;flex-direction:column;gap:var(--s-3);margin-top:auto;padding:var(--s-6) var(--s-6) 0 var(--s-4)}
+.nav-foot{display:flex;flex-direction:column;gap:var(--s-2);align-self:stretch;color:var(--c-text-3);font-size:var(--t-xs)}
+.nav-links{display:flex;flex-direction:column;gap:var(--s-3)}.nav-apps .short{display:none}
+/* On a phone the two links share a row, so the drawer fits the screen. */
+@media (max-width:840px){.nav-links{flex-direction:row;gap:var(--s-2)}.nav-links .nav-apps{flex:1 1 0;min-width:0;padding:0 var(--s-3)}.nav-apps .long{display:none}.nav-apps .short{display:inline}}
+.nav-apps{display:flex;align-items:center;justify-content:center;gap:var(--s-2);height:var(--h-md);padding:0 var(--s-4);border-radius:var(--r-full);
+background:var(--c-surface-3);color:var(--c-text-2);font-size:var(--t-md);font-weight:var(--w-medium);white-space:nowrap}
+.nav-apps svg.i{width:var(--icon-sm);height:var(--icon-sm)}@media (hover:hover){.nav-apps:hover{background:var(--c-surface-4)}}.nav-apps.on{background:var(--c-selected);color:var(--c-on-selected)}
+/* Storage: blue while there is room, amber from 80 percent, red from 95 */
+progress.quota{display:block;width:100%;height:4px;border:0;border-radius:var(--r-full);background:var(--c-surface-4);overflow:hidden;
+-webkit-appearance:none;appearance:none}
+progress.quota::-webkit-progress-bar{background:var(--c-surface-4);border-radius:var(--r-full)}
+progress.quota::-webkit-progress-value{background:var(--c-primary);border-radius:var(--r-full)}
+progress.quota::-moz-progress-bar{background:var(--c-primary);border-radius:var(--r-full)}
+.nav-foot.high progress.quota::-webkit-progress-value{background:var(--c-warn)}.nav-foot.high progress.quota::-moz-progress-bar{background:var(--c-warn)}
+.nav-foot.full progress.quota::-webkit-progress-value{background:var(--c-danger)}.nav-foot.full progress.quota::-moz-progress-bar{background:var(--c-danger)}
+.nav-foot.full span{color:var(--c-danger)}
+/* The menu button folds the navigation to its icons on wide screens, as in
+   Gmail (body.rail, drawn by the server, so a page never opens unfolded and
+   then folds); on phones it opens the drawer (the checkbox). */
+/* The checkbox only holds the drawer's state and takes no room: drawn as a
+   checkbox, it would push the header down (input[type=checkbox] outranks a
+   class, hence the type here). */
+input[type=checkbox].nav-toggle{position:absolute;opacity:0;pointer-events:none}
+@media (min-width:841px){
+body.rail .app{grid-template-columns:72px minmax(0,1fr)}
+body.rail .folders .label,body.rail .count,body.rail .group,body.rail .nav-end,body.rail .compose-button span{display:none}
+body.rail .compose-button{width:52px;padding:0;justify-content:center}
+body.rail .folders a{width:48px;margin-left:2px;padding:0;justify-content:center;border-radius:var(--r-full)}}
+
+/* Content surface */
+.content{min-width:0;padding:0 var(--s-4) var(--s-4) 0}
+.pane{min-height:calc(100dvh - var(--h-top) - var(--s-4));border-radius:var(--r-lg);background:var(--c-surface)}
+.toolbar{position:sticky;top:var(--h-top);z-index:5;display:flex;align-items:center;gap:var(--s-1);height:var(--h-lg);padding:0 var(--s-2) 0 var(--s-3);
+background:var(--c-surface)}
+.grow{flex:1}.range{padding:0 var(--s-2);color:var(--c-text-2);font-size:var(--t-xs);white-space:nowrap}
+.check-all{display:inline-grid;place-items:center;width:var(--h-md);height:var(--h-md)}
+.selected-tools{display:contents}
+#bulk:not(.has-selection) .selected-tools,#bulk.has-selection .idle-tools,#bulk:not(.has-unread) .if-unread,#bulk.has-unread .if-read{display:none}
+#bulk:not(.has-unread.has-read) .menu-item[data-mixed]{display:none}
+
+/* Inbox tabs: Gmail's categories, each with its own color */
+.tabs{display:flex;padding:0 var(--s-2)}
+.tab{position:relative;display:flex;align-items:center;gap:var(--s-4);flex:0 1 256px;min-width:0;height:var(--h-xl);padding:0 var(--s-4);
+border-radius:var(--r-sm) var(--r-sm) 0 0;color:var(--c-text-2);font-weight:var(--w-medium)}
+.tab svg.i{fill:currentColor}@media (hover:hover){.tab:hover{background:var(--c-hover)}}
+.tab.on{color:var(--tab)}
+.tab.on::after{content:"";position:absolute;left:var(--s-2);right:var(--s-2);bottom:0;height:3px;border-radius:3px 3px 0 0;background:var(--tab)}
+.tab-primary{--tab:var(--c-primary)}.tab-social{--tab:var(--c-social)}.tab-promotions{--tab:var(--c-promotions)}
+.tab-updates{--tab:var(--c-updates)}.tab-updates .badge{background:var(--c-updates-badge)}.tab-forums{--tab:var(--c-forums)}.tab-all{--tab:var(--c-all)}
+.tab-own-0{--tab:var(--cat-0)}.tab-own-1{--tab:var(--cat-1)}.tab-own-2{--tab:var(--cat-2)}.tab-own-3{--tab:var(--cat-3)}.tab-own-4{--tab:var(--cat-4)}.tab-own-5{--tab:var(--cat-5)}.tab-own-6{--tab:var(--cat-6)}.tab-own-7{--tab:var(--cat-7)}.tab-own-8{--tab:var(--cat-8)}.tab-own-9{--tab:var(--cat-9)}.tab-own-10{--tab:var(--cat-10)}.tab-own-11{--tab:var(--cat-11)}.tab-own-12{--tab:var(--cat-12)}.tab-own-13{--tab:var(--cat-13)}.tab-own-14{--tab:var(--cat-14)}.tab-own-15{--tab:var(--cat-15)}.tab-own-16{--tab:var(--cat-16)}.tab-own-17{--tab:var(--cat-17)}
+.cat-0{color:var(--cat-0)}.cat-1{color:var(--cat-1)}.cat-2{color:var(--cat-2)}.cat-3{color:var(--cat-3)}.cat-4{color:var(--cat-4)}.cat-5{color:var(--cat-5)}.cat-6{color:var(--cat-6)}.cat-7{color:var(--cat-7)}.cat-8{color:var(--cat-8)}.cat-9{color:var(--cat-9)}.cat-10{color:var(--cat-10)}.cat-11{color:var(--cat-11)}.cat-12{color:var(--cat-12)}.cat-13{color:var(--cat-13)}.cat-14{color:var(--cat-14)}.cat-15{color:var(--cat-15)}.cat-16{color:var(--cat-16)}.cat-17{color:var(--cat-17)}
+.tab-text{display:flex;flex-direction:column;min-width:0}
+.tab-name{display:flex;align-items:center;gap:var(--s-2);min-width:0;white-space:nowrap}.tab-name > span{overflow:hidden;text-overflow:ellipsis}
+.tab-text{flex:1}
+.tab-edit{display:none;place-items:center;flex:none;width:28px;height:28px;margin-right:calc(-1 * var(--s-2));border-radius:var(--r-full);color:var(--c-text-2);cursor:pointer}
+.tab-edit svg.i{width:16px;height:16px;fill:currentColor}@media (hover:hover){.tab-edit:hover{background:var(--c-hover)}}
+.tab.on .tab-edit,.tab-edit:focus-visible{display:inline-grid}@media (hover:hover){.tab:hover .tab-edit{display:inline-grid}}
+.tab{user-select:none;-webkit-touch-callout:none}
+.tab.dragging{z-index:5;background:var(--c-surface);box-shadow:var(--e-2);cursor:grabbing}
+.tabs.reordering .tab-edit{display:none!important}@media (hover:hover){.tabs.reordering .tab:not(.dragging):hover{background:transparent}}
+.tab-peek{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--c-text-3);font-size:var(--t-xs);font-weight:var(--w-regular)}
+/* When the categories scroll away under the toolbar, a compact copy docks in
+   it (app.js): where you are, what is new, one click to switch. */
+.dock-tabs{display:none;flex:0 1 auto;align-items:center;gap:2px;min-width:0;margin:0 var(--s-2);overflow-x:auto;scrollbar-width:none;overscroll-behavior:none}
+.dock-tabs::-webkit-scrollbar{display:none}
+.pane.docked .dock-tabs{display:flex;animation:dock-in 320ms cubic-bezier(.05,.7,.1,1)}
+@keyframes dock-in{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.dock-tab{display:inline-flex;align-items:center;gap:6px;flex:none;height:32px;padding:0 var(--s-3) 0 var(--s-2);border-radius:var(--r-sm);
+color:var(--c-text-2);font-size:var(--t-xs);font-weight:var(--w-medium);white-space:nowrap;transition:background-color var(--fast) var(--ease)}
+@media (hover:hover){.dock-tab:hover{background:var(--c-hover)}}.dock-tab svg.i{width:18px;height:18px;fill:currentColor}
+.dock-tab.on{background:color-mix(in srgb,var(--tab) 14%,transparent);color:var(--tab)}
+.dock-tab .badge{padding:0 6px;line-height:18px}
+#bulk.has-selection .dock-tabs{display:none}
+@media (prefers-reduced-motion:reduce){.pane.docked .dock-tabs{animation:none}}
+.badge{flex:none;padding:0 var(--s-2);border-radius:var(--r-full);background:var(--tab,var(--c-primary));color:var(--c-on-badge);font-size:var(--t-xs);
+font-weight:var(--w-medium);line-height:var(--h-chip)}
+
+/* Message list: tone, not lines, tells rows apart. Every row has the same
+   fixed columns, so subjects line up. (Not one subgrid for the list: Safari
+   lays a subgrid row out alone when its hover actions appear, and its
+   columns drift.) */
+.list{display:flex;flex-direction:column;padding-bottom:var(--s-2)}
+.row{position:relative;display:grid;grid-template-columns:[check] 42px [star] 32px [imp] 36px [fold] 28px [open] minmax(0,1fr) [end];align-items:center;height:var(--h-md);padding:0 var(--s-4) 0 var(--s-3);
+background:var(--c-read);transition:background-color var(--fast) var(--ease)}
+.row.unread{background:var(--c-surface)}.row.opening{background:var(--c-row-hover)}@media (hover:hover){.row:hover{background:var(--c-row-hover)}}.row:focus-within{z-index:2}.open:focus-visible{outline-offset:-2px}.row:has(> input:checked){background:var(--c-selected)}
+.row > input{grid-column:check;margin:0 var(--s-3)}.row > .star{grid-column:star}.row > .imp{grid-column:imp;margin-left:var(--s-1)}
+.star,.imp{display:inline-grid;place-items:center;width:var(--h-sm);height:var(--h-sm);padding:0;border:0;border-radius:var(--r-full);
+background:transparent;color:var(--c-text-3);cursor:pointer;flex:none}
+@media (hover:hover){.star:hover,.imp:hover{background:var(--c-hover)}}.star.on{color:var(--c-star)}.imp.on{color:var(--c-important)}
+.star.on svg.i:last-of-type,.star:not(.on) svg.i:first-of-type,.imp.on svg.i:last-of-type,.imp:not(.on) svg.i:first-of-type{display:none}
+.row:not(.unread) .q-read,.row.unread .q-unread{display:none}
+/* A conversation unfolds under its row, one row for each message */
+.fold-rows{grid-column:fold;display:inline-grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:var(--r-full);
+background:transparent;color:var(--c-text-3);cursor:pointer}
+@media (hover:hover){.fold-rows:hover{background:var(--c-hover);color:var(--c-text)}}
+.fold-rows svg.i{width:20px;height:20px;fill:currentColor;transition:transform var(--fast) var(--ease)}.fold-rows[aria-expanded=true] svg.i{transform:rotate(90deg)}
+.subrows{display:flex;flex-direction:column}.row[hidden] + .subrows{display:none}
+.row.part .who{padding-left:var(--s-6)}.row.part .preview{margin-left:0}
+.list.wide .fold-rows,.list.wide .subrows{display:none}
+/* The list goes on: a quiet spinner while its next part loads */
+.list-more{display:grid;place-items:center;min-height:64px;padding:0 var(--s-4);color:var(--c-text-3);font-size:var(--t-xs);text-align:center}
+.list-more.loading::before{content:"";width:24px;height:24px;border:3px solid var(--c-surface-4);border-top-color:var(--c-primary);border-radius:var(--r-full);
+animation:spin 800ms linear infinite}
+.list-more.failed{color:var(--c-primary);cursor:pointer}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* Swipes: the row moves aside over what it will do */
+.list{position:relative}
+.list[data-swipe-left] .row{touch-action:pan-y pinch-zoom}
+.row.swiping,.row.settling{z-index:3}.row.settling{transition:transform 180ms var(--ease)}
+.swipe-under{position:absolute;left:0;right:0;z-index:2;display:flex;align-items:center;gap:var(--s-3);padding:0 var(--s-6);
+background:var(--swipe);color:#fff;font-weight:var(--w-medium);pointer-events:none}
+.swipe-under[data-side=left]{flex-direction:row-reverse}
+.swipe-under svg.i{fill:currentColor;transition:transform 120ms var(--ease)}.swipe-under.ready svg.i{transform:scale(1.3)}
+.swipe-under.archive{--swipe:#1e8e3e}.swipe-under.delete{--swipe:#d93025}.swipe-under.read{--swipe:#1a73e8}.swipe-under.snooze{--swipe:#c26401}
+/* The wide list on a computer: picture, sender and time, subject, preview */
+@media (min-width:841px){
+.list.wide .row{display:block;height:auto;padding:0}
+.list.wide .row > input,.list.wide .row .imp,.list.wide .row .chip,.list.wide .row .clip{display:none}
+.list.wide .open{grid-template-columns:40px minmax(0,1fr) auto;grid-template-areas:"avatar who time" "avatar subject subject" "avatar preview preview";
+gap:2px var(--s-4);align-items:baseline;height:auto;padding:var(--s-3) var(--s-6)}
+.list.wide .row-avatar{display:inline-grid;grid-area:avatar;align-self:start;width:40px;height:40px;font-size:var(--t-lg)}
+.list.wide .who{grid-area:who;min-width:0;padding:0;font-size:var(--t-lg)}
+.list.wide .row time{grid-area:time;width:auto}
+.list.wide .msg{display:contents}
+.list.wide .subject,.list.wide .preview{min-width:0;overflow:hidden;white-space:nowrap;mask-image:linear-gradient(to left,transparent,#000 var(--s-6))}
+.list.wide .subject{grid-area:subject}.list.wide .preview{grid-area:preview;margin:0;padding-right:calc(var(--h-md) + var(--s-4));color:var(--c-text-3)}
+.list.wide .row > .star{position:absolute;right:var(--s-4);bottom:var(--s-2)}
+.list.wide .quick{top:var(--s-2);bottom:auto;right:var(--s-4)}}
+/* Rows are pressed, held and dragged over, never selected as text or held as links */
+.list,.contact-list{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.pick-clear,.picked-count,.pick-all,.menu-item[data-phone]{display:none}.picked-count{min-width:24px;font-size:var(--t-lg);font-weight:var(--w-medium)}
+/* A picked row's picture turns into a check */
+.row:has(> input:checked) .avatar,.contact-row:has(> input:checked) .avatar{background:var(--c-primary);color:transparent}
+.row:has(> input:checked) .avatar .pic,.contact-row:has(> input:checked) .avatar .pic{opacity:0}
+.row:has(> input:checked) .avatar::after,.contact-row:has(> input:checked) .avatar::after{content:"";position:absolute;inset:0;background:var(--c-on-primary);
+-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E") center/60% no-repeat;
+mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E") center/60% no-repeat}
+.open{grid-column:open / end;display:grid;grid-template-columns:[who] var(--w-who) [msg] minmax(0,1fr) [chip] auto [clip] auto [time] auto [end];
+align-items:center;min-width:0;height:100%;color:var(--c-text)}
+.who{grid-column:who;min-width:88px;padding:0 var(--s-4) 0 var(--s-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.n{margin-left:var(--s-1);color:var(--c-text-3);font-size:var(--t-xs);font-weight:var(--w-regular)}
+/* The end fades rather than ending in an ellipsis: Safari shows the whole
+   text of a block cut by an ellipsis as a tooltip. */
+.msg{grid-column:msg;min-width:0;overflow:hidden;white-space:nowrap;text-align:left;color:var(--c-text-3);mask-image:linear-gradient(to left,transparent,#000 var(--s-6))}
+.subject{color:var(--c-text)}.preview{margin-left:var(--s-2)}
+.row.unread .who,.row.unread .subject,.row.unread time{color:var(--c-text);font-weight:var(--w-bold)}
+.chip{display:inline-flex;align-items:center;flex:none;height:var(--h-chip);padding:0 var(--s-2);border-radius:var(--r-xs);background:var(--c-surface-3);
+color:var(--c-text-2);font-size:var(--t-xs);white-space:nowrap}
+.clip svg.i{width:var(--icon-sm);height:var(--icon-sm);fill:var(--c-text-3)}
+.open .chip{grid-column:chip;margin-left:var(--s-3)}.open .clip{grid-column:clip;display:inline-grid;margin-left:var(--s-3)}
+.row time{grid-column:time;width:var(--w-time);text-align:right;color:var(--c-text-3);font-size:var(--t-xs);white-space:nowrap}
+.quick{position:absolute;right:var(--s-3);top:0;bottom:0;display:none;align-items:center;gap:var(--s-1);padding-left:var(--s-2);background:inherit}
+.row:focus-within .quick,.row:has(.pop[open]) .quick{display:flex}@media (hover:hover){.row:hover .quick{display:flex}}
+.row:focus-within time,.row:has(.pop[open]) time{visibility:hidden}@media (hover:hover){.row:hover time{visibility:hidden}}.row:has(.pop[open]){z-index:3}
+.row-avatar{display:none}
+.empty{grid-column:1 / -1;padding:var(--s-9) var(--s-6);text-align:center;color:var(--c-text-2)}
+
+/* Reading: subject, sender and text share one left edge */
+.thread{padding:var(--s-4) var(--s-6) var(--s-7)}
+.subject-line{display:flex;align-items:center;gap:var(--s-2);margin:0 0 var(--s-4);padding:0 var(--s-2) 0 var(--s-4)}
+.subject-line h1{flex:0 1 auto;min-width:0;overflow-wrap:anywhere}
+details.mail{position:relative;margin:0 0 var(--s-2);padding:var(--s-2) var(--s-4);border-radius:var(--r-md);background:var(--c-surface-2)}
+details.mail[open]{padding-bottom:var(--s-4);background:var(--c-surface)}
+/* Folded middle of a long conversation: one quiet row that opens in place */
+details.fold{margin:0 0 var(--s-2)}details.fold[open] > summary{display:none}
+.more-messages{display:flex;align-items:center;gap:var(--s-3);min-height:var(--h-md);padding:0 var(--s-4);border-radius:var(--r-full);
+background:var(--c-surface-3);color:var(--c-text-2);font-weight:var(--w-medium);cursor:pointer;list-style:none}
+.more-messages::-webkit-details-marker{display:none}@media (hover:hover){.more-messages:hover{background:var(--c-surface-4)}}
+.more-messages > span:nth-child(2){flex:1}.more-messages svg.i{fill:var(--c-text-2)}
+.faces{display:inline-flex}.faces .avatar.face{width:24px;height:24px;font-size:11px;box-shadow:0 0 0 2px var(--c-surface-3)}
+.faces .avatar.face + .avatar.face{margin-left:-6px}
+[data-expand-all] svg.i + svg.i,[data-expand-all].all-open svg.i:first-child{display:none}[data-expand-all].all-open svg.i + svg.i{display:block}
+details.mail > summary{display:flex;align-items:flex-start;gap:var(--s-3);padding:var(--s-2) 0;cursor:pointer;list-style:none}
+details.mail > summary::-webkit-details-marker{display:none}
+details.mail .avatar{width:var(--h-md);height:var(--h-md);font-size:var(--t-lg)}
+.sender{flex:1;min-width:0}.sender b{font-weight:var(--w-bold)}.addr{color:var(--c-text-3);font-size:var(--t-xs)}
+.from-line{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--s-2)}
+.to{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-1);margin-top:var(--s-1);color:var(--c-text-3);font-size:var(--t-xs)}.when-inline{display:none}
+/* Who a message went to: one short line that opens the whole list */
+.to-toggle{display:inline-flex;align-items:center;gap:2px;max-width:100%;min-height:24px;padding:0;border:0;background:transparent;
+color:var(--c-text-3);font-size:var(--t-xs);cursor:pointer;white-space:nowrap}
+.to-toggle svg.i{flex:none;width:18px;height:18px;fill:currentColor;transition:transform var(--fast) var(--ease)}
+.to-toggle[aria-expanded=true] svg.i{transform:rotate(180deg)}@media (hover:hover){.to-toggle:hover{color:var(--c-text)}}
+.who-panel{margin:0 0 var(--s-4);padding:var(--s-3) var(--s-4);border-radius:var(--r-md);background:var(--c-surface-2);font-size:var(--t-xs);line-height:1.45}
+.who-panel dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--s-2) var(--s-4);margin:0}
+.who-panel dt{color:var(--c-text-3)}.who-panel dd{display:flex;flex-direction:column;gap:2px;min-width:0;margin:0}
+.who-line{color:var(--c-text);overflow-wrap:anywhere}.who-line b{font-weight:var(--w-medium)}.who-line span{color:var(--c-text-2)}.who-line small{color:var(--c-text-3)}
+.to > span{margin:0 2px}
+.person{display:inline-block;max-width:260px;height:22px;padding:0 var(--s-2);border-radius:var(--r-full);background:var(--c-surface-3);color:var(--c-text-2);
+font-size:var(--t-xs);line-height:22px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (hover:hover){.person:hover{background:var(--c-selected);color:var(--c-on-selected)}}
+a.addr{color:var(--c-text-3)}@media (hover:hover){a.addr:hover{color:var(--c-primary);text-decoration:underline}}
+details.mail:not([open]) .to{display:none}
+.snippet{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--c-text-3);font-size:var(--t-md)}
+.answers{display:flex;align-items:center;gap:var(--s-1);margin-top:2px;color:var(--c-text-3);font-size:var(--t-xs)}
+.answers svg.i{width:14px;height:14px;fill:currentColor}.answers a{color:var(--c-text-2);font-weight:var(--w-medium);white-space:nowrap}@media (hover:hover){.answers a:hover{color:var(--c-primary)}}
+.answers-chip{display:none}
+details.mail.repeat .snippet{font-style:italic}
+details.mail.flash{box-shadow:0 0 0 2px var(--c-primary)}
+details.mail[open] .snippet{display:none}
+.mail-side{display:flex;align-items:center;gap:var(--s-1);flex:none;margin:calc(-1 * var(--s-1)) calc(-1 * var(--s-2)) 0 0}
+.mail-side time{margin-right:var(--s-1);color:var(--c-text-3);font-size:var(--t-xs);white-space:nowrap}
+@media (min-width:841px){.mail-side time{min-width:128px;text-align:right}}
+details.mail:not([open]) .mail-side .reply,details.mail:not([open]) .mail-side .pop{display:none}
+.mail-body{padding:var(--s-1) 0 0 calc(var(--h-md) + var(--s-3))}
+.mail-frame{display:block;width:100%;border:0;border-radius:var(--r-sm);background:var(--c-frame);visibility:hidden}
+.mail-frame.ready{visibility:visible}
+pre.plain{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:var(--t-md)/1.5 var(--f-sans)}
+.notice-strip{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-2);margin:0 0 var(--s-3);padding:var(--s-2) var(--s-3);border-radius:var(--r-sm);
+background:var(--c-surface-3);color:var(--c-text-2);font-size:var(--t-md)}
+.notice-strip svg.i{fill:var(--c-text-2)}.notice-strip span{flex:1;min-width:200px}.notice-strip .text-link,.notice-strip .text{height:var(--h-sm)}
+.thumbs{display:flex;flex-wrap:wrap;gap:var(--s-2);margin:var(--s-4) 0 0}
+.thumb{display:block;width:160px;height:120px;border-radius:var(--r-sm);background:var(--c-surface-3);overflow:hidden}
+.thumb img{display:block;width:100%;height:100%;object-fit:cover}
+.attachments{display:flex;flex-wrap:wrap;gap:var(--s-2);margin:var(--s-4) 0}
+.composer .attachment{cursor:grab}.attachments.sorting .attachment{transition:transform 200ms var(--ease)}
+.attachments .attachment.lifted{position:relative;z-index:2;cursor:grabbing;box-shadow:var(--e-2);transition:none}
+.attachment{display:inline-flex;align-items:center;gap:var(--s-2);max-width:300px;height:var(--h-md);padding:0 var(--s-1) 0 var(--s-3);border-radius:var(--r-sm);
+background:var(--c-surface-3);color:var(--c-text)}
+.attachment span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.attachment small{color:var(--c-text-3);font-size:var(--t-xs);white-space:nowrap}
+.attachment .icon-button{width:var(--h-sm);height:var(--h-sm)}
+.mail-actions{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-2);margin-top:var(--s-4)}
+blockquote{margin:var(--s-2) 0;padding:var(--s-2) var(--s-3);border-radius:var(--r-sm);background:var(--c-surface-2);color:var(--c-text-2)}
+
+/* Writing: the header lines in one quiet block; the message takes the rest */
+.pane.composer{display:flex;flex-direction:column;height:calc(100dvh - var(--h-top) - var(--s-4));min-height:440px;padding:0 var(--s-4) var(--s-2)}
+/* When room runs short (a phone's keyboard opens) only the message gives way;
+   the header lines, the formatting bar and the buttons keep their size. */
+.pane.composer > :not(.editor,textarea){flex-shrink:0}
+.composer-head{display:flex;align-items:center;gap:var(--s-3);min-height:var(--h-lg);padding:0 var(--s-2)}
+.composer-head h1{font-size:var(--t-lg);font-weight:var(--w-medium);white-space:nowrap}
+.draft-state{color:var(--c-text-3);font-size:var(--t-xs);white-space:nowrap}
+.composer-head .from{margin-left:auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--c-text-3);font-size:var(--t-xs)}
+.fields{display:flex;flex-direction:column;padding:var(--s-1) 0;border-radius:var(--r-md);background:var(--c-surface-2)}
+.line{position:relative;display:flex;align-items:center;gap:var(--s-3);min-height:var(--h-md);padding:0 var(--s-2) 0 var(--s-4)}
+/* Our dropdowns: a field like the text fields, and our menu */
+.select-pop{display:block;position:relative;min-width:0}
+ul.rules .select-pop,.form.inline .select-pop{display:inline-block}
+.select-field{display:flex;align-items:center;justify-content:space-between;gap:var(--s-2);min-height:var(--h-md);padding:0 var(--s-2) 0 var(--s-3);
+border:1px solid var(--c-outline);border-radius:var(--r-xs);background:transparent;color:var(--c-text);font-size:var(--t-lg);cursor:pointer;list-style:none;white-space:nowrap}
+.select-field::-webkit-details-marker{display:none}
+.select-field svg.i{flex:none;fill:var(--c-text-2);transition:transform var(--fast) var(--ease)}.select-pop[open] .select-field svg.i{transform:rotate(180deg)}
+.select-field:focus-visible,.select-pop[open] > .select-field{outline:0;border-color:var(--c-primary);box-shadow:inset 0 0 0 1px var(--c-primary)}
+.select-pop .menu-item[aria-selected=true]{background:var(--c-selected);color:var(--c-on-selected)}
+
+/* Dialogs, Material 3 basic dialog */
+dialog.ask{width:min(400px,calc(100vw - 48px));padding:var(--s-6);border:0;border-radius:var(--r-xl);
+background:var(--c-surface);color:var(--c-text);box-shadow:var(--e-3);animation:ask-in 260ms cubic-bezier(.05,.7,.1,1)}
+dialog.ask::backdrop{background:rgba(0,0,0,.32);animation:fade-in 200ms ease-out}
+dialog.ask p{margin:0 0 var(--s-6);font-size:var(--t-lg);line-height:1.5;color:var(--c-text-2)}
+.ask-actions{display:flex;justify-content:flex-end;gap:var(--s-2)}
+dialog.ask.closing{animation:ask-out 140ms ease-in forwards}dialog.ask.closing::backdrop{opacity:0;transition:opacity 140ms}
+@keyframes ask-in{from{opacity:0;transform:scale(.92)}}@keyframes ask-out{to{opacity:0;transform:scale(.96)}}@keyframes fade-in{from{opacity:0}}
+@media (prefers-reduced-motion:reduce){dialog.ask,dialog.ask::backdrop,dialog.ask.closing{animation:none}}
+/* Suggestions under To, Cc and Bcc: on a computer a menu over the lines
+   below, as in Gmail, so nothing moves; on a phone they push Subject down
+   instead, so a tap meant for it never lands on a person. */
+.suggest{position:absolute;top:100%;left:calc(var(--s-4) + 56px + var(--s-3));z-index:6;width:min(480px,calc(100% - var(--s-4) - 56px - var(--s-3) - var(--s-2)));
+max-height:min(312px,50dvh);overflow:auto;overscroll-behavior:contain;padding:var(--s-1) 0;border-radius:var(--r-md);background:var(--c-surface);box-shadow:var(--e-2)}
+.suggestion{display:flex;align-items:center;gap:var(--s-3);min-height:var(--h-lg);padding:var(--s-1) var(--s-4);cursor:pointer}
+.suggestion.on{background:var(--c-row-hover)}
+.suggestion .avatar{flex:none;width:32px;height:32px;font-size:var(--t-md)}
+.suggestion > span:last-child{display:flex;flex-direction:column;min-width:0}
+.suggestion b,.suggestion small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.suggestion b{font-weight:var(--w-regular);color:var(--c-text)}.suggestion small{color:var(--c-text-3);font-size:var(--t-xs)}
+.suggestion mark{background:none;color:inherit;font-weight:var(--w-bold)}
+.line > label{flex:0 0 56px;color:var(--c-text-3);white-space:nowrap;cursor:text}.line:focus-within > label{color:var(--c-primary)}
+.line input{flex:1;min-width:0;height:var(--h-md);border:0;outline:0;background:transparent;font-size:var(--t-md)}
+.reveal{display:flex;gap:var(--s-1)}
+/* To, Cc and Bcc: each address a chip (a Material 3 input chip), then the
+   field for the next one with Cc and Bcc after it. The chips take the whole
+   width and wrap, the line grows, and its label stays on the first row. */
+.recipients{display:flex;flex:1;flex-wrap:wrap;align-items:center;gap:var(--s-1);min-width:0;padding:var(--s-1) 0}
+.typing{display:flex;flex:1 0 auto;align-items:center;gap:var(--s-2);max-width:100%}
+.line .recipients input{flex:1 0 96px;width:96px;min-width:0;height:var(--h-sm)}
+.line:has(.recipients){align-items:flex-start}
+.line:has(.recipients) > label{display:flex;align-items:center;align-self:flex-start;height:var(--h-md)}
+.recipient{display:inline-flex;align-items:center;gap:var(--s-2);max-width:100%;height:var(--h-sm);padding:0 var(--s-1);border:1px solid var(--c-surface-4);border-radius:var(--r-sm);
+background:var(--c-surface);color:var(--c-text);font-size:var(--t-md);font-weight:var(--w-medium);cursor:pointer;-webkit-user-select:none;user-select:none}
+.recipient .avatar{width:24px;height:24px;font-size:var(--t-xs)}
+.recipient-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.recipient .remove{position:relative;display:inline-grid;place-items:center;flex:none;width:24px;height:24px;margin-left:calc(-1 * var(--s-1));padding:0;border:0;
+border-radius:var(--r-full);background:transparent;color:var(--c-text-2);cursor:pointer}
+.recipient .remove svg.i{width:var(--icon-sm);height:var(--icon-sm);fill:currentColor}
+.recipient.bad{border-color:var(--c-danger);color:var(--c-danger)}
+@media (hover:hover){.recipient:hover{background:color-mix(in srgb,var(--c-text) 8%,var(--c-surface))}.recipient .remove:hover{background:color-mix(in srgb,var(--c-text) 12%,transparent)}}
+.editor,.pane.composer textarea{flex:1;min-height:160px;margin:var(--s-2) 0 0;padding:var(--s-3) var(--s-4);border:0;border-radius:var(--r-md);outline:0;
+background:var(--c-surface);font:var(--t-md)/1.55 var(--f-sans);overflow:auto;resize:none;overflow-wrap:anywhere}
+.editor:focus-visible,.pane.composer textarea:focus-visible{outline:0}
+.composer-actions{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-2);padding-top:var(--s-2)}
+/* The formatting bar: its own row above Send, groups set apart by space */
+.editor-tools{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-1) var(--s-4);margin-top:var(--s-2);padding:var(--s-1) var(--s-2);
+border-radius:var(--r-md);background:var(--c-surface-2)}
+.tool-group{display:inline-flex;align-items:center;gap:2px}
+.editor-tools .icon-button{width:var(--h-sm);height:var(--h-sm)}.editor-tools .icon-button svg.i{width:var(--icon-sm);height:var(--icon-sm)}
+/* What is under the caret shows in the bar, as in Gmail: Bold lit inside
+   bold text, a list button inside its list; the size and alignment menus
+   mark the current one. */
+.editor-tools .icon-button[aria-pressed=true]{background:var(--c-selected);color:var(--c-on-selected)}
+@media (hover:hover){.editor-tools .icon-button[aria-pressed=true]:hover{background:color-mix(in srgb,var(--c-selected) 86%,var(--c-on-selected))}}
+.editor-tools .menu-item[aria-checked=true]{background:var(--c-selected);color:var(--c-on-selected)}.editor-tools .menu-item[aria-checked=true] svg.i{fill:var(--c-on-selected)}
+.editor-tools .pop-card{min-width:180px}
+.menu-item small{font-size:var(--t-xs)}.menu-item .big{font-size:18px}.menu-item .huge{font-size:var(--t-3xl)}
+.swatches{display:grid;grid-template-columns:repeat(8,24px);gap:var(--s-2);padding:var(--s-1) var(--s-3) var(--s-2)}
+.swatch{width:24px;height:24px;padding:0;border:0;border-radius:var(--r-full);cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+@media (hover:hover){.swatch:hover{transform:scale(1.15)}}.swatch.none{background:linear-gradient(135deg,transparent 45%,var(--c-danger) 45%,var(--c-danger) 55%,transparent 55%),var(--c-surface)}
+.emoji-grid{display:grid;grid-template-columns:repeat(8,36px);gap:2px;padding:var(--s-1)}
+.emoji-grid button{width:36px;height:36px;padding:0;border:0;border-radius:var(--r-sm);background:transparent;font-size:20px;line-height:1;cursor:pointer}
+@media (hover:hover){.emoji-grid button:hover{background:var(--c-hover)}}
+.table-grid{display:grid;grid-template-columns:repeat(8,20px);gap:4px;padding:var(--s-1) var(--s-3) var(--s-3)}
+.table-grid button{width:20px;height:20px;padding:0;border:1px solid var(--c-surface-4);border-radius:var(--r-xs);background:var(--c-surface);cursor:pointer}
+.table-grid button.on{border-color:var(--c-primary);background:var(--c-selected)}
+.editor table{border-collapse:collapse}.editor td,.editor th{min-width:40px}
+.editor img{max-width:100%;height:auto;border-radius:var(--r-xs);vertical-align:bottom;cursor:pointer}
+/* A chosen picture: its frame with four grips, and over it a bar (a
+   Material 3 floating toolbar). */
+.picture-frame{position:absolute;z-index:4;pointer-events:none;outline:2px solid var(--c-primary);outline-offset:1px;border-radius:var(--r-xs)}
+.picture-frame .grip{position:absolute;width:14px;height:14px;border:2px solid var(--c-primary);border-radius:var(--r-full);background:var(--c-surface);pointer-events:auto;touch-action:none}
+.picture-frame .grip::after{content:"";position:absolute;inset:-9px}
+.grip[data-grip=nw]{left:-8px;top:-8px;cursor:nwse-resize}.grip[data-grip=ne]{right:-8px;top:-8px;cursor:nesw-resize}
+.grip[data-grip=sw]{left:-8px;bottom:-8px;cursor:nesw-resize}.grip[data-grip=se]{right:-8px;bottom:-8px;cursor:nwse-resize}
+.picture-tools{position:absolute;z-index:7;display:flex;align-items:center;gap:2px;padding:var(--s-1);border-radius:var(--r-full);background:var(--c-surface);box-shadow:var(--e-2)}
+.picture-tools .pop-card{min-width:200px}
+.turned svg.i{transform:rotate(90deg)}
+/* The picture editor: a large dialog, full screen on a phone. Crop and Draw
+   are segmented buttons; the shapes are filter chips. */
+dialog.picture-editor{display:grid;grid-template-rows:auto minmax(0,1fr) auto;width:min(1040px,calc(100vw - 48px));height:min(760px,calc(100dvh - 48px));
+max-width:none;max-height:none;padding:0;border:0;border-radius:var(--r-xl);background:var(--c-surface);color:var(--c-text);box-shadow:var(--e-3);overflow:hidden}
+dialog.picture-editor:not([open]){display:none}
+dialog.picture-editor::backdrop{background:rgba(0,0,0,.32)}
+.pe-bar{display:flex;align-items:center;gap:var(--s-2);min-height:var(--h-xl);padding:var(--s-1) var(--s-3) var(--s-1) var(--s-2)}
+.pe-bar h2{flex:1;margin:0;font-size:var(--t-2xl);font-weight:var(--w-regular);white-space:nowrap}
+.pe-modes{display:inline-flex;border:1px solid var(--c-surface-4);border-radius:var(--r-full);overflow:hidden}
+.pe-modes button{display:inline-flex;align-items:center;gap:var(--s-2);height:var(--h-md);padding:0 var(--s-4);border:0;background:transparent;color:var(--c-text);font:inherit;font-weight:var(--w-medium);cursor:pointer}
+.pe-modes button + button{border-left:1px solid var(--c-surface-4)}
+.pe-modes button[aria-selected=true]{background:var(--c-selected);color:var(--c-on-selected)}
+.pe-modes svg.i{width:var(--icon-sm);height:var(--icon-sm)}
+.pe-bar .filled{margin-left:var(--s-2)}
+.pe-stage{position:relative;overflow:hidden;background:color-mix(in srgb,var(--c-text) 7%,var(--c-surface));touch-action:none}
+.pe-stage canvas{position:absolute;inset:0;display:block}
+.picture-editor:has([data-mode=draw][aria-selected=true]) .pe-stage canvas{cursor:crosshair}
+.pe-crop{position:absolute;box-shadow:0 0 0 100vmax rgba(0,0,0,.5);outline:2px solid #fff;cursor:move;touch-action:none}
+.pe-crop span{position:absolute;width:22px;height:22px;border:0 solid #fff}
+.pe-crop span::after{content:"";position:absolute;inset:-13px}
+.pe-crop [data-grip=nw]{left:-4px;top:-4px;border-width:4px 0 0 4px;cursor:nwse-resize}.pe-crop [data-grip=ne]{right:-4px;top:-4px;border-width:4px 4px 0 0;cursor:nesw-resize}
+.pe-crop [data-grip=sw]{left:-4px;bottom:-4px;border-width:0 0 4px 4px;cursor:nesw-resize}.pe-crop [data-grip=se]{right:-4px;bottom:-4px;border-width:0 4px 4px 0;cursor:nwse-resize}
+.pe-text{position:absolute;min-width:140px;padding:2px 6px;border:2px solid var(--c-primary);border-radius:var(--r-xs);outline:0;background:rgba(255,255,255,.92);font:600 18px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.pe-tools{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:var(--s-2) var(--s-5);padding:var(--s-2) var(--s-3) var(--s-3)}
+.pe-group{display:inline-flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:var(--s-1)}
+.pe-chip{height:var(--h-sm);padding:0 var(--s-3);border:1px solid var(--c-surface-4);border-radius:var(--r-sm);background:transparent;color:var(--c-text);font:inherit;font-weight:var(--w-medium);cursor:pointer}
+.pe-chip[aria-pressed=true]{border-color:transparent;background:var(--c-selected);color:var(--c-on-selected)}
+.pe-tools .icon-button[aria-pressed=true]{background:var(--c-selected);color:var(--c-on-selected)}
+.pe-tools .icon-button:disabled{opacity:.38;cursor:default}
+.pe-tools .swatch{margin:0 2px}.pe-tools .swatch[aria-pressed=true]{box-shadow:0 0 0 2px var(--c-surface),0 0 0 4px var(--c-primary)}
+.pe-size{display:inline-grid;place-items:center;width:var(--h-md);height:var(--h-md);padding:0;border:0;border-radius:var(--r-full);background:transparent;cursor:pointer}
+.pe-size i{display:block;border-radius:var(--r-full);background:var(--c-text)}
+.pe-size[data-size="0"] i{width:4px;height:4px}.pe-size[data-size="1"] i{width:8px;height:8px}.pe-size[data-size="2"] i{width:14px;height:14px}
+.pe-size[aria-pressed=true]{background:var(--c-selected)}
+dialog.ask h2{margin:0 0 var(--s-4);font-size:var(--t-3xl);line-height:32px;font-weight:var(--w-regular)}
+.ask-field{width:100%;height:var(--h-xl);margin:0 0 var(--s-6);padding:0 var(--s-4);border:1px solid var(--c-surface-4);border-radius:var(--r-xs);outline:0;background:transparent;color:var(--c-text);font:inherit;font-size:var(--t-lg)}
+.ask-field:focus{border-color:var(--c-primary);box-shadow:inset 0 0 0 1px var(--c-primary)}
+.composer-actions .send{padding:0 var(--s-6)}
+.file{position:relative;overflow:hidden}.file:focus-within{outline:2px solid var(--c-primary);outline-offset:2px}.file input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.pane.composer{position:relative}
+.pane.composer .attachments{margin:var(--s-2) 0 0}.pane.composer .attachments:empty{display:none}
+.attachment a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--c-text)}@media (hover:hover){.attachment a:hover{color:var(--c-primary);text-decoration:underline}}
+.drop-hint{position:absolute;inset:var(--s-2);z-index:10;display:grid;place-items:center;border:2px dashed var(--c-primary);border-radius:var(--r-lg);
+background:color-mix(in srgb,var(--c-primary-soft) 70%,transparent);color:var(--c-on-primary-soft);font-size:var(--t-lg);font-weight:var(--w-medium);pointer-events:none}
+.drop-hint span{display:inline-flex;align-items:center;gap:var(--s-2)}
+
+/* Settings: the sections on the left, one at a time on the right */
+.settings-layout{display:grid;grid-template-columns:232px minmax(0,1fr);gap:var(--s-6);align-items:start;max-width:1120px}
+.settings-nav{position:sticky;top:var(--h-top);display:flex;flex-direction:column;gap:2px;padding:var(--s-2) 0 var(--s-6)}
+.settings-nav .page-title{margin:var(--s-1) 0 var(--s-3) var(--s-4)}
+.settings-nav a{display:flex;align-items:center;gap:var(--s-3);min-height:var(--h-md);padding:0 var(--s-4);border-radius:var(--r-full);color:var(--c-text);white-space:nowrap}
+@media (hover:hover){.settings-nav a:hover{background:var(--c-hover)}}.settings-nav a.on{background:var(--c-selected);color:var(--c-on-selected);font-weight:var(--w-medium)}
+.settings-nav svg.i{fill:var(--c-text-2)}.settings-nav a.on svg.i{fill:var(--c-on-selected)}
+.settings-layout .settings{max-width:none;padding-top:var(--s-2)}
+
+/* Settings, contacts and the server page */
+.settings{max-width:var(--w-text);padding:var(--s-2) 0 var(--s-7)}.page-title{margin:var(--s-1) 0 var(--s-4) var(--s-4)}
+.card{margin:0 0 var(--s-3);padding:var(--s-5) var(--s-6);border-radius:var(--r-md);background:var(--c-surface)}
+.form{display:grid;gap:var(--s-4);max-width:640px}.form.inline{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-2);max-width:none}
+.form.inline input[type=text],.form.inline select{width:auto;min-width:140px}
+/* Tooltips: Material 3 plain tooltips (app.js shows them for titles). */
+.tooltip{position:fixed;z-index:60;max-width:240px;padding:4px 8px;border-radius:var(--r-xs);background:var(--c-inverse);color:var(--c-on-inverse);
+font-size:var(--t-xs);line-height:16px;pointer-events:none;animation:fade-in 150ms var(--ease)}
+/* Text fields: Material 3 outlined fields. The label sits inside and rises
+   onto the outline when the field is focused or holds something (app.js gives
+   an empty placeholder to fields that have none, so the style can tell). */
+.field{position:relative;display:block;color:var(--c-text-2);font-size:var(--t-lg)}.field textarea{display:block;resize:vertical}
+.field > span{position:absolute;top:28px;left:12px;z-index:1;max-width:calc(100% - 24px);padding:0 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+background:var(--field-bg,var(--c-surface));color:var(--c-text-2);font-size:var(--t-lg);line-height:24px;transform:translateY(-50%);pointer-events:none;
+transition:top var(--fast) var(--ease),font-size var(--fast) var(--ease),line-height var(--fast) var(--ease),color var(--fast) var(--ease)}
+.field:focus-within > span,.field:has(> input:not(:placeholder-shown)) > span,.field:has(> textarea:not(:placeholder-shown)) > span,.field:has(> select) > span,
+.field:has(> input[type=date]) > span,.field:has(> input[type=datetime-local]) > span{top:0;font-size:var(--t-xs);line-height:16px}
+.field:focus-within > span{color:var(--c-primary)}
+.field input::placeholder,.field textarea::placeholder{color:transparent}.field:focus-within input::placeholder,.field:focus-within textarea::placeholder{color:var(--c-text-3)}
+fieldset.choice{display:grid;gap:0;margin:0;padding:0;border:0}fieldset.choice legend{margin-bottom:var(--s-1);color:var(--c-text-2);font-size:var(--t-xs)}
+/* Each choice a row as tall as its control's state layer (48 px on a phone), the whole row its target. */
+fieldset.choice label{display:flex;align-items:center;gap:var(--s-4);min-height:var(--h-md);cursor:pointer}
+.actions{display:flex;gap:var(--s-3)}.actions.spread{justify-content:space-between;align-items:center}.hint{color:var(--c-text-3);font-size:var(--t-xs)}
+ul.rules{display:flex;flex-direction:column;gap:var(--s-2);margin:0 0 var(--s-4);padding:0;list-style:none}
+ul.rules li{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3);padding:var(--s-2) var(--s-3);border-radius:var(--r-sm);background:var(--c-surface-2)}
+ul.rules form{display:flex;align-items:center;gap:var(--s-2)}
+.setup{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var(--s-6)}.qr{padding:var(--s-2);border-radius:var(--r-md);background:#fff}
+code{font-family:var(--f-mono);font-size:var(--t-xs)}code.key{display:inline-block;padding:var(--s-2) var(--s-3);border-radius:var(--r-sm);background:var(--c-surface-2);letter-spacing:.06em;word-break:break-all}
+table.plain{width:100%;border-collapse:separate;border-spacing:0 var(--s-1)}
+table.plain th,table.plain td{padding:var(--s-2) var(--s-3);text-align:left;vertical-align:top;background:var(--c-surface-2)}
+table.plain th{width:40%;border-radius:var(--r-sm) 0 0 var(--r-sm);color:var(--c-text-2);font-weight:var(--w-medium)}
+table.plain td{border-radius:0 var(--r-sm) var(--r-sm) 0}.good{color:var(--c-good)}.bad{color:var(--c-danger)}
+.toolbar-title{margin:0 var(--s-2) 0 var(--s-1);font-size:var(--t-2xl)}
+.contact-search input{min-height:var(--h-sm);width:240px;padding:0 var(--s-3);border:0;border-radius:var(--r-full);background:var(--c-surface-2)}
+/* Contacts: the list, and the chosen person in a panel beside it */
+.contacts-body{display:grid;grid-template-columns:minmax(0,1fr);align-items:start}
+.contacts-body.has-panel{grid-template-columns:minmax(0,1fr) clamp(380px,38%,500px);column-gap:var(--s-6)}
+.contacts-body.has-panel .contact-company{display:none}
+.contact-list{display:flex;flex-direction:column;gap:2px;min-width:0;padding:var(--s-3) var(--s-3) var(--s-6)}
+.contact-row{display:flex;align-items:center;border-radius:var(--r-md);color:var(--c-text)}
+.contact-row > a{display:flex;flex:1;align-items:center;gap:var(--s-3);min-width:0;min-height:var(--h-lg);padding:0 var(--s-3);color:inherit}
+.contact-row > input{display:none;flex:none;margin:0 0 0 var(--s-3)}.contacts.picking .contact-row > input{display:block}
+@media (hover:hover){.contact-row:hover{background:var(--c-row-hover)}}.contact-row.on{background:var(--c-selected);color:var(--c-on-selected)}
+.contacts.picking .contact-row:has(> input:checked){background:var(--c-selected)}.contacts.picking .contact-row > a{cursor:default}
+.pick-tools{display:none;flex:1;align-items:center;gap:var(--s-2);min-width:0}.picked{font-size:var(--t-md);color:var(--c-text-2)}
+.contacts.picking .toolbar > :not(.pick-tools){display:none}.contacts.picking .pick-tools{display:flex}
+.contact-name{flex:0 0 220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:var(--w-medium)}
+.contact-email{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--c-text-2)}
+.contact-company{flex:0 0 180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--c-text-3)}
+.contact-row.on .contact-email,.contact-row.on .contact-company{color:inherit}
+.contact-panel{position:sticky;top:calc(var(--h-top) + var(--h-lg));margin:var(--s-3) var(--s-4) var(--s-4) 0;padding:var(--s-2) var(--s-5) var(--s-5);border-radius:var(--r-xl);
+background:var(--c-surface-2);max-height:calc(100dvh - var(--h-top) - var(--h-lg) - var(--s-8));overflow-y:auto}
+.contact-panel .panel-close{position:absolute;top:var(--s-3);right:var(--s-3)}
+.contact-head{display:flex;flex-direction:column;align-items:center;gap:var(--s-1);padding:var(--s-4) var(--s-6) var(--s-5);text-align:center}
+.contact-head h2{margin:var(--s-2) 0 0;font-size:var(--t-2xl);font-weight:var(--w-regular);overflow-wrap:anywhere}.contact-head .hint{margin:0}
+.photo-pick{position:relative;display:inline-grid;border-radius:var(--r-full);cursor:pointer}
+.photo-pick .avatar.large{width:96px;height:96px;font-size:40px}
+.photo-pick input{position:absolute;width:1px;height:1px;opacity:0}
+.photo-badge{position:absolute;right:-2px;bottom:-2px;display:inline-grid;place-items:center;width:32px;height:32px;border-radius:var(--r-full);
+background:var(--c-surface);box-shadow:var(--e-1);color:var(--c-text-2)}.photo-badge svg.i{width:18px;height:18px;fill:currentColor}
+@media (hover:hover){.photo-pick:hover .photo-badge{color:var(--c-primary)}}.photo-pick:focus-within{outline:2px solid var(--c-primary);outline-offset:3px}
+.panel-actions{display:flex;justify-content:center;gap:var(--s-2);margin:0 0 var(--s-5)}
+.contact-lines{display:flex;flex-direction:column;gap:2px;margin:0;padding:0;list-style:none}
+.contact-lines li{display:flex;align-items:flex-start;gap:var(--s-4);padding:var(--s-3) var(--s-4);border-radius:var(--r-md);background:var(--c-surface)}
+.contact-lines li > svg.i{flex:none;margin-top:1px;fill:var(--c-text-2)}.contact-lines li span{min-width:0;overflow-wrap:anywhere}
+.contact-lines .notes{white-space:pre-wrap;color:var(--c-text-2)}
+.contact-panel .contact-form{display:none}.contact-panel.editing .contact-form{display:grid}.contact-panel.editing .contact-view{display:none}
+.contact-panel .form{gap:var(--s-3)}
+.field.with-icon{display:grid;grid-template-columns:20px minmax(0,1fr);column-gap:var(--s-3);align-items:start}
+.field.with-icon > svg.i{grid-row:1;margin-top:18px;fill:var(--c-text-2)}.field.with-icon > span{left:calc(20px + var(--s-3) + 12px);max-width:calc(100% - 20px - var(--s-3) - 24px)}
+.field.with-icon > input,.field.with-icon > textarea{grid-column:2}
+.contact-panel,.category-item{--field-bg:var(--c-surface-2)}
+/* A dropdown in a field (our own, over a hidden select) is the same 56 px
+   outlined field, its label always on the outline. */
+.field:has(> .select-pop) > span{top:0;font-size:var(--t-xs);line-height:16px}
+.field > .select-pop .select-field{min-height:var(--h-xl);padding:0 var(--s-3) 0 var(--s-4)}
+.toolbar .import{display:contents}
+.import{padding:var(--s-2) var(--s-3)}
+.subhead{margin:var(--s-7) 0 var(--s-1);font-size:var(--t-md);font-weight:var(--w-medium)}
+details.category-item{margin:var(--s-2) 0 0;border-radius:var(--r-md);background:var(--c-surface-2)}
+details.category-item > summary{display:flex;align-items:center;gap:var(--s-3);min-height:var(--h-lg);padding:0 var(--s-4);border-radius:inherit;cursor:pointer;list-style:none}
+details.category-item > summary::-webkit-details-marker{display:none}@media (hover:hover){details.category-item > summary:hover{background:var(--c-hover)}}
+details.category-item > summary span{flex:1;font-weight:var(--w-medium)}details.category-item > summary svg.i{fill:var(--c-text-2)}
+details.category-item[open] > summary svg.i:last-child{transform:rotate(180deg)}
+details.category-item.new > summary span{color:var(--c-primary)}
+details.category-item .form{padding:0 var(--s-4) var(--s-4)}
+details.category-item .field input{background:var(--c-surface)}
+details.category-item > summary .tint svg.i{fill:currentColor}
+.tint{display:inline-grid}
+fieldset.picker{margin:0;padding:0;border:0}fieldset.picker legend{margin-bottom:var(--s-2);color:var(--c-text-2);font-size:var(--t-xs)}
+.color-pick,.icon-pick{display:flex;flex-wrap:wrap;gap:var(--s-2)}.color-pick{display:grid;grid-template-columns:repeat(9,28px)}
+.color-pick label,.icon-pick label{position:relative;display:inline-grid;place-items:center;cursor:pointer}
+.color-pick input,.icon-pick input{position:absolute;opacity:0;width:1px;height:1px}
+.color-pick .dot{display:block;width:28px;height:28px;border-radius:var(--r-full);background:currentColor}
+.color-pick input:checked + .dot{box-shadow:0 0 0 2px var(--c-surface),0 0 0 4px currentColor}
+.color-pick input:focus-visible + .dot,.icon-pick input:focus-visible + svg{outline:2px solid var(--c-primary);outline-offset:2px}
+.icon-pick label{width:36px;height:36px;border-radius:var(--r-sm)}@media (hover:hover){.icon-pick label:hover{background:var(--c-hover)}}
+.icon-pick svg.i{fill:var(--c-text-2)}.icon-pick label:has(input:checked){background:var(--c-selected)}.icon-pick label:has(input:checked) svg.i{fill:var(--c-on-selected)}
+.group-title{margin:var(--s-6) 0 var(--s-3) var(--s-4);color:var(--c-text-2);font-size:var(--t-md)}
+code.value{padding:1px var(--s-2);border-radius:var(--r-xs);background:var(--c-surface-3);font-size:var(--t-xs);overflow-wrap:anywhere}
+table.plain td .hint{display:block;margin-top:2px}.apps table.plain th{width:200px}
+.copy{width:var(--h-sm);height:var(--h-sm);margin-left:var(--s-1);vertical-align:middle}.copy svg.i{width:var(--icon-sm);height:var(--icon-sm)}
+.copy svg.i + svg.i,.copy.done svg.i:first-child{display:none}.copy.done svg.i + svg.i{display:block;fill:var(--c-good)}
+details.guide{padding:0}
+details.guide > summary{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3);min-height:var(--h-xl);padding:0 var(--s-5) 0 var(--s-6);
+border-radius:inherit;cursor:pointer;list-style:none}
+details.guide > summary::-webkit-details-marker{display:none}
+@media (hover:hover){details.guide > summary:hover{background:var(--c-hover)}}details.guide > summary h2{margin:0}
+details.guide > summary svg.i{fill:var(--c-text-2);transition:transform var(--fast) var(--ease)}details.guide[open] > summary svg.i{transform:rotate(180deg)}
+.steps{display:grid;gap:var(--s-3);margin:0;padding:var(--s-2) var(--s-6) var(--s-5) calc(var(--s-6) + var(--s-5));line-height:1.6}
+.steps li::marker{color:var(--c-text-3);font-weight:var(--w-medium)}
+details.guide > .hint{margin:0;padding:0 var(--s-6) var(--s-5)}
+.photo-field input[type=file]{font-size:var(--t-xs)}
+.profile-photo{display:flex;align-items:center;gap:var(--s-5)}
+.avatar.large{width:72px;height:72px;font-size:28px}
+.photo-actions{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-2)}.photo-actions .hint{flex-basis:100%;margin:0}
+
+/* The account menu (Material 3): the mailbox of the page on top with its
+   profile, the other mailboxes signed in here with their unread mail, then
+   adding one and signing out. */
+.accounts > summary{list-style:none;cursor:pointer}.accounts > summary::-webkit-details-marker{display:none}
+.pop-card.account-menu{width:min(352px,calc(100vw - 2 * var(--s-4)));padding:var(--s-2) 0;border-radius:var(--r-xl)}
+.account-now{display:grid;justify-items:center;gap:var(--s-2);padding:var(--s-4) var(--s-4) var(--s-3);text-align:center}
+.account-now .avatar.large{width:72px;height:72px;font-size:28px}
+.account-who{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:var(--w-medium)}
+.account-manage{margin-top:var(--s-1)}
+.account-list{padding:var(--s-1) 0}
+.account{display:flex;align-items:center;gap:var(--s-3);min-height:var(--h-xl);padding:0 var(--s-4);color:var(--c-text)}
+.account .avatar{width:32px;height:32px;font-size:var(--t-md)}
+.account-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.account .count{min-width:24px;padding:0 var(--s-2);border-radius:var(--r-full);background:var(--c-primary-soft);color:var(--c-on-primary-soft);
+font-size:var(--t-xs);font-weight:var(--w-bold);line-height:24px;text-align:center}.account .count:empty,.account-unread:empty{display:none}
+.account-unread{margin-top:calc(-1 * var(--s-1));color:var(--c-text-2);font-size:var(--t-xs)}
+@media (hover:hover){.account:hover{background:var(--c-hover)}}.account:active{background:color-mix(in srgb,var(--c-text) 10%,transparent)}
+.account-menu .menu-item{width:100%}
+/* Settings, Accounts: the mailboxes in the order of their addresses */
+.account-order{display:flex;flex-direction:column;gap:var(--s-1);margin:0 0 var(--s-4);padding:0;list-style:none}
+.account-row{display:flex;align-items:center;gap:var(--s-3);min-height:var(--h-xl);padding:var(--s-1) var(--s-1) var(--s-1) var(--s-3);border-radius:var(--r-md);background:var(--c-surface-2)}
+.account-text{display:flex;flex:1;flex-direction:column;min-width:0}
+.account-text b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:var(--w-medium)}
+.account-text small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--c-text-3);font-size:var(--t-xs)}
+.account-row .icon-button[disabled]{opacity:.38;cursor:default}
+
+/* Notices: Material 3 snackbars, on the inverse surface with the action in
+   inverse primary. With Undo, a line runs out round the edge as the time to
+   undo passes. */
+.snackbar{position:fixed;left:var(--s-6);bottom:var(--s-6);z-index:40;display:flex;align-items:center;gap:var(--s-2);min-height:var(--h-lg);
+max-width:min(560px,calc(100vw - 2 * var(--s-6)));margin:0;padding:0 var(--s-2) 0 var(--s-4);border-radius:var(--r-xs);
+background:var(--c-inverse);color:var(--c-on-inverse);font-size:var(--t-md);line-height:20px;box-shadow:var(--e-3);
+animation:snack-in 250ms cubic-bezier(.05,.7,.1,1);transition:opacity 150ms cubic-bezier(.3,0,.8,.15),transform 150ms cubic-bezier(.3,0,.8,.15)}
+.snackbar.leaving{opacity:0;transform:translateY(4px)}
+@keyframes snack-in{from{opacity:0;transform:translateY(8px)}}
+.snack-text{flex:1;min-width:0;padding:14px 0}
+.snack-action{position:relative;z-index:1;flex:none;height:var(--h-md);padding:0 var(--s-3);border:0;border-radius:var(--r-full);background:transparent;
+color:var(--c-inverse-accent);font:inherit;font-weight:var(--w-medium);cursor:pointer}
+@media (hover:hover){.snack-action:hover{background:color-mix(in srgb,var(--c-inverse-accent) 8%,transparent)}}
+.snack-action:active{background:color-mix(in srgb,var(--c-inverse-accent) 12%,transparent)}
+/* A notice with an action is that action all over: a press anywhere on it
+   undoes, with the press shown on the whole notice. */
+.snackbar:has(.snack-action){cursor:pointer;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+.snackbar:has(.snack-action):active{background:color-mix(in srgb,var(--c-on-inverse) 12%,var(--c-inverse))}
+@media (hover:hover){.snackbar:has(.snack-action):hover{background:color-mix(in srgb,var(--c-on-inverse) 8%,var(--c-inverse))}}
+.snack-edge{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+.snack-edge path{fill:none;stroke:var(--c-inverse-accent);stroke-width:3;stroke-dasharray:100 100;animation:snack-run linear forwards}
+@keyframes snack-run{to{stroke-dashoffset:-100}}
+@media (prefers-reduced-motion:reduce){.snackbar{animation:none;transition:none}}
+.loading{position:fixed;top:var(--s-2);left:50%;z-index:60;transform:translateX(-50%);padding:var(--s-1) var(--s-4);border-radius:var(--r-full);
+background:var(--c-inverse);color:var(--c-on-inverse);font-size:var(--t-xs);font-weight:var(--w-medium);box-shadow:var(--e-2);pointer-events:none}.snackbar.error{background:var(--c-danger-soft);color:var(--c-on-danger-soft)}.snackbar.inline{position:static;max-width:none;margin:0 0 var(--s-4)}
+.alert{margin:0 0 var(--s-3);padding:var(--s-3) var(--s-4);border-radius:var(--r-md);background:var(--c-danger-soft);color:var(--c-on-danger-soft)}
+
+/* Sign in */
+body.bare{display:grid;place-items:center;min-height:100dvh;padding:var(--s-6)}
+body.bare main.card{width:100%;max-width:440px;margin:0;padding:calc(2 * var(--s-5));border-radius:var(--r-xl)}
+.brandmark{display:flex;align-items:center}.brandmark svg.brand-badge{height:36px}
+body.bare h1{margin:var(--s-6) 0 var(--s-1);font-size:var(--t-3xl)}p.sub{margin:0 0 var(--s-6);color:var(--c-text-2)}body.bare .filled{justify-self:end}
+.code-input{font-size:var(--t-3xl)!important;letter-spacing:.3em;text-align:center}
+
+/* Line breaks: labels never wrap, headings balance, prose avoids lone words */
+h1,h2,.page-title,legend{text-wrap:balance}
+p,.hint,.alert,ul.rules li span,.field > span,fieldset.choice label,.snackbar span,.empty{text-wrap:pretty}
+.folders a,.compose-button,.fab,.logo,.who,.tab{white-space:nowrap}
+
+/* Printing a conversation */
+@media print{.no-print,.top,.nav,.toolbar,.fab,.mail-actions,.mail-side,.snackbar,.scrim,.notice-strip{display:none!important}
+body.print-one details.mail:not(.printing),body.print-one .more-messages,body.print-one .subject-line > :not(h1){display:none!important}
+.app{display:block}.content{padding:0}.pane{min-height:0;border-radius:0}body{background:#fff}details.mail{background:#fff}
+.top,.toolbar{position:static}.pane{overflow:visible}}
+
+/* The page itself scrolls (so the browser keeps its own overscroll and
+   pull to refresh); the header and the left column stay in place by
+   sticking, and a pane's toolbar sticks under the header. */
+.top{position:sticky;top:0;z-index:30;background:var(--c-bg)}
+.pane{overflow:clip}
+/* The page bounces only where that means something: pulled down at the very
+   top, which reloads it. Not sideways, and not at the bottom (once the page
+   has scrolled, app.js marks it). Strips, menus and sheets scroll on their
+   own and never pull the page or stretch. */
+html{overscroll-behavior-x:none}html.scrolled{overscroll-behavior-y:none}
+.tabs,.editor-tools,.pop-card,.suggest,.nav,.settings-nav{overscroll-behavior:none}
+/* Strips that scroll sideways (categories, the formatting bar, the Settings
+   sections on a phone) show no scrollbar; they are swiped or dragged. */
+.tabs,.editor-tools,.settings-nav,.dock-tabs{scrollbar-width:none}
+.tabs::-webkit-scrollbar,.editor-tools::-webkit-scrollbar,.settings-nav::-webkit-scrollbar,.dock-tabs::-webkit-scrollbar{display:none}
+
+/* Parts that exist only on narrow screens */
+.scrim,.fab{display:none}
+
+/* Narrow screens */
+/* Public pages (the encryption guide) */
+.public-top{display:flex;align-items:center;gap:var(--s-3);height:var(--h-top);padding:0 var(--s-6)}
+.public-logo{display:flex}.public-top .brand-badge{display:block;height:28px;width:auto}
+.public-domain{color:var(--c-text-2);font-size:var(--t-lg)}
+.public-main{max-width:var(--w-text);margin:0 auto;padding:var(--s-2) var(--s-4) var(--s-8)}
+.public-main .card p,.security .card p{margin:0 0 var(--s-3)}.public-main .card p:last-child,.security .card p:last-child{margin-bottom:0}
+/* The way a message travels: places, and the stretches between them */
+.flow{margin:var(--s-4) 0;padding:var(--s-4);border-radius:var(--r-lg);background:var(--c-surface-2)}
+.flow figcaption{margin-top:var(--s-3);color:var(--c-text-2);font-size:var(--t-xs);font-weight:var(--w-medium);text-align:center}
+.flow-track{display:flex;align-items:stretch}
+.flow-stop{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:var(--s-1);padding:var(--s-4) var(--s-2) var(--s-3);
+border-radius:var(--r-md);background:var(--c-surface);text-align:center}
+.flow-stop b{font-weight:var(--w-medium);line-height:1.3;text-wrap:balance}.flow-stop small{color:var(--c-text-3);font-size:var(--t-xs);line-height:1.3;text-wrap:balance;overflow-wrap:anywhere}
+.flow-icon{display:grid;place-items:center;width:40px;height:40px;margin-bottom:var(--s-1);border-radius:var(--r-full);background:var(--c-primary-soft)}
+.flow-icon svg.i{fill:var(--c-on-primary-soft)}
+.verdict{display:inline-flex;align-items:center;gap:var(--s-1);margin-top:auto;padding:2px var(--s-2);border-radius:var(--r-sm);font-size:var(--t-xs);font-weight:var(--w-medium);line-height:1.4;white-space:nowrap}
+.verdict svg.i{flex:none;width:14px;height:14px;fill:currentColor}
+.verdict.reads{background:var(--c-surface-3);color:var(--c-text-2)}.verdict.exposed{background:var(--c-warn-soft);color:var(--c-on-warn-soft)}
+.verdict.blind{background:var(--c-good-soft);color:var(--c-on-good-soft)}
+.flow-leg{position:relative;flex:0 0 56px;display:grid;place-items:center}
+.flow-leg::before{content:"";position:absolute;left:4px;right:6px;top:calc(50% + 19px);border-top:2px solid var(--c-outline-variant)}
+.flow-leg::after{content:"";position:absolute;right:2px;top:calc(50% + 14px);border:6px solid transparent;border-left:7px solid var(--c-outline-variant);border-right:0}
+.flow-label{position:relative;z-index:1;display:inline-flex;flex-direction:column;align-items:center;gap:2px;padding:2px;background:var(--c-surface-2);
+color:var(--c-text-2);font-size:11px;font-weight:var(--w-medium);line-height:1.25;text-align:center;white-space:nowrap}
+.flow-label svg.i{width:16px;height:16px;fill:var(--c-good)}
+/* The Security page */
+.status-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:var(--s-3)}.status-tile{display:flex;flex-direction:column;align-items:flex-start;gap:var(--s-2);padding:var(--s-4);border-radius:var(--r-md);background:var(--c-surface-2)}.status-head{display:flex;align-items:center;justify-content:space-between;align-self:stretch;margin-bottom:var(--s-1)}.status-icon{flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:var(--r-full)}.status-icon.good{background:var(--c-good-soft)}.status-icon.good svg.i{fill:var(--c-on-good-soft)}.status-icon.todo{background:var(--c-warn-soft)}.status-icon.todo svg.i{fill:var(--c-on-warn-soft)}.status-badge{padding:2px var(--s-2);border-radius:var(--r-sm);font-size:var(--t-xs);font-weight:var(--w-medium);line-height:1.5}.status-badge.good{background:var(--c-good-soft);color:var(--c-on-good-soft)}.status-badge.todo{background:var(--c-warn-soft);color:var(--c-on-warn-soft)}.status-tile > b{font-size:var(--t-lg);font-weight:var(--w-medium)}.status-tile > p{margin:0!important;color:var(--c-text-2)}.status-tile .fpr{display:block;color:var(--c-text);font:var(--w-medium) 13px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;word-spacing:.15em}.status-tile .fpr span{display:block}.status-tile > .tonal{margin-top:auto}.device-list{margin:var(--s-3) 0 0;padding:0;list-style:none}.device-list li{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3);padding:var(--s-3) var(--s-4);margin-bottom:var(--s-2);border-radius:var(--r-md);background:var(--c-surface-2)}.device-list b{font-weight:var(--w-medium)}.device-list small{display:block;color:var(--c-text-2);font-size:var(--t-xs)}.table-scroll{overflow-x:auto;margin:0 calc(-1 * var(--s-1));padding:0 var(--s-1)}
+table.who-reads{min-width:600px}table.who-reads th[scope=col]{width:auto;background:transparent;color:var(--c-text-2);font-size:var(--t-xs);vertical-align:bottom}
+table.who-reads thead td{background:transparent}table.who-reads th[scope=row]{width:31%}table.who-reads td{border-radius:0}
+table.who-reads tr td:last-child{border-radius:0 var(--r-sm) var(--r-sm) 0}table.who-reads td.good,table.who-reads td.bad{font-weight:var(--w-medium)}
+.feature-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:var(--s-3)}
+.feature{padding:var(--s-4);border-radius:var(--r-md);background:var(--c-surface-2)}
+.feature-head{display:flex;align-items:center;gap:var(--s-2)}.feature-head svg.i{flex:none;fill:var(--c-primary)}.feature-head b{font-weight:var(--w-medium);font-size:var(--t-lg)}
+.feature p{margin:var(--s-3) 0 0!important}.gives,.costs{display:block;margin-bottom:2px;font-size:var(--t-xs);font-weight:var(--w-medium)}
+.gives{color:var(--c-good)}.costs{color:var(--c-text-3)}
+/* Keys and apps on the encryption guide */
+.key-grid{display:grid;gap:var(--s-3);grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.key-card{padding:var(--s-4);border-radius:var(--r-md);background:var(--c-surface-2)}.key-head{display:flex;align-items:center;gap:var(--s-2);overflow-wrap:anywhere}
+.key-head svg.i{flex:none;fill:var(--c-primary)}.key-head b{font-weight:var(--w-medium)}
+.fingerprint{margin:var(--s-3) 0 var(--s-1)!important;font:var(--w-medium) 13px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;word-spacing:.2em;overflow-wrap:anywhere}
+.fingerprint span{display:block}.key-addresses{margin:var(--s-3) 0 0;padding:0;list-style:none}.key-addresses li{display:flex;align-items:center;justify-content:space-between;gap:var(--s-2);min-height:var(--h-md);border-top:1px solid var(--c-outline-variant)}.key-addresses li > span{min-width:0;overflow-wrap:anywhere}.key-addresses .text{flex:none}
+
+.reader-frame{display:block;width:100%;height:180px;margin:0;border:0;background:transparent}.e2e-mark{display:inline-flex;align-items:center;gap:2px;margin-left:var(--s-2);color:var(--c-good);font-weight:var(--w-medium)}.e2e-mark svg.i{width:14px;height:14px}.reader-frame[hidden]{display:none}.reader-title{display:block;flex:0 1 auto;min-width:0;height:32px;border:0;background:transparent}.reader-title[hidden]{display:none}.reader-alert{display:flex;gap:var(--s-3);align-items:flex-start;margin:var(--s-3) 0 0;padding:var(--s-3) var(--s-4);border-radius:var(--r-md);background:var(--c-danger-soft);color:var(--c-on-danger-soft)}.security > .reader-alert{margin:0 0 var(--s-3)}.reader-alert svg.i{flex:none;fill:currentColor}.reader-alert b{display:block;font-weight:var(--w-medium)}.reader-alert p{margin:var(--s-1) 0 0!important}.reader-alert .text{margin:var(--s-2) 0 0 calc(-1 * var(--s-3));color:var(--c-on-danger-soft)}.sealed-card{display:flex;gap:var(--s-4);align-items:flex-start;margin:var(--s-2) 0;padding:var(--s-5);border-radius:var(--r-lg);background:var(--c-surface-2)}.sealed-text{flex:1;min-width:0;overflow-wrap:anywhere}.sealed-text .actions{flex-wrap:wrap}@media (max-width:640px){.sealed-card{flex-direction:column;gap:var(--s-3);padding:var(--s-4)}}.sealed-icon{flex:none;display:grid;place-items:center;width:48px;height:48px;border-radius:var(--r-full);background:var(--c-good-soft)}.sealed-icon svg.i{fill:var(--c-on-good-soft)}.sealed-text b{display:block;margin-bottom:var(--s-1);font-size:var(--t-lg);font-weight:var(--w-medium)}.sealed-text p{margin:0 0 var(--s-2)}.sealed-text p:last-child{margin:0}.sealed-text .actions{margin:var(--s-3) 0 0;justify-content:flex-start}.recovery-code{margin:var(--s-5) 0!important;padding:var(--s-4);border-radius:var(--r-md);background:var(--c-surface-2);font:var(--w-medium) 20px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.06em;text-align:center;overflow-wrap:anywhere}.hint.center{text-align:center;margin-top:var(--s-4)}body.bare main.card > p{margin:0 0 var(--s-3)}.preview.note.sealed{display:inline-flex;align-items:center;gap:var(--s-1);vertical-align:bottom}.preview.note.sealed svg.i,.snippet.sealed svg.i{flex:none;width:14px;height:14px;fill:var(--c-good)}.snippet.sealed svg.i{display:inline-block;margin-right:var(--s-1);vertical-align:-2px}.recipient-lock{display:inline-grid;place-items:center;flex:none}.recipient-lock[hidden]{display:none}.recipient-lock svg.i{width:16px;height:16px;fill:var(--c-good)}.e2e-toggle{display:inline-flex;align-items:center;gap:var(--s-2);height:var(--h-sm);padding:0 var(--s-4) 0 var(--s-3);border:1px solid var(--c-outline);border-radius:var(--r-sm);background:transparent;color:var(--c-text-2);font:var(--w-medium) var(--t-md) var(--f-sans);cursor:pointer}.e2e-toggle svg.i{width:18px;height:18px;fill:currentColor}.e2e-toggle[hidden]{display:none}.e2e-toggle[aria-pressed=true]{border-color:transparent;background:var(--c-good-soft);color:var(--c-on-good-soft)}@media (hover:hover){.e2e-toggle:hover{background:var(--c-hover)}.e2e-toggle[aria-pressed=true]:hover{background:color-mix(in srgb,var(--c-good-soft) 88%,var(--c-on-good-soft))}}.e2e-toggle.blocked{border-color:var(--c-danger);color:var(--c-danger)}.e2e-hidden{display:none!important}.e2e-slot{flex:1;min-height:240px}.e2e-slot[hidden]{display:none}.compose-frame{height:320px;margin:0}.seal-note{display:flex;align-items:center;gap:var(--s-2);width:fit-content;max-width:100%;margin:var(--s-2) 0 0;padding:var(--s-2) var(--s-3);border-radius:var(--r-sm);background:var(--c-good-soft);color:var(--c-on-good-soft);font-weight:var(--w-medium)}.seal-note[hidden]{display:none}.seal-note svg.i{flex:none;width:18px;height:18px;fill:currentColor}.seal-note.partial{background:var(--c-warn-soft);color:var(--c-on-warn-soft)}.inline-link{color:var(--c-primary);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}.app-list{display:flex;flex-direction:column;gap:var(--s-2);margin-top:var(--s-4)}details.app-guide{border-radius:var(--r-md);background:var(--c-surface-2)}details.app-guide > summary{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3);min-height:64px;padding:var(--s-3) var(--s-4);border-radius:var(--r-md);list-style:none;cursor:pointer}details.app-guide > summary::-webkit-details-marker{display:none}@media (hover:hover){details.app-guide > summary:hover{background:var(--c-hover)}}details.app-guide > summary svg.i{flex:none;fill:var(--c-text-2);transition:transform var(--fast) var(--ease)}details.app-guide[open] > summary svg.i{transform:rotate(180deg)}.app-text{display:flex;flex-direction:column;gap:2px;min-width:0}.app-text b{font-size:var(--t-lg);font-weight:var(--w-medium)}.app-text small{color:var(--c-text-2);font-size:var(--t-md)}.app-text small.ready{color:var(--c-good);font-weight:var(--w-medium)}.app-body{padding:0 var(--s-4) var(--s-4)}.app-body .steps{margin:var(--s-3) 0 0}.app-body .hint{margin:var(--s-2) 0 0!important}.app-actions{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-2);margin-top:var(--s-1)}.tonal.small{height:var(--h-sm);padding:0 var(--s-4)}.tonal.small:has(> svg.i:first-child){padding-left:var(--s-3)}.plain-list{margin:0 0 var(--s-3);padding-left:var(--s-6)}.plain-list li{margin:var(--s-1) 0}
+@media (max-width:640px){.flow-track{flex-direction:column}.flow-stop{padding:var(--s-3)}.flow-leg{flex:0 0 52px}
+.flow-leg::before{left:50%;right:auto;top:4px;bottom:8px;border-top:0;border-left:2px solid var(--c-outline-variant)}
+.flow-leg::after{right:auto;left:calc(50% - 5px);top:auto;bottom:2px;border:6px solid transparent;border-top:7px solid var(--c-outline-variant);border-bottom:0}
+.flow-label{flex-direction:row;gap:var(--s-1);padding:2px var(--s-2)}.public-top{padding:0 var(--s-4)}.public-main{padding:var(--s-1) var(--s-2) var(--s-7)}
+table.plain.who-reads{min-width:0}table.plain.who-reads thead{display:none}table.plain.who-reads,table.plain.who-reads tbody,table.plain.who-reads tr{display:block}table.plain.who-reads tr{margin-bottom:var(--s-2);padding:var(--s-3) var(--s-4);border-radius:var(--r-md);background:var(--c-surface-2)}table.plain.who-reads th[scope=row],table.plain.who-reads td{display:block;width:auto;padding:0;background:transparent;border-radius:0}table.plain.who-reads th[scope=row]{margin-bottom:var(--s-2);color:var(--c-text);font-weight:var(--w-medium)}table.plain.who-reads td{padding:var(--s-1) 0;text-align:left}table.plain.who-reads td::before{content:attr(data-label);display:block;color:var(--c-text-2);font-size:var(--t-xs);font-weight:var(--w-regular)}.table-scroll{overflow:visible;margin:0;padding:0}
+}
+@media (max-width:840px){
+:root{--h-top:64px;--tap:48px}
+body{padding-bottom:env(safe-area-inset-bottom)}
+.top{position:sticky;top:0;z-index:30;grid-template-columns:auto minmax(0,1fr) auto;gap:var(--s-2);padding:var(--s-2) var(--s-2) var(--s-2) 2px;background:var(--c-bg)}
+.logo-cell{min-width:auto;padding-left:0}
+.line:has(.recipients){flex-wrap:wrap}.suggest{position:static;flex:1 0 100%;width:auto;margin:0 calc(var(--s-1) - var(--s-2)) var(--s-2) calc(var(--s-1) - var(--s-4));max-height:calc(3 * 56px + var(--s-2))}.suggestion{min-height:56px}.suggestion .avatar{width:40px;height:40px;font-size:var(--t-lg)}.logo{display:none}
+.menu{width:var(--tap);height:var(--tap)}
+.me .icon-button{display:none}.me{padding-left:0}.me-link{place-items:center;width:var(--tap);height:var(--tap);margin:0}.me .avatar{margin:0}
+.app{grid-template-columns:1fr}
+/* The drawer: the logo with 24 px above and below it, then the folders, and
+   at the foot the storage and the two links on the phone's 16 px grid, so
+   that the drawer scrolls only on a screen too short for all of it. */
+.nav{position:fixed;inset:0 auto 0 0;z-index:50;width:min(300px,86vw);height:auto;padding:0 0 calc(var(--s-4) + env(safe-area-inset-bottom)) var(--s-2);
+padding-left:calc(var(--s-2) + env(safe-area-inset-left));background:var(--c-surface);border-radius:0 var(--r-lg) var(--r-lg) 0;
+transform:translateX(-102%);visibility:hidden;transition:transform 220ms var(--ease),visibility 0s 220ms;overflow:auto}
+.nav-brand{display:flex;align-items:center;padding:var(--s-6) var(--s-3)}
+.nav-end{gap:var(--s-2);padding-top:var(--s-4)}
+.nav-toggle:checked ~ .app .nav{transform:none;visibility:visible;transition:transform 220ms var(--ease);box-shadow:var(--e-2)}
+.scrim{position:fixed;inset:0;z-index:45;background:rgba(0,0,0,.32)}.nav-toggle:checked ~ .app .scrim{display:block}
+.nav .compose-button{display:none}
+.folders a{height:var(--tap);margin-right:var(--s-3)}
+.fab{position:fixed;right:calc(var(--s-4) + env(safe-area-inset-right));bottom:calc(var(--s-4) + env(safe-area-inset-bottom));z-index:20;
+display:inline-flex;align-items:center;gap:var(--s-3);height:var(--h-xl);padding:0 var(--s-5) 0 var(--s-4);border-radius:var(--r-lg);
+background:var(--c-primary-soft);color:var(--c-on-primary-soft);font-weight:var(--w-medium);box-shadow:var(--e-3)}
+body:has(.pane.composer) .fab{display:none}.fab:active{background:color-mix(in srgb,var(--c-primary-soft) 78%,var(--c-primary))}
+/* A pane reaches exactly the bottom of what the screen shows: dvh leaves out
+   the browser's own bars, which on Android come and go (Edge has one at the
+   bottom too), so a short page does not scroll. The room the Compose button
+   needs after the last row is inside the pane, in its color. */
+.content{padding:var(--s-2) 0 calc(var(--h-xl) + var(--s-6))}.content:has(> .pane){padding-bottom:0}
+.pane{min-height:0;padding-bottom:calc(var(--h-xl) + var(--s-6));border-radius:var(--r-lg) var(--r-lg) 0 0}
+/* The card ends with its content, and the page goes on in the card's color below it: no height worked out from the
+   screen, which Edge on Android reports taller than what shows above its bottom bar, so nothing extra to drag up. */
+html:has(.content > .pane){background:var(--c-surface)}body:has(.content > .pane){background:linear-gradient(var(--c-bg) calc(var(--h-top) + var(--s-2) + var(--r-lg)),var(--c-surface) 0)}
+.toolbar{padding:0 2px}.toolbar .icon-button{width:var(--tap);height:var(--tap)}
+/* Menus become sheets from the bottom edge */
+.pop[open] > summary::before{z-index:31;background:rgba(0,0,0,.32)}
+.pop-card,.pop.right .pop-card,.pop.up .pop-card{position:fixed;left:0;right:0;top:auto;bottom:0;z-index:32;max-width:none;max-height:70dvh;
+padding:var(--s-3) var(--s-2) calc(var(--s-4) + env(safe-area-inset-bottom));border-radius:var(--r-xl) var(--r-xl) 0 0}
+.pop-card.account-menu{width:auto;padding:var(--s-2) 0 calc(var(--s-4) + env(safe-area-inset-bottom));border-radius:var(--r-xl) var(--r-xl) 0 0}  /* a sheet, as every menu on a phone */
+.menu-item{min-height:var(--h-lg)}
+.check-all,.range,.toolbar .wide-only,.fold-rows,.subrows{display:none!important}.menu-item[data-phone]{display:flex}
+#bulk.has-selection .toolbar{gap:0;padding-left:var(--s-1)}#bulk.has-selection .pick-clear,#bulk.has-selection .pick-all{display:inline-grid}#bulk.has-selection .toolbar .icon-button,#bulk.has-selection .toolbar details.pop > summary{width:40px}#bulk.has-selection .picked-count{display:inline}
+/* Categories: labelled chips that scroll sideways; the open one is filled in
+   its color and comes into view when the list opens */
+.tabs{overflow-x:auto;gap:var(--s-2);padding:var(--s-2) var(--s-4)}
+.tab{flex:none;height:40px;padding:0 var(--s-3) 0 var(--s-2);gap:var(--s-2);border:1px solid var(--c-surface-4);border-radius:var(--r-sm)}
+.tab svg.i{width:18px;height:18px}
+.tab.on{border-color:transparent;background:color-mix(in srgb,var(--tab) 16%,var(--c-surface))}.tab.on::after{display:none}
+.tab-peek,.tab-edit,.badge-word{display:none!important}
+.tab .badge{padding:0 6px;line-height:20px}
+/* Rows as in Gmail's app: picture, sender and time, subject, preview; the
+   whole row opens the conversation and the star sits in its corner. */
+.list{display:flex;flex-direction:column}.row{display:block;height:auto;padding:0}
+.row > input,.row .imp,.quick,.row .chip,.row .clip{display:none!important}
+.open{display:grid;grid-template-columns:var(--h-md) minmax(0,1fr) auto;grid-template-areas:"avatar who time" "avatar subject subject" "avatar preview preview";
+gap:0 var(--s-3);align-items:baseline;height:auto;padding:var(--s-3) var(--s-4)}
+.row-avatar{display:inline-grid;grid-area:avatar;align-self:start;width:var(--h-md);height:var(--h-md);font-size:var(--t-lg)}
+.who{grid-area:who;min-width:0;padding:0;font-size:var(--t-lg);line-height:1.35}.row time{grid-area:time;width:auto;visibility:visible!important}
+.msg{display:contents}
+/* The subject and the preview both stop short of the star's column, so the
+   star's whole target is its own. */
+.subject{grid-area:subject;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:var(--h-md);line-height:1.4}
+.preview{grid-area:preview;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0;padding-right:var(--h-md);line-height:1.4;color:var(--c-text-3)}
+.row > .star{position:absolute;right:var(--s-2);bottom:var(--s-1);width:var(--tap);height:var(--tap)}
+.thread{padding:var(--s-3) var(--s-4) var(--s-6)}.subject-line{flex-wrap:wrap;row-gap:0;padding:0;margin-bottom:var(--s-2)}.subject-line h1{flex:1 0 100%;font-size:var(--t-2xl)}.subject-line .reader-title{flex:1 0 100%!important}
+.subject-line .imp,.subject-line .icon-button{width:var(--tap);height:var(--tap)}.subject-line .imp{margin:0 -6px 0 -14px}.subject-line > :last-child{margin-right:-14px}
+details.mail{padding:var(--s-2) var(--s-3)}.mail-body{padding-left:0}
+.from-line .addr,.mail-side .reply{display:none}
+/* A message header on a phone, as in Gmail's app: the name and its time on
+   one line and "to me" under it, the two as tall as the avatar beside them;
+   the star and the menu as roomy buttons level with the name. "To me" and
+   "replying to" keep finger-sized targets that reach past their text into
+   the space around it, without moving anything. */
+details.mail > summary{padding:var(--s-3) 0}details.mail[open] > summary{padding-bottom:var(--s-4)}
+.from-line{gap:var(--s-2);align-items:baseline;line-height:20px}.from-line b{font-size:var(--t-lg)}
+.when-inline{display:inline;color:var(--c-text-3);font-size:var(--t-xs);white-space:nowrap}.mail-side time{display:none}
+.mail-side{gap:0;margin:-14px -14px 0 0}
+.mail-side .star,.mail-side .pop > summary{width:48px;height:48px}
+.to{position:relative;margin-top:0}.to-toggle{min-height:28px}.to-toggle::after{content:"";position:absolute;inset:-6px -8px -16px}
+.sender .answers{display:none}
+/* "Replying to" belongs to the header: close under it, further from the text;
+   the targets of "to me" and of the chip meet in the space between. */
+details.mail[open]:has(> .mail-body > .answers-chip) > summary{padding-bottom:var(--s-2)}
+details.mail:has(> .mail-body > .answers-chip) .to-toggle::after{bottom:calc(-1 * var(--s-2))}
+.answers-chip{position:relative;display:inline-flex;align-items:center;gap:var(--s-2);max-width:100%;height:32px;margin:0 0 28px;padding:0 var(--s-4) 0 var(--s-2);
+border:1px solid var(--c-surface-4);border-radius:var(--r-sm);color:var(--c-text);font-size:var(--t-md);font-weight:var(--w-medium)}
+.answers-chip svg.i{flex:none;width:18px;height:18px;fill:var(--c-primary)}.answers-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.answers-chip::after{content:"";position:absolute;inset:0 0 -16px}.answers-chip:active{background:color-mix(in srgb,var(--c-text) 10%,transparent)}
+.person{height:32px;line-height:32px;padding:0 var(--s-3)}
+.mail-actions .outlined,.mail-actions .text-link{position:relative;height:var(--h-md)}.mail-actions .outlined::after,.mail-actions .text-link::after{content:"";position:absolute;inset:-4px 0}
+/* Finger-sized targets on the other screens too, their look unchanged: the
+   category chips, links in a notice, the buttons of forms and of the account
+   order; Cc and Bcc, side by side, grow wider instead. */
+.tab{position:relative}.tab::before{content:"";position:absolute;inset:-4px 0}
+.notice-strip .text-link{position:relative}.notice-strip .text-link::after{content:"";position:absolute;inset:-7px 0}
+.actions .filled,.actions .outlined,.actions .text,.account-manage{position:relative}
+.actions .filled::after,.actions .outlined::after,.actions .text::after,.account-manage::after{content:"";position:absolute;inset:-4px 0}
+.reveal .text.small{position:relative;min-width:var(--tap);padding:0 var(--s-3)}.reveal .text.small::after{content:"";position:absolute;inset:-8px 0}
+.line > label{display:flex;align-items:center;align-self:stretch;min-height:var(--tap)}
+.line:has(.recipients) > label{align-self:flex-start;height:var(--tap)}
+fieldset.choice label{min-height:var(--tap)}
+.recipients{gap:var(--s-2) var(--s-1);padding:var(--s-2) 0}.recipient .remove::after{content:"";position:absolute;inset:-8px -6px}
+.account-row .icon-button{width:var(--tap);height:var(--tap)}
+/* Above the keyboard the message shrinks first, down to nothing; if the
+   header lines still do not fit, the pane scrolls. The bin sits at the top
+   right, as in Gmail, so Send and the rest keep to one row. */
+.pane.composer{height:calc(100dvh - var(--h-top) - var(--s-2) - env(safe-area-inset-bottom));min-height:0;overflow:hidden auto;padding:0 var(--s-2) calc(var(--s-2) + env(safe-area-inset-bottom))}
+.editor,.pane.composer textarea{min-height:0}
+.composer-head{padding-right:var(--tap)}.composer-actions .discard{position:absolute;top:0;right:var(--s-2)}
+.picture-tools .icon-button,.pe-tools .icon-button,.pe-bar .icon-button{width:var(--tap);height:var(--tap)}.picture-frame .grip::after{inset:-17px}
+dialog.picture-editor{width:100vw;height:100dvh;border-radius:0}.pe-bar h2{display:none}.pe-bar{justify-content:space-between}.pe-tools{gap:var(--s-2) var(--s-3);padding-bottom:calc(var(--s-3) + env(safe-area-inset-bottom))}
+.pe-size{width:var(--tap);height:var(--tap)}.pe-tools{gap:var(--s-2) var(--s-1);padding-left:var(--s-2);padding-right:var(--s-2)}.pe-group{gap:0}.pe-chip{position:relative}.pe-chip::after{content:"";position:absolute;inset:-8px 0}
+.composer-head .from{display:none}
+.line{min-height:var(--tap)}.line input{height:var(--tap)}
+.line input,.editor,.pane.composer textarea,.field input,.field textarea,.form.inline input[type=text],.form.inline select,ul.rules input[type=text]{font-size:var(--t-lg)}
+.editor-tools{flex-wrap:nowrap;overflow-x:auto;gap:var(--s-1) var(--s-3)}.editor-tools .tool-group.pictures{order:-1}
+.editor-tools .icon-button,.composer-actions .icon-button{width:var(--tap);height:var(--tap)}
+.composer-actions .filled,.composer-actions .text{height:var(--tap)}
+.steps{padding-left:var(--s-7);padding-right:var(--s-4)}details.guide > summary{padding:0 var(--s-3) 0 var(--s-4)}details.guide > .hint{padding:0 var(--s-4) var(--s-4)}
+.settings{padding:var(--s-2) var(--s-2) var(--s-7)}.card{padding:var(--s-4)}
+.settings-layout{grid-template-columns:minmax(0,1fr);gap:0}.color-pick{grid-template-columns:repeat(auto-fill,28px)}
+.settings-nav{position:static;flex-direction:row;gap:var(--s-1);overflow-x:auto;padding:var(--s-1) var(--s-2) var(--s-2)}
+.settings-nav .page-title{display:none}.settings-nav a{min-height:var(--tap);padding:0 var(--s-3);background:var(--c-surface)}
+.form.inline > *{flex:1 1 auto}
+ul.rules li{flex-direction:column;align-items:stretch}
+table.plain th{width:auto}table.plain th,table.plain td{display:block;border-radius:0}table.plain th{border-radius:var(--r-sm) var(--r-sm) 0 0;padding-bottom:0}
+table.plain td{border-radius:0 0 var(--r-sm) var(--r-sm)}
+/* On a phone a notice sits level with the Compose button, as tall and as
+   round, in the room to its left (the script leaves room for the button). */
+.snackbar{left:calc(var(--s-4) + env(safe-area-inset-left));right:calc(var(--s-4) + env(safe-area-inset-right));
+bottom:calc(var(--s-4) + env(safe-area-inset-bottom));min-height:var(--h-xl);max-width:none;border-radius:var(--r-lg)}
+body.bare main.card{padding:var(--s-7) var(--s-5);border-radius:var(--r-lg)}body.bare{padding:var(--s-4)}
+.contact-company,.contact-search,.contact-email{display:none}.contact-name{flex:1}
+.contacts-body.has-panel{grid-template-columns:1fr}.contacts-body.has-panel .contact-list{display:none}
+.contact-panel{position:relative;top:auto;max-height:none;margin:var(--s-2);padding:var(--s-2) var(--s-4) var(--s-5)}
+.apps table.plain th{width:auto}}

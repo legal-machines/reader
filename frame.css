@@ -1,0 +1,24 @@
+/* The reader's pages in the Mail app (index.html, title.html) are drawn with
+   the Mail app's own stylesheet (mail.css, copied from its source by
+   make-styles.py). This file only takes away the app's page around them,
+   and styles the reader's own tab, which the Mail app opens where a browser
+   keeps passkeys out of frames. */
+html,body{background:transparent}
+body{margin:0;padding:0;min-height:0}
+.letter > .reader-alert:first-child{margin:0 0 var(--s-3)}
+.unlock .field{max-width:320px;margin:var(--s-3) 0 0}
+.unlock .alert{margin:var(--s-3) 0 0}
+.unlock .alert .text{margin-left:var(--s-1)}
+/* The subject frame: the conversation's title line, as the Mail app has it. */
+body.title-frame{overflow:hidden}
+.title-frame h1{overflow-wrap:anywhere}
+#measure{position:absolute;top:0;left:0;visibility:hidden;white-space:nowrap;font-size:var(--t-2xl);font-weight:var(--w-regular)}
+/* The reader's own tab. */
+body.page{background:var(--c-bg)}
+body.page #view{max-width:760px;margin:0 auto;padding:var(--s-6) var(--s-4)}
+body.page .letter{padding:var(--s-5) var(--s-6);border-radius:var(--r-lg);background:var(--c-surface)}
+.letter-head{display:flex;align-items:center;justify-content:space-between;gap:var(--s-2);margin-bottom:var(--s-3)}
+.badge{display:inline-flex;align-items:center;gap:var(--s-1);padding:2px var(--s-2);border-radius:var(--r-sm);background:var(--c-good-soft);color:var(--c-on-good-soft);font-size:var(--t-xs);font-weight:var(--w-medium)}
+.badge svg.i{width:14px;height:14px}
+.letter h2{margin:0 0 var(--s-1);font-size:var(--t-2xl);font-weight:var(--w-regular)}
+.meta{margin:0 0 var(--s-4);color:var(--c-text-2);font-size:var(--t-xs)}
