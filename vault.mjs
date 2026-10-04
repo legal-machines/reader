@@ -16,6 +16,9 @@ function start() {
     if (!('serviceWorker' in navigator)) return null;
     try {
       const reg = await navigator.serviceWorker.register('sw.js', {scope: './'});
+      // A newly published reader (and its new pins) reaches this browser on
+      // the next page, not a day later; the browser fetches sw.js past its cache.
+      reg.update().catch(() => {});
       const active = reg.active || await new Promise((resolve, reject) => {
         const w = reg.installing || reg.waiting;
         if (!w) return reject(new Error('no worker'));
@@ -46,8 +49,11 @@ async function ask(message, transfer = []) {
 
 // {unlocked, keyIds, marks}: what is open, in the vault or in this page.
 export async function state() {
-  const s = await ask({type: 'state'}) || {unlocked: false, keyIds: [], marks: {}, infos: {}};
+  let s = await ask({type: 'state'}) || {unlocked: false, keyIds: [], marks: {}, infos: {}};
   if (s.marks) remember(s.marks);
+  // A page the worker did not serve from its checked copy may not use its
+  // key (sw.js): for such a page only a key opened in it counts.
+  if (s.served === false) s = {...s, unlocked: false, keyIds: [], infos: {}};
   const infos = {...(s.infos || {})};
   for (const [id, k] of page) infos[id] = k.info;
   const keyIds = Object.keys(infos);
@@ -72,7 +78,8 @@ export async function hold(record, pkcs8, minutes) {
     if (copy.byteLength) new Uint8Array(copy).fill(0);
   }
   try {
-    if (!keep?.keyIds?.includes(record.keyId)) {
+    // Kept in this page as well where the worker did not serve it.
+    if (!keep?.keyIds?.includes(record.keyId) || keep.served === false || !navigator.serviceWorker?.controller) {
       const key = await crypto.subtle.importKey('pkcs8', pkcs8, {name: 'X25519'}, false, ['deriveBits']);
       page.set(record.keyId, {key, info: record.info});
       remember({[record.keyId]: await markOf(key)});

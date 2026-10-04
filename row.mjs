@@ -39,7 +39,7 @@ function write(el, text, lock) {
   if (still.matches) { holder.textContent = text; return; }
   const start = performance.now(), length = Math.min(text.length, 160);
   const step = now => {
-    const t = Math.min(1, (now - start) / 420), done = Math.floor(t * length);
+    const t = Math.min(1, (now - start) / 450), done = Math.floor(t * length);
     holder.textContent = text.slice(0, done) + [...text.slice(done, length)].map(c => c === ' ' ? ' ' : chars[Math.random() * 64 | 0]).join('') + text.slice(length);
     if (t < 1) requestAnimationFrame(step);
     else holder.textContent = text;

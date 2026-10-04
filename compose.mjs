@@ -15,24 +15,27 @@ import {escape} from './mime.mjs';
 import {icon} from './icons.mjs';
 import {KEYS} from './keys.mjs';
 import {chip, explained, markFor, setExplained} from './mark.mjs';
-import {used} from './vault.mjs';
+import * as vault from './vault.mjs';
 
 const form = document.getElementById('compose'), subject = document.getElementById('subject'), editor = document.getElementById('editor');
-const tools = document.getElementById('tools'), filesBox = document.getElementById('files'), seal = document.getElementById('seal');
-const pictureInput = document.getElementById('pictures'), dropHint = form.querySelector('.drop-hint');
+const tools = document.getElementById('tools'), filesBox = document.getElementById('files'), dock = document.getElementById('mark-dock');
+document.getElementById('e2e-label').innerHTML = icon('lock') + '<span>End to end</span>';
+const pictureInput = document.getElementById('pictures'), filesInput = document.getElementById('attach'), dropHint = form.querySelector('.drop-hint');
 const LIMIT = 15 * 1024 * 1024;  // the files of one message, as the mail server takes them encrypted
-let parentOrigin = null, library = null, from = '', attachChannel = null, started = false;
+let parentOrigin = null, from = '', channel = null, started = false, typed = false;
+const instance = crypto.randomUUID();
+// Typed here by a person (the browser marks such events as trusted).
+for (const type of ['keydown', 'pointerdown', 'paste', 'drop']) addEventListener(type, e => { if (e.isTrusted) typed = true; }, true);
 const files = [];                 // {file, id}
 const pictures = new Map();       // number -> File, for <img data-pic>
 let pictureCount = 0;
-const openpgpLib = () => (library ||= import('./openpgp.min.mjs'));
 const tell = m => { if (parentOrigin) parent.postMessage(m, parentOrigin); };
 // Mail hears once that the text changed (so an old encrypted copy is not
 // sent), not at every key: the timing of keys is the writer's own.
 let lastUse = 0, dirty = false;
 const touched = () => {
   if (!dirty) { dirty = true; tell({type: 'reader-dirty'}); }
-  if (Date.now() - lastUse > 30000) { lastUse = Date.now(); used(true); }
+  if (Date.now() - lastUse > 30000) { lastUse = Date.now(); vault.used(true); }
 };
 
 // ---- The formatting bar, as Mail draws it (webmail/src/RoutesCompose.cpp, editor_tools).
@@ -66,7 +69,7 @@ function bar() {
     '</span><span class="tool-group">' + pop('align_left', 'Align', aligns) + tool('insertOrderedList', 'numbers', 'Numbered list', 'Shift+7') +
     tool('insertUnorderedList', 'bullets', 'Bulleted list', 'Shift+8') + tool('outdent', 'indent_less', 'Indent less', '[') +
     tool('indent', 'indent_more', 'Indent more', ']') + tool('blockquote', 'quote', 'Quote', 'Shift+9') +
-    '</span><span class="tool-group pictures">' + tool('insertImage', 'image', 'Insert picture') + '</span><span class="tool-group">' + tool('createLink', 'link', 'Link', 'K') +
+    '</span><span class="tool-group pictures">' + tool('attachFiles', 'attach', 'Attach files') + tool('insertImage', 'image', 'Insert picture') + '</span><span class="tool-group">' + tool('createLink', 'link', 'Link', 'K') +
     pop('emoji', 'Emoji', emoji) + pop('table', 'Table', table) + tool('removeFormat', 'clear', 'Remove formatting', '\\') + '</span>';
 }
 tools.innerHTML = bar();
@@ -112,6 +115,7 @@ const format = (cmd, value) => {
   restore(saved);
   if (cmd === 'createLink') { closeMenus(); askLink(); return; }
   if (cmd === 'insertImage') { closeMenus(); pictureInput.click(); return; }
+  if (cmd === 'attachFiles') { closeMenus(); filesInput.click(); return; }
   if (cmd === 'blockquote') document.execCommand('formatBlock', false, 'blockquote');
   else if (cmd === 'insertTable') {
     const [cols, rows] = value.split('x').map(Number);
@@ -170,6 +174,16 @@ editor.addEventListener('keydown', e => {
   if (cmd) { e.preventDefault(); format(cmd); }
 });
 editor.addEventListener('input', () => { touched(); mark(); });
+// A click in the empty space of a message with nothing written yet starts
+// it at the top, above the signature, as in Mail.
+let untouched = null;
+editor.addEventListener('mouseup', e => {
+  if (e.target !== editor || editor.innerHTML !== untouched || !getSelection().isCollapsed) return;
+  const range = document.createRange();
+  range.setStart(editor, 0);
+  range.collapse(true);
+  restore(range);
+});
 subject.addEventListener('input', touched);
 // Enter in Subject goes on to the text, as in Mail.
 subject.addEventListener('keydown', e => {
@@ -197,6 +211,10 @@ function placePictures(list) {
   touched();
 }
 pictureInput.addEventListener('change', () => { placePictures([...pictureInput.files].filter(isPicture)); pictureInput.value = ''; });
+// Files are picked here, in the reader, with its clip: Mail's own clip is
+// not shown while writing end to end, and the keyboard stays in the reader,
+// so your mark stays in view as you attach.
+filesInput.addEventListener('change', () => { attach([...filesInput.files]); filesInput.value = ''; });
 editor.addEventListener('paste', e => {
   const list = [...(e.clipboardData?.files || [])];
   if (!list.length) return;
@@ -226,9 +244,11 @@ function attach(list) {
       URL.revokeObjectURL(url);
       chipEl.remove();
       touched();
+      showSeal();
     });
     filesBox.append(chipEl);
     touched();
+    showSeal();
   }
 }
 let dragging = 0;
@@ -250,29 +270,25 @@ form.addEventListener('drop', e => {
   } else attach(list);
 });
 
-// ---- The mark, while this frame has the keyboard.
+// ---- The mark, while this frame has the keyboard: a chip floating at the
+// foot of the text, which a field that only looks like this one cannot show
+// (Mail can neither read it nor have it shown elsewhere). The first time,
+// it says what it is; before this browser knows it, where it will come from.
 function showSeal() {
   const own = KEYS.find(k => k.address === from.toLowerCase());
   const m = own && markFor(own.subkeys);
-  // While the keyboard is here: your mark, which a field that only looks
-  // like this one cannot show; otherwise the lock of an end-to-end message.
-  const typing = document.hasFocus() && m;
-  seal.innerHTML = typing ? `<span class="e2e-label mark">${icon('lock')}<span class="mark-word">Your mark</span>${chip(m.mark, ' data-inline')}</span>`
-                          : `<span class="e2e-label">${icon('lock')}<span>End to end</span></span>`;
-  seal.title = m ? (typing ? 'Your mark: only the Mail Reader shows it' : 'Your mark shows here while you type') : 'Your mark appears once this browser has opened your key';
-  // The first time it shows: what it is. Before this browser knows it (the
-  // key not yet unlocked here): where it will come from.
   const focused = document.hasFocus();
-  const first = typing && !explained(m.keyId), unknown = focused && !m;
-  hint.hidden = !(first || unknown);
-  hint.querySelector('span').textContent = unknown ? 'Your mark appears here once you unlock encrypted mail in this browser.'
-                                                   : 'The four pictures are your mark: only the Mail Reader shows them, here, as you type.';
-  hint.querySelector('button').hidden = unknown;
-  if (first) hint.dataset.key = m.keyId;
+  dock.dataset.shown = String(focused && !!from);
+  if (!focused) return;
+  dock.innerHTML = m
+    ? `${icon('shield')}<span class="mark-word">Your mark</span>${chip(m.mark, ' data-dock')}` +
+      (files.length ? `<span class="mark-files">${files.length === 1 ? '1 file' : files.length + ' files'}</span>` : '') +
+      (explained(m.keyId) ? '' : `<span class="mark-why">Only the Mail Reader shows it, and only here, as you type.</span><button class="text" type="button" data-got-it>Got it</button>`)
+    : `${icon('shield')}<span class="mark-why">Your mark appears here once you unlock encrypted mail in this browser.</span>`;
+  const got = dock.querySelector('[data-got-it]');
+  got?.addEventListener('mousedown', e => e.preventDefault());  // the keyboard stays where it was
+  got?.addEventListener('click', () => { setExplained(m.keyId); showSeal(); });
 }
-const hint = document.getElementById('mark-hint');
-hint.querySelector('button').addEventListener('mousedown', e => e.preventDefault());  // the keyboard stays where it was
-hint.querySelector('button').addEventListener('click', () => { setExplained(hint.dataset.key); hint.hidden = true; });
 addEventListener('focus', showSeal);
 addEventListener('blur', showSeal);
 document.addEventListener('focusin', showSeal);
@@ -328,17 +344,15 @@ async function body() {
   return part;
 }
 
-async function encrypt({to, cc, bcc}) {
-  const everyone = [...to, ...cc, ...bcc].map(a => a.toLowerCase());
-  if (!everyone.length) throw new Error('Add a recipient.');
-  const keyOf = address => KEYS.find(k => k.address === address);
-  const missing = [...everyone, from.toLowerCase()].filter(a => !keyOf(a));
-  if (missing.length) throw new Error(`End to end goes only to mailboxes here with keys; not to ${missing.join(', ')}.`);
+// The whole message as MIME text, for the reader's Send (send.mjs), which
+// seals and encrypts it: the headers people read travel inside
+// (protected-headers="v1", as Thunderbird writes them; outside the subject
+// is "..."), padded to a step of 4 KB (64 KB past 64 KB) with blank lines
+// before the first part, which every mail program skips, so that the size
+// of the encrypted message tells Mail little about how much was written.
+async function message({to, cc}) {
+  if (!subject.value.trim() && !(editor.innerText || '').trim() && !files.length) throw new Error('The message is empty.');
   if (total() > LIMIT) throw new Error('End-to-end messages take files of up to 15 MB in all.');
-  const openpgp = await openpgpLib();
-  const recipients = await Promise.all([...new Set([...everyone, from.toLowerCase()])].map(a => openpgp.readKey({armoredKey: keyOf(a).armored})));
-  // The headers people read travel inside (protected-headers="v1", as
-  // Thunderbird writes them); outside the subject is "...".
   const heads = `From: ${from}\r\nTo: ${list(to)}\r\n` + (cc.length ? `Cc: ${list(cc)}\r\n` : '') +
                 `Subject: ${header(subject.value.trim())}\r\nDate: ${new Date().toUTCString()}\r\nMIME-Version: 1.0\r\n`;
   let inner = await body();
@@ -350,16 +364,11 @@ async function encrypt({to, cc, bcc}) {
   } else {
     inner = inner.replace(/^Content-Type: ([^\r]+)\r\n/, (_, t) => `Content-Type: ${t}; protected-headers="v1"\r\n${heads}`);
   }
-  // Padded to a step of 4 KB (64 KB past 64 KB) with blank lines before the
-  // first part, which every mail program skips: the size of the encrypted
-  // message tells Mail little about how much was written.
   const enc = new TextEncoder(), size = enc.encode(inner).length + 2;
   const step = size < 65536 ? 4096 : 65536, pad = Math.ceil(size / step) * step - size;
   const cut = inner.indexOf('\r\n\r\n') + 4;
   const filler = (' '.repeat(74) + '\r\n').repeat(Math.floor(pad / 76)) + ' '.repeat(pad % 76);
-  inner = inner.slice(0, cut) + filler + '\r\n' + inner.slice(cut);
-  const message = await openpgp.createMessage({binary: enc.encode(inner)});
-  return openpgp.encrypt({message, encryptionKeys: recipients, format: 'armored'});
+  return inner.slice(0, cut) + filler + '\r\n' + inner.slice(cut);
 }
 
 // What Mail hands over at the start (the signature and its notice, and the
@@ -376,7 +385,9 @@ function clean(html) {
       if (!keep.has(child.tagName)) { child.replaceWith(...child.childNodes); continue; }
       for (const a of [...child.attributes]) {
         const ok = (child.tagName === 'A' && a.name === 'href' && /^(https?:|mailto:)/i.test(a.value)) ||
-                   (child.tagName === 'FONT' && (a.name === 'size' && /^[1-7]$/.test(a.value) || a.name === 'color' && /^#[0-9a-f]{6}$/i.test(a.value))) ||
+                   // The notice's small gray type only: nothing Mail hands over can hide in
+                   // tiny or pale letters and go out sealed as your words.
+                   (child.tagName === 'FONT' && (a.name === 'size' && a.value === '2' || a.name === 'color' && /^#5f6368$/i.test(a.value))) ||
                    (a.name === 'class' && /^(signature|quoted)$/.test(a.value));
         if (!ok) child.removeAttribute(a.name);
       }
@@ -396,21 +407,27 @@ addEventListener('message', async e => {
     from = typeof d.from === 'string' ? d.from.slice(0, 254) : '';
     if (typeof d.subject === 'string') subject.value = d.subject.slice(0, 998);
     editor.innerHTML = clean(d.html);
-    if (typeof d.files === 'string' && /^page-[\w-]{8,64}$/.test(d.files)) {
-      attachChannel = new BroadcastChannel(d.files);
-      attachChannel.onmessage = m => { if (m.data?.type === 'files' && Array.isArray(m.data.files)) attach(m.data.files); };
+    untouched = editor.innerHTML;
+    if (typeof d.channel === 'string' && /^page-[\w-]{8,64}$/.test(d.channel)) {
+      // The reader's Send (send.mjs) asks for the message here, once you
+      // press it; Mail cannot have it encrypted at any other time.
+      channel = new BroadcastChannel(d.channel);
+      channel.onmessage = async m => {
+        const x = m.data || {};
+        // Only a composer someone has typed into answers, with its own ID:
+        // Mail cannot slip in a second one, filled with its own words, for
+        // Send to seal in your name (send.mjs refuses two answers).
+        if (x.type !== 'compose-message' || typeof x.id !== 'string' || !typed) return;
+        const s = v => Array.isArray(v) ? v.filter(a => typeof a === 'string').slice(0, 100) : [];
+        try {
+          channel.postMessage({type: 'message', id: x.id, from: instance, text: await message({to: s(x.to), cc: s(x.cc)})});
+          dirty = false;
+        } catch (err) {
+          channel.postMessage({type: 'message', id: x.id, from: instance, error: err.message});
+        }
+      };
     }
     showSeal();
-  } else if (d.type === 'reader-encrypt') {
-    const s = v => Array.isArray(v) ? v.filter(a => typeof a === 'string').slice(0, 100) : [];
-    try {
-      if (!subject.value.trim() && !(editor.innerText || '').trim() && !files.length) throw new Error('The message is empty.');
-      const armored = await encrypt({to: s(d.to), cc: s(d.cc), bcc: s(d.bcc)});
-      dirty = false;
-      tell({type: 'reader-encrypted', armored});
-    } catch (err) {
-      tell({type: 'reader-error', message: escape(err.message)});
-    }
   }
 });
 if (parent !== window) parent.postMessage({type: 'reader-ready'}, '*');

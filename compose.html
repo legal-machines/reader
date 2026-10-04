@@ -20,17 +20,19 @@
 <link rel="modulepreload" href="mark.mjs">
 <link rel="modulepreload" href="vault.mjs">
 <link rel="modulepreload" href="store.mjs">
+<link rel="modulepreload" href="seal.mjs">
 <script type="module" src="compose.mjs"></script>
 </head>
 <body class="embed compose-frame">
 <form class="pane composer" id="compose" autocomplete="off">
-  <div class="fields tail"><div class="line" data-line="subject"><label for="subject">Subject</label><input id="subject" type="text" enterkeyhint="next"><span class="e2e-seal" id="seal"></span></div>
-    <p class="mark-hint" id="mark-hint" hidden><span>The four pictures are your mark: only the Mail Reader shows them, here, as you type.</span><button class="text" type="button">Got it</button></p></div>
-  <div class="editor" id="editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Message"></div>
+  <div class="fields tail"><div class="line" data-line="subject"><label for="subject">Subject</label><input id="subject" type="text" enterkeyhint="next"><span class="e2e-label" id="e2e-label"></span></div></div>
+  <div class="editor-box"><div class="editor" id="editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Message"></div>
+    <div class="mark-dock" id="mark-dock" data-shown="false" aria-live="polite"></div></div>
   <div class="attachments" id="files"></div>
   <div class="drop-hint" hidden><span></span></div>
   <div class="editor-tools" role="toolbar" aria-label="Formatting" id="tools"></div>
   <input type="file" id="pictures" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden>
+  <input type="file" id="attach" multiple hidden>
   <div class="link-card pop-card" id="link-card" hidden><label class="field"><span>Link</span><input type="url" id="link-address" value="https://"></label>
     <div class="actions"><button class="text" type="button" id="link-cancel">Cancel</button><button class="filled" type="button" id="link-insert">Insert</button></div></div>
 </form>

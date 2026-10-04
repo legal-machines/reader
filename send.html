@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<!-- No network at all beyond this site's own files. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; worker-src 'self'; style-src 'self'; form-action 'none'; base-uri 'none'">
+<title>Send</title>
+<link rel="stylesheet" href="mail.css">
+<link rel="stylesheet" href="frame.css">
+<link rel="modulepreload" href="send.mjs">
+<link rel="modulepreload" href="sites.mjs">
+<link rel="modulepreload" href="width.mjs">
+<link rel="modulepreload" href="keys.mjs">
+<link rel="modulepreload" href="seal.mjs">
+<link rel="modulepreload" href="vault.mjs">
+<link rel="modulepreload" href="store.mjs">
+<link rel="modulepreload" href="mark.mjs">
+<link rel="modulepreload" href="decrypt.mjs">
+<link rel="modulepreload" href="sealed-core.mjs">
+<link rel="modulepreload" href="mime.mjs">
+<script type="module" src="send.mjs"></script>
+</head>
+<body class="embed send-frame"><div class="composer-actions" id="actions"><label class="field send-pin" hidden><span>PIN</span><input type="password" id="pin" inputmode="numeric" autocomplete="off"></label><button class="filled send" type="button" id="send">Send now</button></div></body>
+</html>

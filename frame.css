@@ -11,33 +11,29 @@ body{margin:0;padding:0;min-height:0}
 .unlock .alert .text{margin-left:var(--s-1)}
 /* The message: the encrypted text gives way to the letter. */
 .stage{position:relative}
-.stage + .cipher.leaving,#view > .cipher.leaving{position:absolute;top:0;left:0;right:0;pointer-events:none;animation:cipher-out .42s var(--ease) forwards}
+.stage + .cipher.leaving,#view > .cipher.leaving{position:absolute;top:0;left:0;right:0;pointer-events:none;animation:cipher-out var(--d-long1) var(--ease-emphasized-accel) forwards}
 @keyframes cipher-out{to{opacity:0;filter:blur(2px)}}
+@media (prefers-reduced-motion:reduce){.stage + .cipher.leaving,#view > .cipher.leaving,.letter.arriving{animation:none}}
 .letter.arriving{-webkit-mask-image:linear-gradient(#000 0 40%,transparent 60%);mask-image:linear-gradient(#000 0 40%,transparent 60%);
-  -webkit-mask-size:100% 250%;mask-size:100% 250%;animation:letter-in .55s var(--ease) both}
+  -webkit-mask-size:100% 250%;mask-size:100% 250%;animation:letter-in var(--d-long2) var(--ease-emphasized-decel) both}
 @keyframes letter-in{from{-webkit-mask-position:0 100%;mask-position:0 100%}to{-webkit-mask-position:0 0;mask-position:0 0}}
 #view{position:relative}
-/* The first time the mark shows while writing: what it is, in one line. */
-.mark-hint{display:flex;align-items:center;gap:var(--s-2);margin:0;padding:0 var(--s-2) var(--s-1) var(--s-4);color:var(--c-text-2);font-size:var(--t-xs)}
-.mark-hint[hidden]{display:none}
-.mark-hint span{flex:1;min-width:0;text-wrap:balance}
-.mark-hint .text{flex:none;height:var(--h-sm);padding:0 var(--s-3)}
 /* The hub: one Unlock for every encrypted message on the page, as a
    Material 3 two-line list item on a container surface. A PIN and an
    error, when there are any, take a row of their own under it. */
 body.hub #hub:empty{display:none}
-.hub-bar{display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;column-gap:var(--s-4);min-height:72px;padding:var(--s-2) var(--s-6) var(--s-2) var(--s-4);
+.hub-bar{display:grid;grid-template-columns:var(--h-md) minmax(0,1fr) auto;align-items:center;column-gap:var(--s-4);min-height:calc(var(--h-xl) + var(--s-4));padding:var(--s-2) var(--s-6) var(--s-2) var(--s-4);
   border-radius:var(--r-md);background:var(--c-surface-2)}
-.hub-icon{display:grid;place-items:center;width:40px;height:40px;border-radius:var(--r-full);background:var(--c-good-soft)}
-.hub-icon svg.i{width:20px;height:20px;fill:var(--c-on-good-soft)}
+.hub-icon{display:grid;place-items:center;width:var(--h-md);height:var(--h-md);border-radius:var(--r-full);background:var(--c-good-soft)}
+.hub-icon svg.i{width:var(--icon);height:var(--icon);fill:var(--c-on-good-soft)}
 .hub-text{display:flex;flex-direction:column;min-width:0}
 .hub-text b{overflow:hidden;color:var(--c-text);font-size:var(--t-lg);font-weight:var(--w-regular);line-height:24px;text-overflow:ellipsis;white-space:nowrap}
 .hub-support{display:flex;align-items:center;gap:var(--s-1);overflow:hidden;color:var(--c-text-2);font-size:var(--t-md);line-height:20px;text-overflow:ellipsis;white-space:nowrap}
-.reader-mark[data-inline]{padding:0;background:none;font-size:14px;letter-spacing:1px}
+
 .hub-unlock{display:contents}
 .hub-unlock > button{grid-column:3;grid-row:1}
 .hub-unlock > button{padding:0 var(--s-6) 0 var(--s-4)}
-.hub-unlock > button svg.i{width:18px;height:18px}
+.hub-unlock > button svg.i{width:var(--icon-sm);height:var(--icon-sm)}
 .hub-pin{grid-column:2 / 4;grid-row:2;width:min(200px,100%);margin:var(--s-2) 0 var(--s-1)}
 .hub-pin input{height:var(--h-md)}
 .hub-error{grid-column:2 / 4;margin:var(--s-1) 0;color:var(--c-danger);font-size:var(--t-xs)}
@@ -45,13 +41,12 @@ body.hub #hub:empty{display:none}
 :root.phone .hub-bar{column-gap:var(--s-3);padding:var(--s-2) var(--s-3) var(--s-2) var(--s-4)}
 :root.phone .hub-unlock > button{padding:0 var(--s-4) 0 var(--s-3)}
 .hub-panel{display:flex;flex-direction:column;gap:var(--s-3)}
-.hub-mark .reader-mark[data-big]{font-size:32px}
 .hub-note{margin:0;color:var(--c-text-2)}
 .hub-status{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-2) var(--s-3)}
 .hub-status .hub-unlock{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-2)}
 .hub-status .hub-unlock > *{grid-column:auto;grid-row:auto}
 .hub-status > span{display:inline-flex;align-items:center;gap:var(--s-2);color:var(--c-text-2)}
-.hub-status > span svg.i{width:18px;height:18px}
+.hub-status > span svg.i{width:var(--icon-sm);height:var(--icon-sm)}
 /* The subject frame: the conversation's title line, as the Mail app has it. */
 body.title-frame{overflow:hidden}
 .title-frame h1{overflow-wrap:anywhere}
@@ -62,7 +57,7 @@ body.page #view{max-width:760px;margin:0 auto;padding:var(--s-6) var(--s-4)}
 body.page .letter{padding:var(--s-5) var(--s-6);border-radius:var(--r-lg);background:var(--c-surface)}
 .letter-head{display:flex;align-items:center;justify-content:space-between;gap:var(--s-2);margin-bottom:var(--s-3)}
 .badge{display:inline-flex;align-items:center;gap:var(--s-1);padding:2px var(--s-2);border-radius:var(--r-sm);background:var(--c-good-soft);color:var(--c-on-good-soft);font-size:var(--t-xs);font-weight:var(--w-medium)}
-.badge svg.i{width:14px;height:14px}
+.badge svg.i{width:var(--icon-sm);height:var(--icon-sm)}
 .letter h2{margin:0 0 var(--s-1);font-size:var(--t-2xl);font-weight:var(--w-regular)}
 .meta{margin:0 0 var(--s-4);color:var(--c-text-2);font-size:var(--t-xs)}
 /* Writing end to end (compose.html): Mail's composer from the Subject line
@@ -72,23 +67,41 @@ body.compose-frame{height:100vh;overflow:hidden}
 :root body.compose-frame .pane.composer{height:100vh;min-height:0;padding:0;border-radius:0;background:transparent;overflow:visible}
 .compose-frame .editor-tools[hidden]{display:flex!important}
 .fields.tail{padding-top:0;border-top-left-radius:0;border-top-right-radius:0}
-.e2e-seal{display:inline-flex;align-items:center;gap:var(--s-2);flex:none;padding-right:var(--s-2)}
-.e2e-label{display:inline-flex;align-items:center;gap:2px;color:var(--c-good);font-size:var(--t-xs);font-weight:var(--w-medium);white-space:nowrap}
-.e2e-label svg.i{width:14px;height:14px;fill:currentColor}
-.e2e-label.mark{gap:var(--s-1);color:var(--c-text-2)}
-.e2e-label.mark svg.i{fill:var(--c-good)}
-:root.phone .e2e-label .mark-word{display:none}
+.e2e-label{display:inline-flex;align-items:center;gap:var(--s-1);flex:none;padding-right:var(--s-2);color:var(--c-good);font-size:var(--t-xs);font-weight:var(--w-medium);white-space:nowrap}
+.e2e-label svg.i{width:var(--icon-sm);height:var(--icon-sm);fill:currentColor}
+/* The text and, at its foot, your mark while you type: a flat Material 3
+   tonal chip (no shadow, at his wish), in with the emphasized decelerate curve, out with
+   the emphasized accelerate one. The text keeps room under its last line. */
+.editor-box{position:relative;display:flex;flex:1;min-height:0;margin:var(--s-2) 0 0}
+.editor-box > .editor{flex:1;margin:0;padding-bottom:calc(var(--h-md) + var(--s-6))}
+.mark-dock{position:absolute;right:var(--s-3);bottom:var(--s-3);z-index:2;display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-1) var(--s-2);
+  max-width:min(440px,calc(100% - 2 * var(--s-3)));min-height:var(--h-md);padding:var(--s-1) var(--s-4) var(--s-1) var(--s-3);border-radius:var(--r-md);
+  background:var(--c-good-soft);color:var(--c-on-good-soft);font:var(--w-medium) var(--t-md)/20px var(--f-sans);
+  opacity:0;transform:translateY(var(--s-2)) scale(.96);transform-origin:100% 100%;pointer-events:none;
+  transition:opacity var(--d-short3) var(--ease-emphasized-accel),transform var(--d-short3) var(--ease-emphasized-accel)}
+.mark-dock[data-shown=true]{opacity:1;transform:none;transition-duration:var(--d-medium2);transition-timing-function:var(--ease-emphasized-decel)}
+.mark-dock svg.i{flex:none;width:var(--icon-sm);height:var(--icon-sm);fill:currentColor}
+.mark-dock .mark-why{flex:1 1 220px;font-weight:var(--w-regular);text-wrap:balance}
+.mark-dock .mark-files{font-weight:var(--w-regular)}
+/* Taps go through the chip to the text under it; only Got it takes them. */
+.mark-dock[data-shown=true] .text{pointer-events:auto}
+.mark-dock .text{height:var(--h-sm);margin-left:auto;padding:0 var(--s-3);color:var(--c-on-good-soft)}
+.reader-mark[data-dock]{padding:0;background:none;font-size:var(--t-2xl);letter-spacing:var(--s-1)}
+:root.phone .mark-dock .mark-word{display:none}
+@media (prefers-reduced-motion:reduce){.mark-dock,.mark-dock[data-shown=true]{transition:none}}
 .link-card{position:absolute;left:0;right:auto;top:auto;bottom:calc(var(--h-lg) + var(--s-2));width:min(360px,100%);padding:var(--s-3) var(--s-4)}
 .link-card .field{margin:0}
 .link-card .actions{justify-content:flex-end;margin-top:var(--s-2)}
-/* The clip of an end-to-end message (attach.html), in Mail's row of buttons. */
-body.attach-frame{display:grid;place-items:center;height:100vh;overflow:hidden}
-body.attach-frame .icon-button{width:100vw;height:100vh}
 /* The mark: four pictures, in a quiet chip. */
-.reader-mark{display:inline-flex;align-items:center;padding:2px var(--s-2);border-radius:var(--r-full);background:var(--c-surface-2);font-size:15px;line-height:1.4;letter-spacing:2px;white-space:nowrap;
-  -webkit-user-select:none;user-select:none}
-.reader-mark[data-big]{flex:none;padding:var(--s-1) var(--s-3);background:var(--c-surface);font-size:26px}
-.fields .reader-mark{background:var(--c-surface)}
+.reader-mark{display:inline-flex;align-items:center;white-space:nowrap;-webkit-user-select:none;user-select:none}
 /* Captions: one line, or lines of even length; paragraphs without a lone last word. */
 .hub-note,.hub-error,.sealed-text p,.reader-alert p,.hint{text-wrap:balance}
 p,li{text-wrap:pretty}
+/* The reader's Send (send.html), in Mail's row of buttons. */
+body.send-frame{overflow:hidden}
+.send-frame .composer-actions{display:inline-flex;flex-wrap:nowrap;align-items:center;gap:var(--s-2);padding:0}
+.send-frame .send-pin{margin:0;width:calc(3 * var(--h-md))}
+.send-frame .send-pin input{height:var(--h-md)}
+/* A letter sealed by its sender's key (seal.mjs): one quiet line over it. */
+.seal-line{display:flex;align-items:center;gap:var(--s-2);margin:0 0 var(--s-3);color:var(--c-text-2);font-size:var(--t-xs)}
+.seal-line svg.i{flex:none;width:var(--icon-sm);height:var(--icon-sm);fill:var(--c-good)}

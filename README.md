@@ -63,12 +63,18 @@ they differ. Signatures, which would prove it, are not made yet.
 * **Your mark.** Four pictures made from the key (X25519 of the key with a
   fixed point, `mark.mjs`): the same on every device that holds the key,
   and out of reach of Mail and its server, which have only the public key.
-  The reader shows them in one place only: the Subject line of an
-  end-to-end message, while the keyboard is in the reader's field (and
+  The reader shows them in one place only: at the foot of the text of an
+  end-to-end message, while the keyboard is in the reader's composer (and
   once, on `setup.html`, in a tab of its own). Shown anywhere without that
   condition, Mail could cut them out of a frame of the reader and set them
-  beside a field of its own; shown only while you type in the reader,
-  every key you press goes to the reader.
+  beside a field of its own; shown only while you type or attach in the
+  reader, every key you press and every file you pick goes to the reader.
+* **The reader keeps its own code.** `sw.js` carries the SHA-256 of every
+  file of the reader (written by `make-pins.py` at publishing), installs
+  only when the site serves exactly those, keeps them, and serves the
+  reader's pages from that copy; only a page it served may use the key.
+  Code served later by someone else would need a new `sw.js`, and a new
+  worker starts with an empty vault: nothing opens without a new touch.
 * **Mail learns sizes, coarsely.** A letter is laid out at one of a few
   fixed widths and its height is reported in steps of 32 pixels; the
   subject's room in steps of 48. Otherwise Mail could narrow a frame step
@@ -88,14 +94,24 @@ they differ. Signatures, which would prove it, are not made yet.
 ## Writing
 
 `compose.html` is the Mail app's composer from the Subject line down when End
-to end is on, in its own look: the formatting bar, the signature with the
-end-to-end notice, pictures in the text and attachments (the clip,
-`attach.html`, stands where Mail's does and hands the files straight to the
-composer). The subject, the text and the files are encrypted there, as one
-PGP/MIME message, to the public keys in `keys.mjs` (made by `make-keys.py`
-from the mail repository's published keys, not taken from the mail page),
-so the Mail app receives only the encrypted message. No private key and no
-passkey are needed to write.
+to end is on, in its own look: the formatting bar with its own clip for
+files, the signature with the end-to-end notice, pictures in the text. The
+subject, the text and the files stay there. `send.html` is Send: the
+reader's own button where Mail's stands. Only a press there has the message
+sealed with your key (`seal.mjs`; Touch ID first if encrypted mail is
+locked) and encrypted, as one PGP/MIME message padded to steps of 4 KB, to
+the public keys in `keys.mjs` (made by `make-keys.py` from the mail
+repository's published keys, never taken from the mail page). The Mail app
+gets the encrypted message and sends it; it cannot have a draft encrypted at
+any other time. A time picked in Schedule send waits for that press.
+
+* **The sender's seal.** Encryption alone proves nothing about who wrote a
+  message: anyone can encrypt to a public key, the mail server too. The
+  reader adds, for each recipient, an HMAC over the whole message under the
+  X25519 secret of the sender's key and the recipient's: only those two keys
+  can make or check it. A letter that carries a seal that holds says
+  "Verified: written with the key of ..."; one whose seal does not hold is
+  marked as such.
 
 ## No network, and watched
 
@@ -117,11 +133,12 @@ passkey are needed to write.
 While encrypted mail is unlocked, the key is in the memory of this site's
 service worker on that device. Exactly what that allows:
 
-* **This site's code** can open any message to that key without a touch.
-  It is GitHub's to serve: if someone made GitHub, or the names' DNS, serve
-  other code during the window, that code could open every stored message
-  quietly, where before it needed a touch for each. The watches see such a
-  change within 15 minutes; Lock or a short window bounds it.
+* **This site's code** as published can open any message to that key
+  without a touch. Code served by anyone else (through GitHub, or the
+  names' DNS) cannot: pages not served from the worker's checked copy may
+  not use the key, and a new `sw.js` means a new worker with an empty
+  vault. Such code could still ask for a new touch; the watches see a
+  change within 15 minutes.
 * **The mail page** (its server, its hosting company) can hand the reader
   stored encrypted messages and have them shown in frames on the screen,
   without a touch. It cannot read what is shown; it learns each frame's
@@ -153,19 +170,17 @@ service worker on that device. Exactly what that allows:
   mark in view; Safari and Firefox give a frame no way to tell.
 * Hide who writes to whom and when, or mail that arrives unencrypted: the
   mail server encrypts that on delivery, but has read it by then.
-* Cover a file dialog with the mark: a mail page that draws its own clip
-  in place of the reader's gets the files picked through it.
-* Prove the sender: messages are not signed, so the mail server could
-  write an encrypted message in anyone's name. The reader warns only when
-  the name inside differs from the sender the server reports.
-* Stop a lying mail page from asking the composer for its encrypted copy
-  before Send, to recipients of the page's choosing among our mailboxes
-  with keys. It learns no more than the size, padded to steps of 4 KB.
+* Stop a mail page that ignores all of the above from drawing a whole
+  composer of its own, clip and Send included, with no reader in it. It
+  cannot show your mark; a person who does not look for it can be fooled.
+* Prove the sender of mail written elsewhere: Thunderbird and other apps
+  do not add the reader's seal, so their messages show no Verified line.
+* Hide the size of a message from the mail server, beyond steps of 4 KB.
 
 Files: `sealed-core.mjs` (ECDH session key, RFC 6637), `store.mjs` (sealing
 and passkeys), `vault.mjs` and `sw.js` (the key while unlocked), `hub.mjs`
 (Unlock and opening), `decrypt.mjs`, `mime.mjs`, `mark.mjs`, `embed.mjs`
 (a letter), `row.mjs` (a line of a list), `title.mjs` (the subject),
-`compose.mjs` and `attach.mjs` (writing), `setup.mjs`, `width.mjs`, and
+`compose.mjs` and `send.mjs` (writing), `seal.mjs` (the sender's seal), `setup.mjs`, `width.mjs`, and
 OpenPGP.js 6.3.2, unmodified (`openpgp.min.mjs`, LGPL-3.0,
 https://openpgpjs.org).

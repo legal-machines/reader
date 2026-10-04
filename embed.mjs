@@ -101,6 +101,17 @@ function letterHtml(m) {
   const inside = addressOf(m.from), other = sentFrom && inside && inside !== sentFrom;
   const warning = other ? `<div class="reader-alert" role="alert">${icon('warning')}<div><b>Check who sent it</b><p>It says it is from ${escape(inside)}, ` +
                           `but it was sent from ${escape(sentFrom)}. Be careful with links and requests in it.</p></div></div>` : '';
+  // The sender's seal (seal.mjs): written with the key of a mailbox here,
+  // which no one else holds, or a seal that does not hold.
+  const sealed = m.seal || {state: 'none', addresses: []};
+  // With the date sealed inside, so an old message passed off as new shows its own.
+  const sealedOn = m.date && !isNaN(new Date(m.date)) ? ', ' + new Date(m.date).toLocaleString(undefined, {dateStyle: 'medium', timeStyle: 'short'}) : '';
+  const verified = sealed.state === 'ok' && (!inside || sealed.addresses.includes(inside))
+    ? `<p class="seal-line">${icon('verified_user')}<span>Sealed with the key of ${escape(inside || sealed.addresses[0])}${escape(sealedOn)}</span></p>`
+    : sealed.state === 'ok' ? `<div class="reader-alert" role="alert">${icon('warning')}<div><b>Written with someone else's key</b><p>It says it is from ${escape(inside)}, ` +
+                              `but it was sealed with the key of ${escape(sealed.addresses.join(', '))}.</p></div></div>`
+    : sealed.state === 'bad' ? `<div class="reader-alert" role="alert">${icon('warning')}<div><b>Its seal does not hold</b><p>Do not trust who it says it is from, ` +
+                               `nor its links and requests.</p></div></div>` : '';
   let body;
   if (m.html !== undefined) body = '<iframe class="mail-frame" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" title="Message"></iframe>';
   else if (m.text !== undefined) body = `<pre class="plain">${linkify(m.text)}</pre>`;
@@ -113,7 +124,7 @@ function letterHtml(m) {
   const date = m.date && !isNaN(new Date(m.date)) ? new Date(m.date).toLocaleString(undefined, {dateStyle: 'medium', timeStyle: 'short'}) : m.date;
   const head = framed ? '' : `<div class="letter-head"><span class="badge">${icon('lock')}<span>End-to-end encrypted</span></span></div>` +
     (m.subject ? `<h2>${escape(m.subject)}</h2>` : '') + `<p class="meta">${escape(other || !m.from ? sentFrom : m.from)}${date ? `<br>${escape(date)}` : ''}</p>`;
-  return '<article class="letter">' + head + warning + body + (thumbs ? `<div class="thumbs">${thumbs}</div>` : '') +
+  return '<article class="letter">' + head + verified + warning + body + (thumbs ? `<div class="thumbs">${thumbs}</div>` : '') +
          (list ? `<div class="attachments">${list}</div>` : '') + '</article>';
 }
 
@@ -157,7 +168,7 @@ function reveal(m) {
     const original = before.textContent, start = performance.now();
     const stir = now => {
       if (!before.isConnected) return;
-      if (now - start > 420) return before.remove();
+      if (now - start > 450) return before.remove();  // Material 3 long1
       before.textContent = original.replace(/\S/g, c => Math.random() < 0.4 ? chars[Math.random() * 64 | 0] : c);
       requestAnimationFrame(stir);
     };

@@ -5,6 +5,7 @@
 import {open} from './sealed-core.mjs';
 import {read} from './mime.mjs';
 import {deriver} from './vault.mjs';
+import {check} from './seal.mjs';
 
 // OpenPGP.js (about 400 KB) loads only when there is something to open.
 let library = null;
@@ -64,8 +65,11 @@ export const canOpen = () => (capable ||= crypto.subtle.importKey('raw', new Uin
 // The message read with the open key keyId ({fingerprint, keyId, hash,
 // cipher}: info), or an error.
 export async function openWith(armored, info) {
-  const bytes = await open(await openpgpLib(), armored, deriver(info.keyId), info);
-  const message = read(bytes);
+  const openpgp = await openpgpLib(), derive = deriver(info.keyId);
+  const bytes = await open(openpgp, armored, derive, info);
+  const sealed = await check(openpgp, bytes, info.keyId, derive).catch(() => ({state: 'none', rest: bytes}));
+  const message = read(sealed.rest);
+  message.seal = {state: sealed.state, addresses: sealed.addresses || []};
   bytes.fill(0);
   return message;
 }
