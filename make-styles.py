@@ -10,7 +10,7 @@ import re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, "..", "mail", "webmail", "src")
-ICONS = ["attach", "image", "download", "open", "lock", "lock_open", "warning", "key", "close", "delete", "undo", "redo", "text_size", "bold", "italic",
+ICONS = ["attach", "image", "download", "open", "lock", "lock_open", "warning", "key", "close", "delete", "pilcrow", "undo", "redo", "text_size", "bold", "italic",
          "underline", "strike", "text_color", "align_left", "align_center", "align_right", "align_justify", "numbers", "bullets",
          "indent_less", "indent_more", "quote", "link", "emoji", "table", "clear", "verified_user", "shield"]
 

@@ -81,7 +81,7 @@ function bar() {
     '</span><span class="tool-group pictures">' + tool('attachFiles', 'attach', 'Attach files') + tool('insertImage', 'image', 'Insert picture') + '</span><span class="tool-group">' + tool('createLink', 'link', 'Link', 'K') +
     pop('emoji', 'Emoji', emoji) + pop('table', 'Table', table) +
     `<button type="button" class="icon-button" data-cmd="deleteTable" title="Delete table" aria-label="Delete table" hidden>${icon('delete')}</button>` +
-    tool('removeFormat', 'clear', 'Remove formatting', '\\') + '</span>';
+    tool('removeFormat', 'clear', 'Remove formatting', '\\') + tool('toggleMarks', 'pilcrow', 'Formatting marks') + '</span>';
 }
 tools.innerHTML = bar();
 dropHint.querySelector('span').innerHTML = icon('attach') + 'Drop files to attach them';
@@ -127,6 +127,7 @@ const format = (cmd, value) => {
   if (cmd === 'createLink') { closeMenus(); askLink(); return; }
   if (cmd === 'insertImage') { closeMenus(); pictureInput.click(); return; }
   if (cmd === 'attachFiles') { closeMenus(); filesInput.click(); return; }
+  if (cmd === 'toggleMarks') { showMarks(!editor.classList.contains('show-marks')); closeMenus(); return; }
   if (cmd === 'blockquote') document.execCommand('formatBlock', false, 'blockquote');
   else if (cmd === 'deleteTable') {
     // The table the caret is in, as one deletion, which Undo brings back.
@@ -166,7 +167,7 @@ function mark() {
   const at = sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement;
   const inside = tag => { const e = at?.closest(tag); return !!e && editor.contains(e); };
   for (const cmd of toggles) tools.querySelector(`.icon-button[data-cmd="${cmd}"]`)?.setAttribute('aria-pressed', String(applies(cmd)));
-  tools.querySelector('[data-cmd="blockquote"]')?.setAttribute('aria-pressed', String(inside('blockquote')));
+  tools.querySelector('[data-cmd="blockquote"]')?.setAttribute('aria-pressed', String(inside('blockquote:not([style*="border"])')));  // a quote, not an indent
   tools.querySelector('[data-cmd="createLink"]')?.setAttribute('aria-pressed', String(inside('a')));
   tools.querySelector('[data-cmd="deleteTable"]')?.toggleAttribute('hidden', !inside('table'));
   const sized = at?.closest('font[size]'), size = sized && editor.contains(sized) ? sized.getAttribute('size') : '3';
@@ -238,6 +239,30 @@ const liftQuote = () => {
 };
 editor.addEventListener('keydown', e => { if (e.key === 'Backspace' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && liftQuote()) e.preventDefault(); });
 editor.addEventListener('beforeinput', e => { if (e.inputType === 'deleteContentBackward' && liftQuote()) e.preventDefault(); });
+// Formatting marks (the bar's ¶), as in Word: the end of each paragraph and
+// each empty line, and spaces where there is more than one (doubled, non-
+// breaking, tabs, at a line's end). Drawn only on the screen, with CSS and
+// the Custom Highlight API: nothing is added to the text that is saved or sent.
+const marksKey = 'reader-show-marks';
+const paintMarks = () => {
+  if (!window.CSS?.highlights) return;
+  if (!editor.classList.contains('show-marks')) { CSS.highlights.delete('marks-space'); return; }
+  const ranges = [], walk = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+  for (let n = walk.nextNode(); n && ranges.length < 3000; n = walk.nextNode()) {
+    const re = /[ \u00a0\t]{2,}|[\u00a0\t]/g;
+    for (let m; (m = re.exec(n.data)) && ranges.length < 3000;) { const r = new Range(); r.setStart(n, m.index); r.setEnd(n, m.index + m[0].length); ranges.push(r); }
+  }
+  CSS.highlights.set('marks-space', new Highlight(...ranges));
+};
+let marksFrame = 0;
+editor.addEventListener('input', () => { if (editor.classList.contains('show-marks') && !marksFrame) marksFrame = requestAnimationFrame(() => { marksFrame = 0; paintMarks(); }); });
+const showMarks = on => {
+  editor.classList.toggle('show-marks', on);
+  tools.querySelector('[data-cmd="toggleMarks"]')?.setAttribute('aria-pressed', String(on));
+  try { localStorage.setItem(marksKey, on ? '1' : ''); } catch (e) {}
+  paintMarks();
+};
+try { if (localStorage.getItem(marksKey) === '1') showMarks(true); else tools.querySelector('[data-cmd="toggleMarks"]')?.setAttribute('aria-pressed', 'false'); } catch (e) {}
 const plainKeys = {KeyB: 'bold', KeyI: 'italic', KeyU: 'underline', KeyK: 'createLink', Backslash: 'removeFormat', BracketLeft: 'outdent', BracketRight: 'indent'};
 const shiftKeys = {KeyX: 'strikeThrough', Digit7: 'insertOrderedList', Digit8: 'insertUnorderedList', Digit9: 'blockquote',
   KeyL: 'justifyLeft', KeyE: 'justifyCenter', KeyR: 'justifyRight', KeyJ: 'justifyFull'};
