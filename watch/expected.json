@@ -1,13 +1,13 @@
 {
- "updated": "2026-10-04T16:29:36Z",
+ "updated": "2026-10-04T16:51:50Z",
  "mail": {
   "https://mail.legalmachines.org": {
-   "/static/app.js": "8841213c8a09cf923ad8a8c440f5165878b70ce2eff567b81265722ff256f060",
+   "/static/app.js": "9165d6dbcae86dbf5795faad895870333bd940d86f3a04f63d14fd3bc5181097",
    "/static/app.css": "eb31bcf67f37a6450746eee626574a50858fe4dc789dd8d379bf3de14e4272a5",
    "csp": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; frame-src 'self' https://reader.legalmachines.org https://reader.dzyza.com; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
   },
   "https://mail.dzyza.com": {
-   "/static/app.js": "8841213c8a09cf923ad8a8c440f5165878b70ce2eff567b81265722ff256f060",
+   "/static/app.js": "9165d6dbcae86dbf5795faad895870333bd940d86f3a04f63d14fd3bc5181097",
    "/static/app.css": "eb31bcf67f37a6450746eee626574a50858fe4dc789dd8d379bf3de14e4272a5",
    "csp": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; frame-src 'self' https://reader.legalmachines.org https://reader.dzyza.com; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
   }
