@@ -124,9 +124,14 @@ async function prepare() {
       render(read(bytes));
       bytes.fill(0);
     } catch (err) {
-      error.textContent = err.name === 'NotAllowedError' ? 'Cancelled. Try Open again.' : err.message;
+      // A browser that keeps passkeys out of frames, or a touch that was
+      // cancelled: inside a message, the Mail app can open the reader in a tab.
+      const framed = host === parent;
+      error.innerHTML = escape(err.name === 'NotAllowedError' ? 'Cancelled or not allowed here.' : err.name === 'SecurityError' ? 'This browser does not allow passkeys here.' : err.message) +
+        (framed ? ' <button class="text" type="button" id="in-tab">Open in a tab</button>' : '');
       error.hidden = false;
       button.disabled = false;
+      document.getElementById('in-tab')?.addEventListener('click', () => tell({type: 'reader-tab'}));
     }
   });
 }
