@@ -281,6 +281,7 @@ function showSeal() {
   const focused = document.hasFocus();
   dock.dataset.shown = String(focused && !!from);
   if (!focused) return;
+  dock.classList.toggle('explains', !m || !explained(m.keyId));
   dock.innerHTML = m
     ? `${icon('shield')}<span class="mark-word">Your mark</span>${chip(m.mark, ' data-dock')}` +
       (files.length ? `<span class="mark-files">${files.length === 1 ? '1 file' : files.length + ' files'}</span>` : '') +
@@ -293,6 +294,16 @@ function showSeal() {
 addEventListener('focus', showSeal);
 addEventListener('blur', showSeal);
 document.addEventListener('focusin', showSeal);
+
+// A phone's keyboard makes this frame shorter (Mail sizes it to end at the
+// keyboard): the caret stays in sight, above your mark.
+addEventListener('resize', () => {
+  const s = getSelection();
+  if (!s.rangeCount || !editor.contains(s.anchorNode)) return;
+  const r = s.getRangeAt(0).getClientRects()[0] || s.anchorNode.parentElement?.getBoundingClientRect();
+  const end = editor.getBoundingClientRect().bottom - parseFloat(getComputedStyle(editor).paddingBottom);
+  if (r && r.bottom > end) editor.scrollTop += r.bottom - end;
+});
 
 // ---- The message, encrypted.
 // RFC 2047, for a header that is not plain ASCII.

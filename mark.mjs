@@ -24,6 +24,9 @@ const valid = m => Array.isArray(m) && m.length === 4 && m.every(n => Number.isI
 
 // The mark as text, or '' for none.
 export const text = indices => valid(indices) ? indices.map(i => PICTURES[i]).join(' ') : '';
+// Its four pictures, one box each: the gaps between them are the chip's own,
+// whatever width the emoji font gives a space.
+export const pictures = indices => valid(indices) ? indices.map(i => `<span>${PICTURES[i]}</span>`).join('') : '';
 
 // The marks this browser knows, by key ID.
 export const known = () => load(STORE);
@@ -59,4 +62,4 @@ export async function markOf(privateKey) {
 
 // The chip that shows it.
 export const chip = (indices, extra = '') => valid(indices)
-  ? `<span class="reader-mark"${extra} role="img" aria-label="Your Mail Reader mark: ${indices.map(i => PICTURES[i]).join(' ')}">${text(indices)}</span>` : '';
+  ? `<span class="reader-mark"${extra} role="img" aria-label="Your Mail Reader mark: ${text(indices)}">${pictures(indices)}</span>` : '';

@@ -70,8 +70,8 @@ iframe.html{display:block;width:100%;min-height:80px;border:0}
 .done{line-height:1.5}.done > b{color:var(--c-good)}
 /* The mark over its words, at every width: a fixed-size thing beside text squeezes the text into a column on a phone. */
 .mark-line{display:flex;flex-direction:column;align-items:flex-start;gap:var(--s-3);margin:var(--s-4) 0;padding:var(--s-4);border-radius:var(--r-md);background:var(--c-surface-2)}
-.reader-mark{display:inline-flex;align-items:center;gap:2px;padding:2px var(--s-2);border-radius:var(--r-full);background:var(--c-surface-2);font-size:16px;line-height:1.4;letter-spacing:2px;white-space:nowrap}
-.reader-mark[data-big]{flex:none;padding:var(--s-1) var(--s-3);background:var(--c-surface);font-size:28px}
+.reader-mark{display:inline-flex;align-items:center;gap:var(--s-1);padding:2px var(--s-2);border-radius:var(--r-full);background:var(--c-surface-2);font-size:16px;line-height:1.4;white-space:nowrap}.reader-mark > span{display:block}
+.reader-mark[data-big]{flex:none;gap:var(--s-2);padding:var(--s-1) var(--s-3);background:var(--c-surface);font-size:28px}
 .handed{padding:var(--s-3) var(--s-4);border-radius:var(--r-sm);background:var(--c-good-soft);color:var(--c-on-good-soft);font-weight:500}
 @media (max-width:640px){.card{padding:var(--s-4)}.sealed{flex-direction:column;gap:var(--s-3);padding:var(--s-4)}}
 
