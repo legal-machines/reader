@@ -111,11 +111,13 @@ function letterHtml(m) {
   // The sender's seal (seal.mjs): written with the key of a mailbox here,
   // which no one else holds, or a seal that does not hold.
   const sealed = m.seal || {state: 'none', domain: '', inside: false};
-  // With the time sealed inside, so an old message passed off as new shows
-  // its own: today the hour, this year the day, before that the year too.
+  // With the time sealed inside, to the minute, so an old message passed off
+  // as new shows its own: today the hour, otherwise the day and the hour,
+  // and the year when it is not this one.
   const d = m.date && !isNaN(new Date(m.date)) ? new Date(m.date) : null, now = new Date();
-  const sealedOn = !d ? '' : d.toDateString() === now.toDateString() ? ' at ' + d.toLocaleTimeString(undefined, {timeStyle: 'short'})
-    : ' on ' + d.toLocaleDateString(undefined, d.getFullYear() === now.getFullYear() ? {day: 'numeric', month: 'short'} : {day: 'numeric', month: 'short', year: 'numeric'});
+  const time = d ? d.toLocaleTimeString(undefined, {timeStyle: 'short'}) : '';
+  const sealedOn = !d ? '' : d.toDateString() === now.toDateString() ? ' at ' + time
+    : ' on ' + d.toLocaleDateString(undefined, d.getFullYear() === now.getFullYear() ? {day: 'numeric', month: 'short'} : {day: 'numeric', month: 'short', year: 'numeric'}) + ' at ' + time;
   const verified = sealed.state === 'ok' && (!inside || sealed.inside)
     ? `<p class="seal-line">${icon('verified_user')}<span>Sealed by ${escape(inside || 'a mailbox at ' + sealed.domain)}${escape(sealedOn)}</span></p>`
     : sealed.state === 'ok' ? `<div class="reader-alert" role="alert">${icon('warning')}<div><b>Written with someone else's key</b><p>It says it is from ${escape(inside)}, ` +

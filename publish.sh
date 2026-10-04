@@ -8,6 +8,7 @@
 set -e
 cd "$(dirname "$0")"
 python3 make-keys.py --keys-page legalmachines.org
+python3 make-notices.py
 python3 make-styles.py
 python3 make-pins.py
 shasum -a 256 *.html *.mjs *.js *.css CNAME > SHA256SUMS

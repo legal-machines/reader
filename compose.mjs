@@ -11,13 +11,14 @@
 
 import {MAIL_SITES} from './sites.mjs';
 import {widths} from './width.mjs';
-import {escape} from './mime.mjs';
+import {escape, linkify} from './mime.mjs';
 import {icon} from './icons.mjs';
 import {keyOf} from './seal.mjs';
 import {chip, explained, markFor, setExplained} from './mark.mjs';
 import * as vault from './vault.mjs';
 import {openWith, recipientsOf} from './decrypt.mjs';
 import {fromOurFrame, readerFrames} from './tab.mjs';
+import {NOTICES} from './notices.mjs';
 
 const form = document.getElementById('compose'), subject = document.getElementById('subject'), editor = document.getElementById('editor');
 const tools = document.getElementById('tools'), filesBox = document.getElementById('files'), dock = document.getElementById('mark-dock');
@@ -407,7 +408,8 @@ async function message({to, cc, from: sender}) {
   if (!subject.value.trim() && !(editor.innerText || '').trim() && !files.length) throw new Error('The message is empty.');
   if (total() > LIMIT) throw new Error('End-to-end messages take files of up to 15 MB in all.');
   const heads = `From: ${from}\r\nTo: ${list(to)}\r\n` + (cc.length ? `Cc: ${list(cc)}\r\n` : '') +
-                `Subject: ${header(subject.value.trim())}\r\nDate: ${new Date().toUTCString()}\r\nMIME-Version: 1.0\r\n`;
+                `Subject: ${header(subject.value.trim())}\r\nDate: ${new Date().toUTCString()}\r\n` +
+                `Message-ID: <${crypto.randomUUID()}@${from.split('@')[1]}>\r\nMIME-Version: 1.0\r\n`;
   let inner = await body();
   if (files.length) {
     const mixed = boundary('mix');
@@ -442,7 +444,11 @@ async function answer(armored, mode) {
     let text = m.text;
     if (text === undefined && m.html !== undefined) text = new DOMParser().parseFromString(m.html, 'text/html').body?.innerText || '';
     const date = m.date && !isNaN(new Date(m.date)) ? new Date(m.date).toLocaleString(undefined, {dateStyle: 'medium', timeStyle: 'short'}) : '';
-    const said = forward ? '---------- Forwarded message ----------' : `On ${date}, ${m.from || 'the sender'} wrote:`;
+    // Who wrote it, as the message says, only when its seal holds: anyone can
+    // encrypt to your key and write any sender inside.
+    const verified = m.seal?.state === 'ok' && m.seal.inside;
+    const said = forward ? `---------- Forwarded message${verified ? '' : ' (not sealed)'} ----------`
+                         : `On ${date}, ${m.from || 'the sender'} wrote${verified ? '' : ' (not sealed, so the sender is not verified)'}:`;
     const quote = escape((text || '').trim()).replace(/\r?\n/g, '<br>');
     editor.insertAdjacentHTML('beforeend', `<br><br><div class="quoted">${escape(said)}</div>` + (forward ? `<div>${quote}</div>` : `<blockquote>${quote}</blockquote>`));
     untouched = editor.innerHTML;
@@ -467,6 +473,7 @@ function restoreMessage(m) {
   editor.innerHTML = clean(html).replace(/\ue000(\d+)\ue001/g, (all, n) =>
     `<img src="${URL.createObjectURL(pictures.get(Number(n)))}" data-pic="${n}" alt="${escape(pictures.get(Number(n)).name)}">`);
   attach(m.files.filter(f => !isInline(f)).map(f => new File([f.data], f.name || 'attachment', {type: f.type || 'application/octet-stream'})));
+  placeNotices();
   untouched = editor.innerHTML;
   showSeal();
 }
@@ -485,9 +492,11 @@ function clean(html) {
       if (!keep.has(child.tagName)) { child.replaceWith(...child.childNodes); continue; }
       for (const a of [...child.attributes]) {
         const ok = (child.tagName === 'A' && a.name === 'href' && /^(https?:|mailto:)/i.test(a.value)) ||
-                   // The notice's small gray type only: nothing Mail hands over can hide in
-                   // tiny or pale letters and go out sealed as your words.
-                   (child.tagName === 'FONT' && (a.name === 'size' && a.value === '2' || a.name === 'color' && /^#5f6368$/i.test(a.value))) ||
+                   // A signature's gray only: nothing Mail hands over can hide in tiny or
+                   // pale letters and go out sealed as your words. Small type is for the
+                   // reader's own notices (placeNotices), so Mail cannot dress a text of
+                   // its own as one.
+                   (child.tagName === 'FONT' && a.name === 'color' && /^#5f6368$/i.test(a.value)) ||
                    (a.name === 'class' && /^(signature|quoted)$/.test(a.value));
         if (!ok) child.removeAttribute(a.name);
       }
@@ -503,6 +512,31 @@ function clean(html) {
   return doc.body.innerHTML;
 }
 
+// The notices under the signature: the reader writes them, from its own copy
+// (notices.mjs), for the sender's domain. Mail hands over the signature
+// alone; a paragraph that reads as a notice is taken out wherever it came
+// from, and the reader's own go at the end of the signature, small and gray.
+const plainText = s => String(s || '').replace(/\s+/g, ' ').trim();
+const known = new Set(Object.values(NOTICES).flatMap(n => [n.sealed, n.notice]).filter(Boolean).map(plainText));
+function placeNotices() {
+  for (const p of [...editor.querySelectorAll('p, div')]) if (known.has(plainText(p.textContent))) p.remove();
+  const n = NOTICES[from.split('@')[1] || ''];
+  if (!n) return;
+  let sig = editor.querySelector(':scope > .signature');
+  if (!sig) {
+    sig = document.createElement('div');
+    sig.className = 'signature';
+    sig.innerHTML = '-- <br>';
+    const quote = editor.querySelector(':scope > .quoted, :scope > blockquote');
+    if (quote) quote.before(sig); else { editor.append(document.createElement('br'), document.createElement('br'), sig); }
+  }
+  for (const t of [n.sealed, n.notice].filter(Boolean)) {
+    const p = document.createElement('p');
+    p.innerHTML = `<font size="2" color="#5f6368">${linkify(t)}</font>`;
+    sig.append(p);
+  }
+}
+
 addEventListener('message', async e => {
   if (e.source !== parent || !MAIL_SITES.includes(e.origin)) return;
   parentOrigin = e.origin;
@@ -514,6 +548,7 @@ addEventListener('message', async e => {
     if (from) keyOf(from).then(k => { own = k || null; showSeal(); });  // your key, for your mark (keys.mjs knows addresses by hash)
     if (typeof d.subject === 'string') subject.value = d.subject.slice(0, 998);
     editor.innerHTML = clean(d.html);
+    placeNotices();
     untouched = editor.innerHTML;
     if (d.original && typeof d.original.armored === 'string' && d.original.armored.length <= 4e6) answer(d.original.armored, d.original.mode);
     for (const w of readerFrames('send.html')) w.postMessage({type: 'compose-hello'}, location.origin);  // Send shows us whom it encrypts to

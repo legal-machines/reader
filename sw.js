@@ -20,9 +20,9 @@
 // PINS-BEGIN (make-pins.py)
 const PINS = {
  "compose.html": "75fa0d025ba3a705e93df7222fe67ad2f8e9b199c745cc89a7dc0ed95cf54b12",
- "compose.mjs": "ae556c897c75dee7a5f57dd36e6776eef59433bc0cc7a29f21b15be43b1208d2",
+ "compose.mjs": "fb87144c6a896ee8be27ecfa4604bfa838e76e1d1960cff4bd3d8ba47a1edbcb",
  "decrypt.mjs": "7b280f474ebbd0bb017123020767d7dc14e906c890a1a054862379db3409ac6d",
- "embed.mjs": "80a9a2e636f4edca1022bf927db31c4261f0bea1b65e359b9e0348cf15570c31",
+ "embed.mjs": "c26d0e40f42d53a51c116c9047d960e82da6fe6beb5eeb566711364972154d83",
  "frame.css": "0fc1c37b36e744f1661c231ac865e545afd2f705652c60ebeca7090a4f0fb28a",
  "hub.html": "c70d16f0b7c3f93df8bf681560a0448eba840bb408c5ee2a5f5220d772ee4186",
  "hub.mjs": "40de18a28649e25f911b5ed7f37ff27d69862671a1574dcba070b3c447fdeb73",
@@ -34,6 +34,7 @@ const PINS = {
  "mail.css": "0c60b500624e7d8027d984b9cff52aaa25a9e38baba5d5b607f0751638d256ca",
  "mark.mjs": "e9dee155a0f2ce8aca5aebeef793de6f3badfb529447615529825a8b0b60ea97",
  "mime.mjs": "2669eb9343775add28dda1101cc4ec2d7e6c238bae33c9ea8ef87fd53b7f5835",
+ "notices.mjs": "f65d87fe45605a7d16710964003f36cd571f5686b0c9149054aa672b57ce0783",
  "openpgp.min.mjs": "7d3285efa6dfedbb34a136d8b5ad21c28fb973269df0b2818dcb74dfb40b59d9",
  "reader.css": "3e0489c3bef0002b530a7f9f957ccf21f53281e6bb8a9e6d1cbea527e589ed3d",
  "row.css": "f372764933bb9c7d8f7ac92a624ee2849397429d4c4b1eab07b94a12ef70b2a2",
@@ -212,7 +213,9 @@ self.addEventListener('fetch', e => {
   const name = url.pathname === '/' ? 'index.html' : url.pathname.slice(1);
   if (!Object.hasOwn(PINS, name)) { e.respondWith(new Response('Not found', {status: 404})); return; }
   e.respondWith(pinned(name).then(body => body
-    ? new Response(body.slice(0), {headers: {'Content-Type': TYPES[name.split('.').pop()] || 'application/octet-stream'}})
+    // Origin-Agent-Cluster: a hint to keep the reader's pages in a process of
+    // their own, apart from the mail page that frames them (same site).
+    ? new Response(body.slice(0), {headers: {'Content-Type': TYPES[name.split('.').pop()] || 'application/octet-stream', 'Origin-Agent-Cluster': '?1'}})
     : new Response('', {status: 503})));
 });
 // A page this worker served (its document came from the checked copy).
