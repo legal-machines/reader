@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; form-action 'none'; base-uri 'none'">
+<title>Set up Mail Reader</title>
+<link rel="stylesheet" href="reader.css">
+<script type="module" src="setup.mjs"></script>
+</head>
+<body class="page">
+<main class="setup">
+  <h1>Read encrypted mail in this browser</h1>
+  <p>Your key file is opened here, in this browser, and nothing leaves it: this page cannot send anything anywhere. The key is then locked to this device with a passkey (Touch ID, a fingerprint or the screen lock) and a PIN you choose, and kept only in this browser.</p>
+  <section class="card" id="keys" hidden><h2>Keys in this browser</h2><ul class="key-list"></ul></section>
+  <form class="card" id="setup" autocomplete="off">
+    <h2>Add a key</h2>
+    <label class="field"><span>Your secret key file (.asc)</span><input type="file" id="file" accept=".asc,.gpg,.key,.txt,application/pgp-keys" required></label>
+    <label class="field"><span>Its passphrase</span><input type="password" id="passphrase" required></label>
+    <label class="check"><input type="checkbox" id="use-pin"><span>Also ask a PIN with every message</span></label>
+    <div id="pin-fields" hidden>
+      <label class="field"><span>A PIN for this device (at least 6 characters)</span><input type="password" id="pin" minlength="6" inputmode="numeric"></label>
+      <label class="field"><span>The PIN again</span><input type="password" id="pin2" minlength="6" inputmode="numeric"></label>
+    </div>
+    <p class="hint">Messages open with Touch ID (or your device's screen lock). A PIN adds a second step: without it the key does not open, even for someone who knows your computer's password.</p>
+    <div class="actions"><button class="filled" type="submit">Lock with a passkey</button></div>
+    <p class="error" role="alert" hidden></p>
+  </form>
+  <p class="done card" role="status" hidden></p>
+  <p class="hint small">Mail Reader is open source: <a href="https://github.com/legal-machines/reader" target="_blank" rel="noopener noreferrer">github.com/legal-machines/reader</a>.</p>
+</main>
+</body>
+</html>

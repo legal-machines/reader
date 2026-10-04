@@ -1,0 +1,66 @@
+// Setting up a browser: the secret key file is opened here with its
+// passphrase, its decryption subkey is sealed under a new passkey and the
+// device PIN, and only the sealed copy is kept (store.mjs).
+
+import * as openpgp from './openpgp.min.mjs';
+import {extract, pkcs8Of} from './sealed-core.mjs';
+import {all, keep, newPasskey, remove} from './store.mjs';
+import {escape} from './mime.mjs';
+
+if (window.top !== window) {
+  // Never inside another page: the key file and the PIN are typed only here,
+  // with this site's address in the address bar.
+  document.body.textContent = 'Open this page on its own.';
+  throw new Error('framed');
+}
+
+const form = document.getElementById('setup'), error = form.querySelector('.error'), done = document.querySelector('.done');
+document.getElementById('use-pin').addEventListener('change', e => { document.getElementById('pin-fields').hidden = !e.target.checked; });
+
+async function list() {
+  const records = await all(), box = document.getElementById('keys');
+  box.hidden = !records.length;
+  box.querySelector('.key-list').innerHTML = records.map(r =>
+    `<li><div><b>${escape(r.addresses.join(', '))}</b><small>Added ${escape(r.created.slice(0, 10))}${r.pinSalt ? ', with a PIN' : ''}</small></div>` +
+    `<button class="text" type="button" data-remove="${escape(r.keyId)}">Remove</button></li>`).join('');
+  box.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', async () => {
+    if (confirm('Remove this key from this browser? Encrypted messages will no longer open here until you add it again.')) { await remove(b.dataset.remove); list(); }
+  }));
+}
+
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  error.hidden = true;
+  const usePin = document.getElementById('use-pin').checked, pin = usePin ? document.getElementById('pin').value : '';
+  if (usePin && (pin.length < 6 || pin !== document.getElementById('pin2').value)) {
+    error.textContent = pin.length < 6 ? 'Choose a PIN of at least 6 characters.' : 'The two PINs differ.';
+    error.hidden = false;
+    return;
+  }
+  const button = form.querySelector('button');
+  button.disabled = true;
+  try {
+    const text = await document.getElementById('file').files[0].text();
+    let found;
+    try {
+      found = await extract(openpgp, text, document.getElementById('passphrase').value);
+    } catch (err) {
+      throw new Error(/passphrase|decrypt/i.test(err.message) ? 'Wrong passphrase.' : err.message.includes('Curve25519') ? err.message : 'This is not a secret key file.');
+    }
+    const addresses = found.userIds.map(u => (/<([^>]+)>/.exec(u) || [, u])[1].toLowerCase());
+    const passkey = await newPasskey(addresses[0]);
+    await keep(passkey, pin, pkcs8Of(found.scalar), found.info, addresses);
+    found.scalar.fill(0);
+    form.reset();
+    done.textContent = `Ready. Encrypted messages to ${addresses.join(', ')} now open in this browser, in the Mail app.`;
+    done.hidden = false;
+    list();
+  } catch (err) {
+    error.textContent = err.name === 'NotAllowedError' ? 'The passkey was not made (cancelled or not allowed).' : err.message;
+    error.hidden = false;
+  } finally {
+    button.disabled = false;
+  }
+});
+
+list();
