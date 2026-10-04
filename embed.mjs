@@ -11,7 +11,7 @@ import {MAIL_SITES} from './sites.mjs';
 
 const view = document.getElementById('view');
 const LOCK = '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>';
-let parentOrigin = null, armored = null, handedRecords = [], hideTimer = null, urls = [];
+let parentOrigin = null, armored = null, handedRecords = [], sentFrom = '', hideTimer = null, urls = [];
 // Shown inside a message (a frame), or in a tab of its own that the Mail
 // app opened for the message (a site whose frames cannot share this
 // browser's key, see sites.mjs).
@@ -159,7 +159,14 @@ function inert(html, files) {
   return doc.body.innerHTML;
 }
 
+// The address in a From line ("Name <a@b>" or a@b), in lower case.
+const addressOf = text => (/<([^<>\s]+@[^<>\s]+)>/.exec(text)?.[1] || /[^\s<>"',;]+@[^\s<>"',;]+/.exec(text)?.[0] || '').toLowerCase();
+
 function render(m) {
+  // Anyone can encrypt to a public key and write any sender inside; the
+  // Mail app hands over the sender its server received the message from.
+  const inside = addressOf(m.from), other = sentFrom && inside && inside !== sentFrom;
+  const warning = other ? `<p class="warn">It says it is from ${escape(inside)}, but it was sent from ${escape(sentFrom)}. Be careful with links and requests in it.</p>` : '';
   const date = m.date && !isNaN(new Date(m.date)) ? new Date(m.date).toLocaleString(undefined, {dateStyle: 'medium', timeStyle: 'short'}) : m.date;
   let body;
   if (m.text !== undefined) body = `<div class="body-text">${linkify(m.text)}</div>`;
@@ -170,7 +177,7 @@ function render(m) {
   show(`<article class="letter"><div class="letter-head"><span class="badge">${LOCK}<span>End-to-end encrypted</span></span>` +
        `<button class="text" type="button" id="hide">Hide</button></div>` +
        (m.subject ? `<h2>${escape(m.subject)}</h2>` : '') +
-       `<p class="meta">${escape(m.from)}${date ? `<br>${escape(date)}` : ''}</p>${body}` +
+       `<p class="meta">${escape(other || !m.from ? sentFrom : m.from)}${date ? `<br>${escape(date)}` : ''}</p>${warning}${body}` +
        (list ? `<ul class="files">${list}</ul>` : '') + '</article>');
   view.querySelectorAll('[data-file]').forEach(a => {
     const f = files[Number(a.dataset.file)], url = URL.createObjectURL(new Blob([f.data], {type: f.type}));
@@ -198,6 +205,7 @@ addEventListener('message', e => {
   parentOrigin = e.origin;
   armored = e.data.armored;
   handedRecords = Array.isArray(e.data.records) ? e.data.records.filter(valid).slice(0, 20) : [];
+  sentFrom = typeof e.data.from === 'string' && e.data.from.length <= 320 ? addressOf(e.data.from) : '';
   prepare();
 });
 
