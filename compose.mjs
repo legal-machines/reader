@@ -260,8 +260,15 @@ function showSeal() {
   seal.innerHTML = typing ? `<span class="e2e-label mark">${icon('lock')}<span class="mark-word">Your mark</span>${chip(m.mark, ' data-inline')}</span>`
                           : `<span class="e2e-label">${icon('lock')}<span>End to end</span></span>`;
   seal.title = m ? (typing ? 'Your mark: only the Mail Reader shows it' : 'Your mark shows here while you type') : 'Your mark appears once this browser has opened your key';
-  hint.hidden = !(typing && !explained(m.keyId));
-  if (!hint.hidden) hint.dataset.key = m.keyId;
+  // The first time it shows: what it is. Before this browser knows it (the
+  // key not yet unlocked here): where it will come from.
+  const focused = document.hasFocus();
+  const first = typing && !explained(m.keyId), unknown = focused && !m;
+  hint.hidden = !(first || unknown);
+  hint.querySelector('span').textContent = unknown ? 'Your mark appears here once you unlock encrypted mail in this browser.'
+                                                   : 'The four pictures are your mark: only the Mail Reader shows them, here, as you type.';
+  hint.querySelector('button').hidden = unknown;
+  if (first) hint.dataset.key = m.keyId;
 }
 const hint = document.getElementById('mark-hint');
 hint.querySelector('button').addEventListener('mousedown', e => e.preventDefault());  // the keyboard stays where it was
