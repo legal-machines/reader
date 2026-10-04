@@ -3,9 +3,9 @@
 // (hub.mjs) and by the reader's own tab (embed.mjs).
 
 import {open} from './sealed-core.mjs';
-import {read} from './mime.mjs';
+import {addressOf, read} from './mime.mjs';
 import {deriver} from './vault.mjs';
-import {check} from './seal.mjs';
+import {addressHash, check} from './seal.mjs';
 
 // OpenPGP.js (about 400 KB) loads only when there is something to open.
 let library = null;
@@ -69,7 +69,10 @@ export async function openWith(armored, info) {
   const bytes = await open(openpgp, armored, derive, info);
   const sealed = await check(openpgp, bytes, info.keyId, derive).catch(() => ({state: 'none', rest: bytes}));
   const message = read(sealed.rest);
-  message.seal = {state: sealed.state, addresses: sealed.addresses || []};
+  // Whether the key that sealed it is the key of the sender named inside
+  // (by the hash of that address), and the key's domain.
+  const inside = addressOf(message.from || '');
+  message.seal = {state: sealed.state, domain: sealed.domain || '', inside: !!inside && (sealed.hashes || []).includes(await addressHash(inside))};
   bytes.fill(0);
   return message;
 }

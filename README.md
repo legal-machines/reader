@@ -105,13 +105,22 @@ repository's published keys, never taken from the mail page). The Mail app
 gets the encrypted message and sends it; it cannot have a draft encrypted at
 any other time. A time picked in Schedule send waits for that press.
 
+`keys.mjs` lists no addresses: it has one entry a key, with the SHA-256 of
+each address the key serves (lower case, hex) and the key itself with one
+user ID, an address our sites show anyway (inbox@ the domain). The reader
+hashes an address to find its key. A short address can still be found by
+trying names against the hashes; they keep the list out of sight, not
+secret.
+
 * **The sender's seal.** Encryption alone proves nothing about who wrote a
   message: anyone can encrypt to a public key, the mail server too. The
   reader adds, for each recipient, an HMAC over the whole message under the
   X25519 secret of the sender's key and the recipient's: only those two keys
-  can make or check it. A letter that carries a seal that holds says
-  "Verified: written with the key of ..."; one whose seal does not hold is
-  marked as such.
+  can make or check it. A letter whose seal holds says "Sealed by" and the
+  sender written inside, when the sealing key is that address's key (by its
+  hash); otherwise it warns that the message was sealed with the key of
+  another mailbox, and names that key's domain. One whose seal does not hold
+  is marked as such.
 
 ## No network, and watched
 
@@ -127,6 +136,18 @@ any other time. A time picked in Schedule send waits for that press.
   the Mail app's own files against what was deployed. While either reports a
   problem, the Mail app opens no encrypted message, adds no key and offers
   no End to end by itself.
+* Both watches also check our public keys as the mail server hands them out
+  against this repository's copy (`watch/keys.json`, made by
+  `make-keys.py`: fingerprints, subkeys and the Web Key Directory hash of
+  each address, no addresses): the fingerprint on
+  https://mail.<domain>/encryption, and the key for each address from the
+  Web Key Directory and from that page's download, asked by hash. Each must
+  be exactly our key, with that address's user ID alone. The mail server's
+  own run reads `watch/keys.json` from GitHub.
+* `keys.html` shows each domain's fingerprint, for people to compare with
+  the one their mail app shows. GitHub serves it from this repository, so
+  the mail server and its hosting company cannot change it; the Mail app's
+  guide (/encryption) sends people here to check.
 
 ## What staying unlocked costs
 
@@ -181,6 +202,8 @@ Files: `sealed-core.mjs` (ECDH session key, RFC 6637), `store.mjs` (sealing
 and passkeys), `vault.mjs` and `sw.js` (the key while unlocked), `hub.mjs`
 (Unlock and opening), `decrypt.mjs`, `mime.mjs`, `mark.mjs`, `embed.mjs`
 (a letter), `row.mjs` (a line of a list), `title.mjs` (the subject),
-`compose.mjs` and `send.mjs` (writing), `seal.mjs` (the sender's seal), `setup.mjs`, `width.mjs`, and
+`compose.mjs` and `send.mjs` (writing), `seal.mjs` (the sender's seal and
+key lookup by hash), `keys.mjs` and `keys.html` (our public keys, from
+`make-keys.py`), `setup.mjs`, `width.mjs`, and
 OpenPGP.js 6.3.2, unmodified (`openpgp.min.mjs`, LGPL-3.0,
 https://openpgpjs.org).

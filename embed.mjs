@@ -7,7 +7,7 @@
 // This page may make no network requests at all (index.html, its policy).
 
 import {all, valid} from './store.mjs';
-import {escape, linkify} from './mime.mjs';
+import {addressOf, escape, linkify} from './mime.mjs';
 import {MAIL_SITES} from './sites.mjs';
 import {widths} from './width.mjs';
 import {icon} from './icons.mjs';
@@ -88,8 +88,6 @@ function base64(bytes) {
   return btoa(s);
 }
 
-// The address in a From line ("Name <a@b>" or a@b), in lower case.
-const addressOf = text => (/<([^<>\s]+@[^<>\s]+)>/.exec(text)?.[1] || /[^\s<>"',;]+@[^\s<>"',;]+/.exec(text)?.[0] || '').toLowerCase();
 
 // Sizes as the Mail app writes them.
 const sizeText = n => n < 1024 ? `${n} B` : n < 1048576 ? `${Math.round(n / 1024)} KB` : n < 1073741824 ? `${(n / 1048576).toFixed(1)} MB` : `${(n / 1073741824).toFixed(1)} GB`;
@@ -106,16 +104,16 @@ function letterHtml(m) {
                           `but it was sent from ${escape(sentFrom)}. Be careful with links and requests in it.</p></div></div>` : '';
   // The sender's seal (seal.mjs): written with the key of a mailbox here,
   // which no one else holds, or a seal that does not hold.
-  const sealed = m.seal || {state: 'none', addresses: []};
+  const sealed = m.seal || {state: 'none', domain: '', inside: false};
   // With the time sealed inside, so an old message passed off as new shows
   // its own: today the hour, this year the day, before that the year too.
   const d = m.date && !isNaN(new Date(m.date)) ? new Date(m.date) : null, now = new Date();
   const sealedOn = !d ? '' : d.toDateString() === now.toDateString() ? ' at ' + d.toLocaleTimeString(undefined, {timeStyle: 'short'})
     : ' on ' + d.toLocaleDateString(undefined, d.getFullYear() === now.getFullYear() ? {day: 'numeric', month: 'short'} : {day: 'numeric', month: 'short', year: 'numeric'});
-  const verified = sealed.state === 'ok' && (!inside || sealed.addresses.includes(inside))
-    ? `<p class="seal-line">${icon('verified_user')}<span>Sealed by ${escape(inside || sealed.addresses[0])}${escape(sealedOn)}</span></p>`
+  const verified = sealed.state === 'ok' && (!inside || sealed.inside)
+    ? `<p class="seal-line">${icon('verified_user')}<span>Sealed by ${escape(inside || 'a mailbox at ' + sealed.domain)}${escape(sealedOn)}</span></p>`
     : sealed.state === 'ok' ? `<div class="reader-alert" role="alert">${icon('warning')}<div><b>Written with someone else's key</b><p>It says it is from ${escape(inside)}, ` +
-                              `but it was sealed with the key of ${escape(sealed.addresses.join(', '))}.</p></div></div>`
+                              `but it was sealed with the key of another mailbox, at ${escape(sealed.domain)}.</p></div></div>`
     : sealed.state === 'bad' ? `<div class="reader-alert" role="alert">${icon('warning')}<div><b>Its seal does not hold</b><p>Do not trust who it says it is from, ` +
                                `nor its links and requests.</p></div></div>` : '';
   let body;

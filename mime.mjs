@@ -111,6 +111,9 @@ export function read(bytes) {
   return out;
 }
 
+// The address in a From line ("Name <a@b>" or a@b), in lower case.
+export const addressOf = text => (/<([^<>\s]+@[^<>\s]+)>/.exec(text)?.[1] || /[^\s<>"',;]+@[^\s<>"',;]+/.exec(text)?.[0] || '').toLowerCase();
+
 export const escape = text => text.replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 
 // Plain text as HTML, with web addresses as links that open in a new tab.

@@ -1,13 +1,39 @@
 #!/usr/bin/env python3
-# The public keys of our addresses, from the mail repository, as the module
-# the compose page imports (keys.mjs): it encrypts only to these. With each,
-# the IDs of its encryption subkeys, so the page knows whose mark to show.
-import base64, hashlib, json, os
+# The public keys of our addresses, from the mail repository (server/openpgp),
+# for what this repository publishes. None of it lists our addresses:
+#
+#   keys.mjs         one entry a key: its domain, fingerprint and dates, the
+#                    IDs of its encryption subkeys (whose mark to show, whose
+#                    seal), the SHA-256 of each address it serves (lower case,
+#                    hex, sorted; pages hash an address to look it up), and
+#                    the key itself with one user ID: the domain's address
+#                    that our sites show anyway (PUBLIC below). The compose
+#                    page encrypts only to these.
+#   keys.html        each domain's fingerprint, for people to compare with the
+#                    one their mail app shows (between KEYS-BEGIN and KEYS-END)
+#   watch/keys.json  what the watch (watch/watch.py) expects our mail server
+#                    to hand out: fingerprints, subkeys and the Web Key
+#                    Directory hash of each address's local part; "updated"
+#                    changes only when the rest does
+#
+# The SHA-256 of a short address can be found by trying names, so the hashes
+# keep the list out of sight, not secret. MAIL_REPO: the mail repository
+# (default ~/Desktop/Projects/mail).
+import base64, datetime, hashlib, html, json, os, re
 
-def packets(armored):
+PUBLIC = {"legalmachines.org": "inbox@legalmachines.org", "dzyza.com": "inbox@dzyza.com"}
+ZBASE32 = "ybndrfg8ejkmcpqxot1uwisza345h769"
+here = os.path.dirname(os.path.abspath(__file__))
+src = os.path.join(os.environ.get("MAIL_REPO") or os.path.expanduser("~/Desktop/Projects/mail"), "server", "openpgp")
+
+
+def binary(armored):
     lines = armored.strip().splitlines()
     body = lines[lines.index("") + 1:]
-    data = base64.b64decode("".join(l for l in body if not l.startswith("=") and not l.startswith("-----")))
+    return base64.b64decode("".join(l for l in body if not l.startswith("=") and not l.startswith("-----")))
+
+
+def packets(data):
     at = 0
     while at < len(data):
         head = data[at]; at += 1
@@ -23,18 +49,73 @@ def packets(armored):
         yield tag, data[at:at + length]
         at += length
 
-def encryption_ids(armored):
-    ids = []
-    for tag, body in packets(armored):
-        if tag == 14 and body[0] == 4 and body[5] == 18:  # a v4 ECDH subkey
-            ids.append(hashlib.sha1(b"\x99" + len(body).to_bytes(2, "big") + body).hexdigest()[-16:])
-    return ids
 
-src = os.path.expanduser("~/Desktop/Projects/mail/server/openpgp")
-keys = []
+def fingerprint(body):
+    return hashlib.sha1(b"\x99" + len(body).to_bytes(2, "big") + body).hexdigest().upper()
+
+
+def encryption_ids(data):
+    return [fingerprint(body)[-16:].lower() for tag, body in packets(data) if tag == 14 and body[0] == 4 and body[5] == 18]  # v4 ECDH subkeys
+
+
+def wkd_hash(local):
+    bits = "".join(f"{b:08b}" for b in hashlib.sha1(local.lower().encode()).digest())
+    return "".join(ZBASE32[int(bits[i:i + 5].ljust(5, "0"), 2)] for i in range(0, len(bits), 5))
+
+
+def grouped(fpr):
+    return " ".join(fpr[i:i + 4] for i in range(0, 20, 4)), " ".join(fpr[i:i + 4] for i in range(20, 40, 4))
+
+
+keys, expected = {}, {}
 for k in json.load(open(os.path.join(src, "keys.json"))):
-    armored = open(os.path.join(src, k["address"] + ".asc")).read()
-    keys.append({"address": k["address"], "fingerprint": k["fingerprint"], "subkeys": encryption_ids(armored), "armored": armored})
-with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "keys.mjs"), "w") as f:
+    address, fpr = k["address"].lower(), k["fingerprint"].upper()
+    local, domain = address.rsplit("@", 1)
+    data = binary(open(os.path.join(src, address + ".asc")).read())
+    found = list(packets(data))
+    if [t for t, _ in found].count(6) != 1 or fingerprint(found[0][1]) != fpr or [t for t, _ in found].count(13) != 1:
+        raise SystemExit(f"make-keys: the key file of an address at {domain} is not one key {fpr} with one user ID")
+    entry = keys.setdefault(fpr, {"domain": domain, "fingerprint": fpr, "created": k.get("created", ""), "expires": k.get("expires", ""),
+                                  "subkeys": encryption_ids(data), "hashes": [], "armored": None})
+    if entry["domain"] != domain:
+        raise SystemExit(f"make-keys: the key {fpr} serves more than one domain")
+    entry["hashes"].append(hashlib.sha256(address.encode()).hexdigest())
+    if address == PUBLIC.get(domain):
+        entry["armored"] = open(os.path.join(src, address + ".asc")).read()
+    want = expected.setdefault(domain, {"keys": {}, "wkd": {}})
+    want["keys"][fpr] = {"subkeys": sorted(fingerprint(body) for tag, body in found if tag == 14)}
+    want["wkd"][wkd_hash(local)] = fpr
+for entry in keys.values():
+    if entry["armored"] is None:
+        raise SystemExit(f"make-keys: the key {entry['fingerprint']} has no address that our sites show; name one in PUBLIC")
+    entry["hashes"].sort()
+ordered = sorted(keys.values(), key=lambda e: (e["domain"], e["fingerprint"]))
+
+with open(os.path.join(here, "keys.mjs"), "w") as f:
     f.write("// Generated by make-keys.py from the mail repository (server/openpgp): the keys\n"
-            "// end-to-end messages written in the reader are encrypted to.\nexport const KEYS = " + json.dumps(keys, indent=1) + ";\n")
+            "// end-to-end messages written in the reader are encrypted to, one a key. Our\n"
+            "// addresses are here only as the SHA-256 of each (lower case, hex): hashes;\n"
+            "// a key carries one user ID, an address our sites show anyway.\n"
+            "export const KEYS = " + json.dumps(ordered, indent=1) + ";\n")
+
+block = "".join(
+    f'<section class="card"><h2>{html.escape(e["domain"])}</h2>'
+    f'<p class="fingerprint" aria-label="Fingerprint"><span>{grouped(e["fingerprint"])[0]}</span><span>{grouped(e["fingerprint"])[1]}</span></p>'
+    f'<p class="hint">Created {html.escape(e["created"])}' + (f', valid until {html.escape(e["expires"])}' if e["expires"] else "") + "</p></section>\n"
+    for e in ordered)
+path = os.path.join(here, "keys.html")
+page = open(path).read()
+page = re.sub(r"<!-- KEYS-BEGIN \(make-keys.py\) -->\n.*?<!-- KEYS-END -->", lambda _: "<!-- KEYS-BEGIN (make-keys.py) -->\n" + block + "<!-- KEYS-END -->", page, flags=re.S)
+open(path, "w").write(page)
+
+path = os.path.join(here, "watch", "keys.json")
+try:
+    old = json.load(open(path))
+except (OSError, ValueError):
+    old = {}
+if old.get("domains") != expected:
+    stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    with open(path, "w") as f:
+        json.dump({"updated": stamp, "domains": expected}, f, indent=1, sort_keys=True)
+        f.write("\n")
+print(f"make-keys: {len(ordered)} keys")

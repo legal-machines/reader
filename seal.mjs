@@ -13,10 +13,25 @@
 import {KEYS} from './keys.mjs';
 
 const TEXT = 'Mail Reader seal, version 1', enc = new TextEncoder();
+
+// keys.mjs knows our addresses only by their SHA-256 (lower case, hex): an
+// address is hashed and looked up, never listed.
+const hashed = new Map();
+export function addressHash(address) {
+  const a = String(address).toLowerCase();
+  if (!hashed.has(a)) hashed.set(a, crypto.subtle.digest('SHA-256', enc.encode(a)).then(d => [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join('')));
+  return hashed.get(a);
+}
+// The key of one of our addresses, or undefined.
+export async function keyOf(address) {
+  const hash = await addressHash(address);
+  return KEYS.find(k => k.hashes.includes(hash));
+}
 const b64u = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const unb64u = text => Uint8Array.from(atob(text.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
 
-// Key ID of an encryption subkey -> its X25519 public key and addresses.
+// Key ID of an encryption subkey -> its X25519 public key, and the hashes of
+// the addresses it serves and their domain.
 let known = null;
 export async function directory(openpgp) {
   if (known) return known;
@@ -27,7 +42,7 @@ export async function directory(openpgp) {
       const p = sub.keyPacket;
       if (p.algorithm !== openpgp.enums.publicKey.ecdh || p.publicParams?.oid?.getName?.() !== 'curve25519Legacy') continue;
       const id = p.getKeyID().toHex();
-      (out[id] ||= {pub: p.publicParams.Q.slice(1), addresses: []}).addresses.push(k.address);
+      (out[id] ||= {pub: p.publicParams.Q.slice(1), hashes: [], domain: k.domain}).hashes.push(...k.hashes);
     }
   }
   return (known = out);
@@ -57,8 +72,9 @@ export async function seal(openpgp, inner, fromId, derive, toIds) {
 }
 
 // The seal of an opened message, for the key that opened it (myId):
-// {state: 'ok', addresses} (written with the key of those addresses),
-// 'bad' (a seal that does not hold), or 'none'; and the message without it.
+// {state: 'ok', hashes, domain} (written with the key of the addresses with
+// those hashes, at that domain), 'bad' (a seal that does not hold), or
+// 'none'; and the message without it.
 export async function check(openpgp, bytes, myId, derive) {
   let at = 0, mine = null;
   const latin = n => String.fromCharCode(...bytes.subarray(at, Math.min(at + n, bytes.length)));
@@ -81,5 +97,5 @@ export async function check(openpgp, bytes, myId, derive) {
   shared.fill(0);
   let same = tag.length === mine.tag.length ? 0 : 1;
   for (let i = 0; i < tag.length && i < mine.tag.length; i++) same |= tag[i] ^ mine.tag[i];
-  return {state: same ? 'bad' : 'ok', addresses: sender.addresses, rest};
+  return {state: same ? 'bad' : 'ok', hashes: sender.hashes, domain: sender.domain, rest};
 }

@@ -8,8 +8,7 @@
 
 import {MAIL_SITES} from './sites.mjs';
 import {widths} from './width.mjs';
-import {KEYS} from './keys.mjs';
-import {seal} from './seal.mjs';
+import {keyOf, seal} from './seal.mjs';
 import * as vault from './vault.mjs';
 import {valid} from './store.mjs';
 import {openpgpLib} from './decrypt.mjs';
@@ -20,7 +19,6 @@ const tell = m => { if (parentOrigin) parent.postMessage(m, parentOrigin); };
 const report = () => { const r = document.getElementById('actions').getBoundingClientRect(); tell({type: 'reader-size', width: Math.ceil(r.width), height: Math.ceil(r.height)}); };
 new ResizeObserver(report).observe(document.getElementById('actions'));
 
-const keyOf = address => KEYS.find(k => k.address === address.toLowerCase());
 // The message from the composer you typed in. Every composer on the
 // channel that someone typed into answers; more than one, and nothing is
 // sent: Mail may have slipped in a second one with words of its own.
@@ -55,8 +53,10 @@ button.addEventListener('click', async e => {
   try {
     const everyone = [...to, ...cc, ...bcc].map(a => a.toLowerCase());
     if (!everyone.length) throw new Error('Add a recipient.');
-    const own = keyOf(from);
-    const missing = [...everyone, from].filter(a => !keyOf(a));
+    // Our keys only (keys.mjs, by the hash of each address).
+    const known = new Map(await Promise.all([...new Set([...everyone, from])].map(async a => [a, await keyOf(a)])));
+    const own = known.get(from);
+    const missing = [...everyone, from].filter(a => !known.get(a));
     if (missing.length) throw new Error(`End to end goes only to mailboxes here with keys; not to ${missing.join(', ')}.`);
     // Your key, for the seal: open already, or opened now with this press.
     const fromId = own.subkeys[0];
@@ -73,7 +73,7 @@ button.addEventListener('click', async e => {
     }
     const openpgp = await openpgpLib();
     let text = await ask(to, cc);
-    const keys = [...new Set([...everyone, from])].map(keyOf);
+    const keys = [...new Set([...everyone, from])].map(a => known.get(a));
     if (derive) text = await seal(openpgp, text, fromId, derive, keys.map(k => k.subkeys[0]));
     const encryptionKeys = await Promise.all(keys.map(k => openpgp.readKey({armoredKey: k.armored})));
     const armored = await openpgp.encrypt({message: await openpgp.createMessage({binary: new TextEncoder().encode(text)}), encryptionKeys, format: 'armored'});

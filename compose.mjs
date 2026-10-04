@@ -13,7 +13,7 @@ import {MAIL_SITES} from './sites.mjs';
 import {widths} from './width.mjs';
 import {escape} from './mime.mjs';
 import {icon} from './icons.mjs';
-import {KEYS} from './keys.mjs';
+import {keyOf} from './seal.mjs';
 import {chip, explained, markFor, setExplained} from './mark.mjs';
 import * as vault from './vault.mjs';
 import {openWith, recipientsOf} from './decrypt.mjs';
@@ -23,7 +23,7 @@ const tools = document.getElementById('tools'), filesBox = document.getElementBy
 document.getElementById('e2e-label').innerHTML = icon('lock') + '<span>End to end</span>';
 const pictureInput = document.getElementById('pictures'), filesInput = document.getElementById('attach'), dropHint = form.querySelector('.drop-hint');
 const LIMIT = 15 * 1024 * 1024;  // the files of one message, as the mail server takes them encrypted
-let parentOrigin = null, from = '', channel = null, started = false, typed = false;
+let parentOrigin = null, from = '', own = null, channel = null, started = false, typed = false;
 const instance = crypto.randomUUID();
 // Typed here by a person (the browser marks such events as trusted).
 for (const type of ['keydown', 'pointerdown', 'paste', 'drop']) addEventListener(type, e => { if (e.isTrusted) typed = true; }, true);
@@ -276,7 +276,6 @@ form.addEventListener('drop', e => {
 // (Mail can neither read it nor have it shown elsewhere). The first time,
 // it says what it is; before this browser knows it, where it will come from.
 function showSeal() {
-  const own = KEYS.find(k => k.address === from.toLowerCase());
   const m = own && markFor(own.subkeys);
   const focused = document.hasFocus();
   dock.dataset.shown = String(focused && !!from);
@@ -496,6 +495,7 @@ addEventListener('message', async e => {
   if (d.type === 'reader-compose' && !started) {  // the frame's first word from Mail: the start of the text, and who writes
     started = true;
     from = typeof d.from === 'string' ? d.from.slice(0, 254) : '';
+    if (from) keyOf(from).then(k => { own = k || null; showSeal(); });  // your key, for your mark (keys.mjs knows addresses by hash)
     if (typeof d.subject === 'string') subject.value = d.subject.slice(0, 998);
     editor.innerHTML = clean(d.html);
     untouched = editor.innerHTML;
