@@ -10,7 +10,8 @@ do not depend on each other run it: this server every 10 minutes
                                   a note to each domain's postmaster on a change
   reader-watch.py github FILE     in GitHub Actions: the run fails, and GitHub
                                   mails the repository's owner; also checks the
-                                  webmail's static files against FILE
+                                  webmail's static files against FILE, and our
+                                  public keys against keys.json beside it
   reader-watch.py expected        prints FILE for the webmail as deployed
                                   (scripts/watch-sync.sh, after deploy.sh)
 
@@ -24,7 +25,16 @@ A problem is any of these:
    would need first;
  - a reader file served other than its repository's SHA256SUMS, or (github
    mode) a webmail file other than FILE says, unless the repository or FILE
-   changed in the last 20 minutes and the caches are catching up.
+   changed in the last 20 minutes and the caches are catching up;
+ - our public keys other than GitHub holds them (watch/keys.json in
+   legal-machines/reader, made by its make-keys.py from the keys it
+   publishes): a fingerprint on https://mail.<domain>/encryption that is not
+   ours, or ours missing there, or a key for one of our addresses, served by
+   the Web Key Directory (openpgpkey.<domain>) or by the guide's download
+   (/encryption/key), that is not exactly our key with that address's user ID
+   alone, or no key at all. Both are asked by the WKD hash of the address's
+   local part, so the watch knows no addresses. The host's own run reads
+   keys.json from GitHub, never from this server.
 A check that cannot run (the network, an API's limit) is a note, not a problem.
 """
 import base64
@@ -56,6 +66,8 @@ SETTLING = 20 * 60        # GitHub Pages and raw.githubusercontent.com caches
 STATE = "/var/lib/mail-status/reader-watch.json"
 ALERT = "/var/lib/mail-status/reader-alert.json"
 WATCH_RUNS = "https://api.github.com/repos/legal-machines/reader/actions/workflows/watch.yml/runs?status=completed&per_page=1"
+KEYS_URL = "https://raw.githubusercontent.com/legal-machines/reader/main/watch/keys.json"
+ZBASE32 = "ybndrfg8ejkmcpqxot1uwisza345h769"
 
 notes = []
 
@@ -257,6 +269,141 @@ def check_mail(expected):
     return problems
 
 
+# ---- Our public keys: what the server hands out against what GitHub holds.
+def key_packets(data):
+    """(tag, body) of each OpenPGP packet (RFC 9580, section 4.2), or None."""
+    out, at = [], 0
+    try:
+        while at < len(data):
+            head = data[at]
+            at += 1
+            if not head & 0x80:
+                return None
+            if head & 0x40:
+                tag, first = head & 0x3F, data[at]
+                at += 1
+                if first < 192:
+                    length = first
+                elif first < 224:
+                    length = ((first - 192) << 8) + data[at] + 192
+                    at += 1
+                elif first == 255:
+                    length = int.from_bytes(data[at:at + 4], "big")
+                    at += 4
+                else:
+                    return None
+            else:
+                tag, kind = (head >> 2) & 0x0F, head & 3
+                if kind == 3:
+                    return None
+                length = int.from_bytes(data[at:at + (1 << kind)], "big")
+                at += 1 << kind
+            if at + length > len(data):
+                return None
+            out.append((tag, data[at:at + length]))
+            at += length
+    except IndexError:
+        return None
+    return out
+
+
+def key_fingerprint(body):
+    if body[:1] == b"\x04":
+        return hashlib.sha1(b"\x99" + len(body).to_bytes(2, "big") + body).hexdigest().upper()
+    if body[:1] == b"\x06":
+        return hashlib.sha256(b"\x9b" + len(body).to_bytes(4, "big") + body).hexdigest().upper()
+    return None
+
+
+def wkd_hash(local):
+    digest = hashlib.sha1(local.encode().lower()).digest()
+    bits = "".join(f"{b:08b}" for b in digest)
+    return "".join(ZBASE32[int(bits[i:i + 5].ljust(5, "0"), 2)] for i in range(0, len(bits), 5))
+
+
+def armor_body(text):
+    """The binary inside an ASCII-armored public key block, or b""."""
+    lines, body, inside, headers = text.splitlines(), [], False, False
+    for line in lines:
+        if line.startswith("-----BEGIN PGP PUBLIC KEY BLOCK-----"):
+            inside, headers = True, True
+        elif line.startswith("-----END PGP"):
+            break
+        elif inside and headers:
+            if not line.strip() or ":" not in line:
+                headers = False
+                if line.strip():
+                    body.append(line.strip())
+        elif inside and not line.startswith("="):
+            body.append(line.strip())
+    try:
+        return base64.b64decode("".join(body))
+    except ValueError:
+        return b""
+
+
+def key_problem(data, domain, hu, fingerprint, subkeys):
+    """What is wrong with a key served for the address with this WKD hash, or
+    None when it is exactly ours with that address's user ID alone."""
+    found = key_packets(data)
+    if not found:
+        return "something that is not a key"
+    if sum(t == 6 for t, _ in found) != 1 or found[0][0] != 6 or any(t in (5, 7) for t, _ in found):
+        return "more than one key, or not a public key"
+    served = key_fingerprint(found[0][1])
+    if served != fingerprint:
+        return f"another key ({served or 'unknown'})"
+    uids = [b for t, b in found if t == 13]
+    if len(uids) != 1 or any(t == 17 for t, _ in found):
+        return f"our key with {len(uids)} user IDs"
+    text = uids[0].decode("utf-8", "replace")
+    address = (re.search(r"<([^<>]*)>\s*$", text) or re.match(r"(.*)", text)).group(1).strip().lower()
+    local, _, at = address.rpartition("@")
+    if at != domain or wkd_hash(local) != hu:
+        return "our key with the user ID of another address"
+    if sorted(key_fingerprint(b) or "" for t, b in found if t == 14) != sorted(subkeys):
+        return "our key with other subkeys"
+    return None
+
+
+def check_keys(expected):
+    """Our public keys as served, against keys.json (see the top)."""
+    if now() - parse_time(expected["updated"]) < SETTLING:
+        notes.append("keys.json changed in the last 20 minutes: keys not checked")
+        return []
+    problems = []
+    for domain, want in expected["domains"].items():
+        keys = want["keys"]
+        page = f"https://mail.{domain}/encryption"
+        try:
+            html = fetch(page)[0].decode("utf-8", "replace")
+            shown = {re.sub(r"\s+", "", f) for f in re.findall(r"\b[0-9A-F]{4}(?:\s+[0-9A-F]{4}){9}\b", re.sub(r"<[^>]*>", " ", html))}
+            for fpr in sorted(shown - set(keys)):
+                problems.append(f"mail.{domain}/encryption shows the fingerprint {fpr}, which is not our key")
+            for fpr in sorted(set(keys) - shown):
+                problems.append(f"mail.{domain}/encryption does not show our key {fpr}")
+        except (OSError, urllib.error.URLError) as e:
+            notes.append(f"{page} could not be fetched ({type(e).__name__})")
+        for hu, fpr in sorted(want["wkd"].items()):
+            for where, url, armored in ((f"openpgpkey.{domain}", f"https://openpgpkey.{domain}/.well-known/openpgpkey/{domain}/hu/{hu}", False),
+                                        (f"mail.{domain}/encryption/key", f"https://mail.{domain}/encryption/key?hu={hu}", True)):
+                try:
+                    data = fetch(url)[0]
+                except urllib.error.HTTPError as e:
+                    if e.code == 404:
+                        problems.append(f"{where} serves no key for one of our addresses (WKD hash {hu})")
+                    else:
+                        notes.append(f"{where} answered {e.code} for WKD hash {hu}")
+                    continue
+                except (OSError, urllib.error.URLError) as e:
+                    notes.append(f"{where} could not be fetched for WKD hash {hu} ({type(e).__name__})")
+                    continue
+                wrong = key_problem(armor_body(data.decode("latin-1")) if armored else data, domain, hu, fpr, keys[fpr]["subkeys"])
+                if wrong:
+                    problems.append(f"{where} serves {wrong} for one of our addresses (WKD hash {hu})")
+    return problems
+
+
 def check_all(ds_required):
     problems, ds_seen = [], {}
     for domain, (host, repo) in READERS.items():
@@ -277,7 +424,7 @@ def write_public(path, text):
     os.replace(new, path)
 
 
-def tell_postmasters(problems):
+def tell_postmasters(problems, keys_wrong=False):
     try:
         with open("/etc/rspamd/local.d/known_token") as f:
             token = f.read().strip()
@@ -286,6 +433,8 @@ def tell_postmasters(problems):
     if problems:
         subject = "Mail Reader check: 1 problem" if len(problems) == 1 else f"Mail Reader check: {len(problems)} problems"
         text = ("The check of the Mail Reader found:\n\n" + "".join(f"- {p}\n" for p in problems) +
+                ("\nA key problem means that people get a key other than ours, or none, from our server: until it clears, check "
+                 "fingerprints only against reader.legalmachines.org/keys.html.\n" if keys_wrong else "") +
                 "\nUntil this clears, the webmail opens no encrypted message and adds no key by itself; each message offers "
                 "Open anyway. Look at the domain's registrar (REG.RU), deSEC and the GitHub repositories legal-machines/reader "
                 "and legal-machines/reader2 before opening encrypted mail. This note repeats once a day while a problem lasts.\n")
@@ -316,6 +465,13 @@ def run_server():
         state = {}
     ds_ever = state.get("ds", {})
     problems, ds_seen = check_all({d: bool(ds_ever.get(d)) for d in READERS})
+    # Our keys against GitHub's copy, never against one kept here.
+    key_problems = []
+    try:
+        key_problems = check_keys(fetch_json(KEYS_URL))
+        problems += key_problems
+    except (OSError, ValueError, KeyError, urllib.error.URLError) as e:
+        notes.append(f"keys.json could not be read from GitHub ({type(e).__name__})")
     for domain, seen in ds_seen.items():
         if seen:
             ds_ever[domain] = sorted(set(ds_ever.get(domain, [])) | set(seen))
@@ -338,7 +494,7 @@ def run_server():
     write_public(ALERT, json.dumps({"problems": problems, "since": since, "checked": iso(now())}))
     write_public(STATE, json.dumps({"ds": ds_ever, "problems": problems, "since": since, "notes": notes, "checked": iso(now()), "told": told}))
     if due:
-        tell_postmasters(problems)
+        tell_postmasters(problems, bool(key_problems))
     for line in problems:
         print("PROBLEM", line)
     for line in notes:
@@ -351,6 +507,12 @@ def run_github(path):
         expected = json.load(f)
     problems, _ = check_all(expected.get("ds_required", {}))
     problems += check_mail(expected)
+    keys = os.path.join(os.path.dirname(os.path.abspath(path)), "keys.json")
+    if os.path.exists(keys):
+        with open(keys) as f:
+            problems += check_keys(json.load(f))
+    else:
+        notes.append("no keys.json beside the expected file: keys not checked")
     for line in notes:
         print(f"note: {line}")
     for line in problems:
