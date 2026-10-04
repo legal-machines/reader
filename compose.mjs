@@ -209,6 +209,35 @@ grid.addEventListener('pointermove', e => {
 grid.addEventListener('pointerup', () => { if (!sizing) return; const value = sizing; sizing = null; swallow = Date.now(); format('insertTable', value); });
 grid.addEventListener('pointercancel', () => { sizing = null; });
 grid.addEventListener('click', e => { if (Date.now() - swallow < 700) { e.preventDefault(); e.stopPropagation(); } }, true);  // the lift was the choice
+// Backspace at the very start of a quote takes the quote off that line, as
+// in Gmail; browsers leave a quote with text in it alone. Android sends it
+// only as beforeinput, Safari only as the key (no beforeinput when nothing
+// is before the caret). Outdent first (Undo brings it back), by hand if not.
+const liftQuote = () => {
+  const sel = getSelection();
+  if (!sel.rangeCount || !sel.isCollapsed) return false;
+  const r = sel.getRangeAt(0), at = r.startContainer.nodeType === 1 ? r.startContainer : r.startContainer.parentElement;
+  const quote = at?.closest('blockquote');
+  if (!quote || !editor.contains(quote)) return false;
+  const before = document.createRange();
+  before.setStart(quote, 0);
+  before.setEnd(r.startContainer, r.startOffset);
+  if (before.toString() !== '' || before.cloneContents().querySelector('img, table, br')) return false;
+  const node = r.startContainer, offset = r.startOffset;
+  document.execCommand('outdent');
+  if (quote.isConnected && quote.contains(node)) {
+    quote.replaceWith(...quote.childNodes);
+    const back = document.createRange();
+    back.setStart(node, Math.min(offset, node.nodeType === 3 ? node.length : node.childNodes.length));
+    back.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(back);
+  }
+  touched(); mark();
+  return true;
+};
+editor.addEventListener('keydown', e => { if (e.key === 'Backspace' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && liftQuote()) e.preventDefault(); });
+editor.addEventListener('beforeinput', e => { if (e.inputType === 'deleteContentBackward' && liftQuote()) e.preventDefault(); });
 const plainKeys = {KeyB: 'bold', KeyI: 'italic', KeyU: 'underline', KeyK: 'createLink', Backslash: 'removeFormat', BracketLeft: 'outdent', BracketRight: 'indent'};
 const shiftKeys = {KeyX: 'strikeThrough', Digit7: 'insertOrderedList', Digit8: 'insertUnorderedList', Digit9: 'blockquote',
   KeyL: 'justifyLeft', KeyE: 'justifyCenter', KeyR: 'justifyRight', KeyJ: 'justifyFull'};
