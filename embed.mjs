@@ -91,11 +91,11 @@ async function prepare() {
   if (!record) {
     return show(card('End-to-end encrypted',
       records.length ? 'The key on this browser does not open this message; it was encrypted to another key.'
-                     : 'This browser has no key for it yet. Open the message "Your encryption key" in your Inbox and click Add to this browser: then messages open here with Touch ID.',
+                     : 'This browser has no key for it yet. Open the message "Your encryption key" in your Inbox and click Add to this browser: then messages open here with Touch ID or your fingerprint.',
       `<div class="actions">${setupLink}</div>`));
   }
   const pin = record.pinSalt ? '<label class="field"><span>Device PIN</span><input type="password" id="pin" inputmode="numeric" autocomplete="off" required></label>' : '';
-  show(card('End-to-end encrypted', `Only your key opens it, and on this browser your key opens with ${record.pinSalt ? 'your PIN and ' : ''}Touch ID or your device's screen lock.`,
+  show(card('End-to-end encrypted', `Only your key opens it. On this browser it opens with ${record.pinSalt ? 'your PIN and ' : ''}Touch ID, your fingerprint or the screen lock.`,
     `<form id="unlock" class="unlock">${pin}<div class="actions"><button class="filled" type="submit">Open</button></div><p class="error" role="alert" hidden></p></form>`));
   document.getElementById('unlock').addEventListener('submit', async e => {
     e.preventDefault();
@@ -103,14 +103,14 @@ async function prepare() {
     button.disabled = true;
     error.hidden = true;
     try {
-      const loading = openpgpLib();  // downloads while Touch ID is asked
+      const loading = openpgpLib();  // downloads while the passkey is asked
       let key = await unlock(record, document.getElementById('pin')?.value || '');
       const bytes = await open(await loading, armored, key, record.info);
       key = null;  // gone with this page; nothing else holds it
       render(read(bytes));
       bytes.fill(0);
     } catch (err) {
-      error.textContent = err.name === 'NotAllowedError' ? 'Touch ID was cancelled.' : err.message;
+      error.textContent = err.name === 'NotAllowedError' ? 'Cancelled. Try Open again.' : err.message;
       error.hidden = false;
       button.disabled = false;
     }
