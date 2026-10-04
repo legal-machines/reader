@@ -5,8 +5,9 @@ of legalmachines.org and dzyza.com, so that neither the mail server nor its
 hosting company can read them or take the key.
 
 It is served by GitHub Pages, not by the mail server: this repository is
-https://reader.legalmachines.org, and legal-machines/reader2 is the same files
-at https://reader.dzyza.com. The Mail app shows it in frames and hands it the
+https://seal.legalmachines.org, and legal-machines/reader2 is the same files
+at https://seal.dzyza.com, except keys.html, which shows only its own
+domain's key. The Mail app shows it in frames and hands it the
 encrypted message, which the mail server holds anyway. The browser keeps the
 Mail app out of these frames and out of this site's storage.
 

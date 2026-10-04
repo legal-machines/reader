@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Watches the Mail Reader sites (reader.legalmachines.org, reader.dzyza.com)
+"""Watches the Mail Reader sites (seal.legalmachines.org, seal.dzyza.com)
 for signs that someone other than GitHub Pages serves them. Two places that
 do not depend on each other run it: this server every 10 minutes
 (mail-reader-watch.timer), and GitHub Actions in legal-machines/reader every
@@ -18,8 +18,8 @@ do not depend on each other run it: this server every 10 minutes
 A problem is any of these:
  - a domain's delegation at its registry is not deSEC's (NS), or its DS does
    not match deSEC's key, or a DS that was there is gone;
- - reader.<domain> at deSEC is not a CNAME to legal-machines.github.io;
- - a certificate for reader.<domain> in the Certificate Transparency logs
+ - seal.<domain> at deSEC is not a CNAME to legal-machines.github.io;
+ - a certificate for seal.<domain> in the Certificate Transparency logs
    (SSLMate's Cert Spotter) whose key GitHub Pages does not serve, half an
    hour after it was issued: a certificate is what someone who took the name
    would need first;
@@ -53,8 +53,8 @@ import time
 import urllib.error
 import urllib.request
 
-READERS = {"legalmachines.org": ("reader.legalmachines.org", "legal-machines/reader"),
-           "dzyza.com": ("reader.dzyza.com", "legal-machines/reader2")}
+READERS = {"legalmachines.org": ("seal.legalmachines.org", "legal-machines/reader"),
+           "dzyza.com": ("seal.dzyza.com", "legal-machines/reader2")}
 MAIL_SITES = ["https://mail.legalmachines.org", "https://mail.dzyza.com"]
 MAIL_FILES = ["/static/app.js", "/static/app.css"]
 NAMESERVERS = {"ns1.desec.io.", "ns2.desec.org."}
@@ -434,7 +434,7 @@ def tell_postmasters(problems, keys_wrong=False):
         subject = "Mail Reader check: 1 problem" if len(problems) == 1 else f"Mail Reader check: {len(problems)} problems"
         text = ("The check of the Mail Reader found:\n\n" + "".join(f"- {p}\n" for p in problems) +
                 ("\nA key problem means that people get a key other than ours, or none, from our server: until it clears, check "
-                 "fingerprints only against reader.legalmachines.org/keys.html.\n" if keys_wrong else "") +
+                 "fingerprints only against seal.<domain>/keys.html.\n" if keys_wrong else "") +
                 "\nUntil this clears, the webmail opens no encrypted message and adds no key by itself; each message offers "
                 "Open anyway. Look at the domain's registrar (REG.RU), deSEC and the GitHub repositories legal-machines/reader "
                 "and legal-machines/reader2 before opening encrypted mail. This note repeats once a day while a problem lasts.\n")

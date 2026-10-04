@@ -9,8 +9,10 @@
 #                    the key itself with one user ID: the domain's address
 #                    that our sites show anyway (PUBLIC below). The compose
 #                    page encrypts only to these.
-#   keys.html        each domain's fingerprint, for people to compare with the
-#                    one their mail app shows (between KEYS-BEGIN and KEYS-END)
+#   keys.html        the fingerprint of one domain's key (--keys-page DOMAIN:
+#                    each site shows only its own domain's), for people to
+#                    compare with the one their mail app shows (between
+#                    KEYS-BEGIN and KEYS-END)
 #   watch/keys.json  what the watch (watch/watch.py) expects our mail server
 #                    to hand out: fingerprints, subkeys and the Web Key
 #                    Directory hash of each address's local part; "updated"
@@ -19,7 +21,7 @@
 # The SHA-256 of a short address can be found by trying names, so the hashes
 # keep the list out of sight, not secret. MAIL_REPO: the mail repository
 # (default ~/Desktop/Projects/mail).
-import base64, datetime, hashlib, html, json, os, re
+import base64, datetime, hashlib, html, json, os, re, sys
 
 PUBLIC = {"legalmachines.org": "inbox@legalmachines.org", "dzyza.com": "inbox@dzyza.com"}
 ZBASE32 = "ybndrfg8ejkmcpqxot1uwisza345h769"
@@ -98,11 +100,14 @@ with open(os.path.join(here, "keys.mjs"), "w") as f:
             "// a key carries one user ID, an address our sites show anyway.\n"
             "export const KEYS = " + json.dumps(ordered, indent=1) + ";\n")
 
+only = sys.argv[sys.argv.index("--keys-page") + 1] if "--keys-page" in sys.argv else None
+if only and not any(e["domain"] == only for e in ordered):
+    raise SystemExit(f"make-keys: no key for {only}")
 block = "".join(
     f'<section class="card"><h2>{html.escape(e["domain"])}</h2>'
     f'<p class="fingerprint" aria-label="Fingerprint"><span>{grouped(e["fingerprint"])[0]}</span><span>{grouped(e["fingerprint"])[1]}</span></p>'
     f'<p class="hint">Created {html.escape(e["created"])}' + (f', valid until {html.escape(e["expires"])}' if e["expires"] else "") + "</p></section>\n"
-    for e in ordered)
+    for e in ordered if only in (None, e["domain"]))
 path = os.path.join(here, "keys.html")
 page = open(path).read()
 page = re.sub(r"<!-- KEYS-BEGIN \(make-keys.py\) -->\n.*?<!-- KEYS-END -->", lambda _: "<!-- KEYS-BEGIN (make-keys.py) -->\n" + block + "<!-- KEYS-END -->", page, flags=re.S)
