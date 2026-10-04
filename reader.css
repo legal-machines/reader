@@ -2,13 +2,13 @@
 :root{color-scheme:light dark;
 --c-bg:#f6f8fc;--c-surface:#fff;--c-surface-2:#f0f4f9;--c-surface-3:#e9eef6;--c-text:#1f1f1f;--c-text-2:#444746;--c-text-3:#5f6368;
 --c-primary:#0b57d0;--c-on-primary:#fff;--c-selected:#d3e3fd;--c-on-selected:#041e49;--c-outline:#747775;--c-hover:rgba(68,71,70,.08);
---c-good:#146c2e;--c-good-soft:#c4eed0;--c-on-good-soft:#072711;--c-danger:#b3261e;--c-danger-soft:#f9dedc;--c-on-danger-soft:#410e0b;
+--c-good:#146c2e;--c-good-soft:#c4eed0;--c-on-good-soft:#072711;--c-danger:#b3261e;--c-on-danger:#fff;--c-danger-soft:#f9dedc;--c-on-danger-soft:#410e0b;
 --f-sans:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
 --s-1:4px;--s-2:8px;--s-3:12px;--s-4:16px;--s-5:20px;--s-6:24px;--r-sm:8px;--r-md:12px;--r-lg:16px;--r-full:999px;--h-md:40px}
 @media (prefers-color-scheme:dark){:root{
 --c-bg:#131314;--c-surface:#1e1f20;--c-surface-2:#26282a;--c-surface-3:#2d2f31;--c-text:#e3e3e3;--c-text-2:#c4c7c5;--c-text-3:#a8aaa8;
 --c-primary:#a8c7fa;--c-on-primary:#062e6f;--c-selected:#004a77;--c-on-selected:#d3e3fd;--c-outline:#8e918f;--c-hover:rgba(227,227,227,.08);
---c-good:#6dd58c;--c-good-soft:#0f5223;--c-on-good-soft:#c4eed0;--c-danger:#f2b8b5;--c-danger-soft:#8c1d18;--c-on-danger-soft:#f9dedc}}
+--c-good:#6dd58c;--c-good-soft:#0f5223;--c-on-good-soft:#c4eed0;--c-danger:#f2b8b5;--c-on-danger:#601410;--c-danger-soft:#8c1d18;--c-on-danger-soft:#f9dedc}}
 *{box-sizing:border-box}[hidden]{display:none!important}
 body{margin:0;color:var(--c-text);font:400 14px/1.43 var(--f-sans);-webkit-font-smoothing:antialiased}
 body.embed{background:transparent}
@@ -62,7 +62,11 @@ iframe.html{display:block;width:100%;min-height:80px;border:0}
 .files small{color:var(--c-text-3)}
 
 /* The setup page */
-.setup{max-width:640px;margin:0 auto;padding:var(--s-6) var(--s-4) 48px}
+.setup{max-width:640px;margin:0 auto;padding:var(--s-6) var(--s-4)}
+.setup > :last-child{margin-bottom:0}
+.filled.danger{background:var(--c-danger);color:var(--c-on-danger)}
+@media (hover:hover){.filled.danger:hover{background:color-mix(in srgb,var(--c-danger) 86%,var(--c-on-danger))}}
+.alarm-on b{color:var(--c-danger)}
 .card{margin:0 0 var(--s-3);padding:var(--s-5) var(--s-6);border-radius:var(--r-md);background:var(--c-surface)}.card > p:last-child{margin-bottom:0}
 .key-list{margin:0;padding:0;list-style:none}
 .key-list li{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3);padding:var(--s-2) 0}

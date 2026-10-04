@@ -6,7 +6,8 @@ import * as openpgp from './openpgp.min.mjs';
 import {extract, pkcs8Of} from './sealed-core.mjs';
 import {all, keep, newPasskey, remove} from './store.mjs';
 import {known, markOf, pictures, remember, setExplained, text as markText} from './mark.mjs';
-import {hold} from './vault.mjs';
+import {hold, lock} from './vault.mjs';
+import {clear as clearAlarm, raise, raised} from './alarm.mjs';
 import {escape} from './mime.mjs';
 import {MAIL_SITES} from './sites.mjs';
 
@@ -44,10 +45,46 @@ async function list() {
     `<li><div><b>${escape(r.addresses.join(', '))}</b><small>Added ${escape(r.created.slice(0, 10))}${r.pinSalt ? ', with a PIN' : ''}` +
     `${known()[r.keyId] ? `. Your mark: ${markText(known()[r.keyId])}` : ''}</small></div>` +
     `<button class="text" type="button" data-remove="${escape(r.credentialId)}">Remove</button></li>`).join('');
+  showAlarm(records);
   box.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', async () => {
     if (confirm('Remove this key from this browser? Encrypted messages will no longer open here until you add it again.')) { await remove(b.dataset.remove); list(); }
   }));
 }
+
+// The alarm, only for someone whose key is set up in this browser. Raised
+// here, in this site's own tab, never in a frame (see the top), and only by
+// a real press: the Mail app can neither raise nor clear it.
+async function showAlarm(records) {
+  const card = document.getElementById('alarm');
+  card.hidden = !records.length;
+  if (!records.length) return;
+  const at = await raised();
+  card.querySelector('.alarm-off').hidden = !!at;
+  card.querySelector('.alarm-on').hidden = !at;
+  if (at) card.querySelector('.alarm-when').textContent = new Date(at).toLocaleString(undefined, {dateStyle: 'medium', timeStyle: 'short'});
+}
+// A note in the team's private repository on GitHub, which neither the mail
+// server nor its hosting company can stop: you sign in there and send it.
+function openReport() {
+  const body = `Reported at ${location.host} on ${new Date().toISOString()}.\n\nWhat I saw (where, which mark, what I had typed there):\n\n\n` +
+               `Encrypted mail is locked in the browser I reported from until the report is cleared at ${location.host}/setup.html.`;
+  const url = 'https://github.com/legal-machines/mail/issues/new?' +
+              new URLSearchParams({title: `Mail Reader alarm: a composer without my mark (${location.host})`, body, labels: 'alarm'});
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+document.getElementById('raise').addEventListener('click', async e => {
+  if (!e.isTrusted) return;
+  await raise();
+  try { await lock(); } catch (err) {}
+  openReport();
+  list();
+});
+document.getElementById('report-again').addEventListener('click', e => { if (e.isTrusted) openReport(); });
+document.getElementById('clear-alarm').addEventListener('click', async e => {
+  if (!e.isTrusted || !confirm('Clear the report? Encrypted mail can be unlocked in this browser again.')) return;
+  await clearAlarm();
+  list();
+});
 
 form.addEventListener('submit', async e => {
   e.preventDefault();

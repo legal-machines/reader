@@ -19,13 +19,14 @@
 
 // PINS-BEGIN (make-pins.py)
 const PINS = {
+ "alarm.mjs": "2e924e862b89c8961ddac0dca7fd7522097a5c1a93b259cf816adb0212756854",
  "compose.html": "75fa0d025ba3a705e93df7222fe67ad2f8e9b199c745cc89a7dc0ed95cf54b12",
- "compose.mjs": "81b93c05113c3074c050a09d77a60d96baacc4ee2b91ba55fba81e8a87daa815",
+ "compose.mjs": "a4d0450c743b464ad5993facd05279fa9e933dc6b22bb4bbb272904ddacfdd35",
  "decrypt.mjs": "7b280f474ebbd0bb017123020767d7dc14e906c890a1a054862379db3409ac6d",
  "embed.mjs": "c26d0e40f42d53a51c116c9047d960e82da6fe6beb5eeb566711364972154d83",
  "frame.css": "27983b10f48e57d049be702814ae7cc47cea5c7e687c8b185f18257e4c1d8a38",
  "hub.html": "c70d16f0b7c3f93df8bf681560a0448eba840bb408c5ee2a5f5220d772ee4186",
- "hub.mjs": "40de18a28649e25f911b5ed7f37ff27d69862671a1574dcba070b3c447fdeb73",
+ "hub.mjs": "03a1450de11d2528b5652215d90863037745c77be4218c2f37f0193218d7d102",
  "icons.mjs": "7e060128f35ead471be6a1940dc92ff551c52f181b551d7eb4f49e73777f460b",
  "index.html": "782470d3a270ca082e703c6e9846b9fab88a13866b53615b7d4ce3296c229d1a",
  "keys.html": "1939c572fc96989f0d85dab9495ab58e03e1f7d4279bf2b8b8329a10ccd33cb8",
@@ -36,22 +37,22 @@ const PINS = {
  "mime.mjs": "2669eb9343775add28dda1101cc4ec2d7e6c238bae33c9ea8ef87fd53b7f5835",
  "notices.mjs": "f65d87fe45605a7d16710964003f36cd571f5686b0c9149054aa672b57ce0783",
  "openpgp.min.mjs": "7d3285efa6dfedbb34a136d8b5ad21c28fb973269df0b2818dcb74dfb40b59d9",
- "reader.css": "3e0489c3bef0002b530a7f9f957ccf21f53281e6bb8a9e6d1cbea527e589ed3d",
+ "reader.css": "97c0047b5d3ebab584181b9a756c1c231aa39dbacfd5d139e0fe5e81a898e7b7",
  "row.css": "f372764933bb9c7d8f7ac92a624ee2849397429d4c4b1eab07b94a12ef70b2a2",
  "row.html": "1c20365a92f3e856c687e50b661088b1dcde1ff6d4662bed28c5a6b6938e4865",
  "row.mjs": "c51ace7c4a897a7a950ade899ed491f073c678c9ddcc69f8c9725a50caab9439",
  "seal.mjs": "e4a07ce6c23006c791cd55b4626e117df06683a963eab1239dfd475645b983bf",
  "sealed-core.mjs": "751cda0c898ab62b88e8d907c6e8431222084656a3ec1e7c474f0a8092a92c52",
  "send.html": "7f91f2cae14487f1a45c23c38d868f57766682f719312952c0992f96e428f5ce",
- "send.mjs": "7500aa056673fbee2ac2137c80390d7a1c5729029378c8057b3602235f116b77",
- "setup.html": "1e86addfdf6b5e8dc5711fa75b9a6b9e4119bd06f5c6c569df7eb86edf063b0d",
- "setup.mjs": "57e3dc467b4631accfc6cd6a3951545369462aa866f72ef53183e63885e9d7f1",
+ "send.mjs": "12fc6789cfcd7fa782ab642ab7acc7658454252c96e75342d50965dfff205087",
+ "setup.html": "7035ac578ef7397e89cb6e827acc448a477981c9caa097b724a8291f4135f387",
+ "setup.mjs": "c54c9e1700608f717b273aeb235d876ddeb7e861e7114d9345ea584bbac70393",
  "sites.mjs": "da735072fc0ca68478199a4a477358f6283792952d8d435f91e33b268d91c7ce",
  "store.mjs": "b8f920eb2e07abf8ed706d50ab8e8955cc6a23eae60e2d8bf19a8378b7e837c4",
  "tab.mjs": "6cb9413d6a36c53e8a50cb2332fb484fb8c84e2e66b79743510b4c8a253a4757",
  "title.html": "d86d47b2f8c4e4265fd4bc42354e542e6b65b914653cc1c851255385c31412c8",
  "title.mjs": "f1fa9f8cdefa820c69d69461e0f8d5594fd81de03d02b2d452641e1d23243556",
- "vault.mjs": "6e444ce02df36f9eddf313cbabdcebc9fd5a3595661f4e5e5342159d979b9c03",
+ "vault.mjs": "ada2cbf0d75d12c7caead15d6785c948ab3b38d65f5393814316458dbca74aed",
  "width.mjs": "3f46932569c028cb5815c12c59abf01858e10817dce65d384d4ce43ce29aede8"
 };
 // PINS-END
@@ -132,6 +133,7 @@ async function handle(d, from) {
     }
     case 'hold': {
       if (!await served(from)) return {...state(), served: false};  // a page from the network may not put a key in
+      if (await alarmRaised()) return {...state(), alarm: true};    // you reported a problem (alarm.mjs): no key until you clear it
       // From a page that has just unsealed the key with the passkey.
       const idle = CHOICES.includes(d.minutes) ? d.minutes * MINUTE : 15 * MINUTE;
       const started = epoch, keys = new Map(vault ? vault.keys : []);
@@ -218,6 +220,22 @@ self.addEventListener('fetch', e => {
     ? new Response(body.slice(0), {headers: {'Content-Type': TYPES[name.split('.').pop()] || 'application/octet-stream', 'Origin-Agent-Cluster': '?1'}})
     : new Response('', {status: 503})));
 });
+// Whether you raised the alarm on setup.html (alarm.mjs keeps it).
+function alarmRaised() {
+  return new Promise(resolve => {
+    const r = indexedDB.open('reader-alarm', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('alarm');
+    r.onerror = () => resolve(false);
+    r.onsuccess = () => {
+      try {
+        const g = r.result.transaction('alarm').objectStore('alarm').get('raised');
+        g.onsuccess = () => { resolve(!!g.result); r.result.close(); };
+        g.onerror = () => { resolve(false); r.result.close(); };
+      } catch (e) { resolve(false); r.result.close(); }
+    };
+  });
+}
+
 // A page this worker served (its document came from the checked copy).
 const served = async id => !!id && (await self.clients.matchAll({type: 'window'})).some(c => c.id === id);
 self.addEventListener('message', e => {

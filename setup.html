@@ -17,6 +17,18 @@
   <h1>Read encrypted mail in this browser</h1>
   <p>Your key file is opened here, in this browser, and nothing leaves it: this page cannot send anything anywhere. The key is then locked to this device with a passkey (Touch ID, a fingerprint or the screen lock) and a PIN you choose, and kept only in this browser.</p>
   <section class="card" id="keys" hidden><h2>Keys in this browser</h2><ul class="key-list"></ul></section>
+  <section class="card" id="alarm" hidden>
+    <h2>Something looks wrong?</h2>
+    <div class="alarm-off">
+      <p>Your mark shows only while you type in the reader's own composer, and it is always the four pictures next to your key above. If a message you were writing showed none, or other ones, the page around it was not the reader: stop typing there.</p>
+      <p>Report it here. Encrypted mail locks in this browser at once and stays locked until you clear the report on this page, and a private note opens on GitHub for the team.</p>
+      <div class="actions"><button class="filled danger" type="button" id="raise">Lock and report</button></div>
+    </div>
+    <div class="alarm-on" hidden>
+      <p><b>Reported <span class="alarm-when"></span>.</b> Encrypted mail is locked in this browser: it opens nothing and sends nothing end to end until you clear the report.</p>
+      <div class="actions"><button class="text" type="button" id="report-again">Open the report again</button><button class="text" type="button" id="clear-alarm">Clear the report</button></div>
+    </div>
+  </section>
   <form class="card" id="setup" autocomplete="off">
     <h2>Add a key</h2>
     <p class="handed" id="handed" hidden>Your key came from your mailbox, locked with its passphrase. Enter the passphrase to add it to this browser.</p>

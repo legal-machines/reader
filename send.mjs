@@ -13,6 +13,7 @@ import * as vault from './vault.mjs';
 import {all, valid} from './store.mjs';
 import {openpgpLib} from './decrypt.mjs';
 import {fromOurFrame, readerFrames} from './tab.mjs';
+import {alarmText, raised} from './alarm.mjs';
 
 const button = document.getElementById('send'), pinField = document.querySelector('.send-pin'), pin = document.getElementById('pin');
 let parentOrigin = null, ready = false, records = [], minutes = 15, from = '', people = {to: [], cc: [], bcc: []}, busy = false;
@@ -70,6 +71,7 @@ button.addEventListener('click', async e => {
   button.disabled = true;
   const to = [...people.to], cc = [...people.cc], bcc = [...people.bcc];  // as they stood at the press
   try {
+    if (await raised()) throw new Error(alarmText());
     const everyone = [...to, ...cc, ...bcc].map(a => a.toLowerCase());
     if (!everyone.length) throw new Error('Add a recipient.');
     if (!ADDRESS.test(from) || everyone.some(a => !ADDRESS.test(a))) throw new Error('An address here is not a plain email address: nothing was sent.');

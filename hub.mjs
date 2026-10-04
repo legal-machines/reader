@@ -13,6 +13,7 @@ import {valid} from './store.mjs';
 import {escape} from './mime.mjs';
 import {icon} from './icons.mjs';
 import * as vault from './vault.mjs';
+import {alarmText, raised} from './alarm.mjs';
 import {canOpen, glance, openWith, openpgpLib, recipientsOf} from './decrypt.mjs';
 
 const view = document.getElementById('hub');
@@ -20,7 +21,8 @@ const opened = new Map();     // slot -> {model, keyId}, while the key is open
 const wants = new Map();      // slot -> Set of kinds: what frames on the page asked to show
 const waiting = new Map();    // slot -> {armored, from, ids}
 let parentOrigin = null, channel = null, records = [], minutes = 15, mode = 'quiet', count = 0;
-let unlocked = false, busy = false, failure = '';
+let unlocked = false, busy = false, failure = '', alarm = false;
+raised().then(at => { if (at) { alarm = true; draw(); } });
 
 const tell = message => { if (parentOrigin) parent.postMessage(message, parentOrigin); };
 const report = () => tell({type: 'reader-height', height: Math.ceil(document.documentElement.getBoundingClientRect().height)});
@@ -48,7 +50,7 @@ function draw() {
     // condition could be cut out by Mail and set beside a field of its own.
 
     const headline = mode === 'list' ? (shownCount === 1 ? '1 encrypted message' : `${shownCount} encrypted messages`) : 'End-to-end encrypted';
-    const hint = shownCount === 1 ? 'One touch unlocks it' : shownCount === 2 ? 'One touch unlocks both' : `One touch unlocks all ${shownCount}`;
+    const hint = alarm ? 'Locked after your report' : shownCount === 1 ? 'One touch unlocks it' : shownCount === 2 ? 'One touch unlocks both' : `One touch unlocks all ${shownCount}`;
     html = `<div class="hub-bar"><span class="hub-icon">${icon('lock')}</span>` +
       `<div class="hub-text"><b>${headline}</b><span class="hub-support">${hint}</span></div>` +
       unlockForm() + `</div>`;
@@ -63,6 +65,7 @@ function draw() {
 }
 
 function unlockForm() {
+  if (alarm) return `<p class="hub-error" role="alert">${escape(alarmText())}</p>`;
   const pin = needed().some(r => r.pinSalt);
   return `<form class="hub-unlock">` +
     `<button class="tonal" type="submit"${busy ? ' disabled' : ''}>${icon('lock_open')}<span>Unlock</span></button>` +

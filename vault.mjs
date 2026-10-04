@@ -6,6 +6,7 @@
 
 import {unseal} from './store.mjs';
 import {markOf, remember} from './mark.mjs';
+import {alarmText, raised} from './alarm.mjs';
 
 let worker = null, ready = null;
 const page = new Map();  // keyId -> {key, info}, when the vault is not used
@@ -63,6 +64,7 @@ export async function state() {
 // One touch of the passkey (and the PIN, if the key has one): the key goes
 // into the vault for `minutes` without use (0: into this page only).
 export async function unlock(records, pin, minutes) {
+  if (await raised()) throw new Error(alarmText());  // before any passkey is asked
   const {record, pkcs8} = await unseal(records, pin);
   await hold(record, pkcs8, minutes);
   return record;
@@ -71,6 +73,7 @@ export async function unlock(records, pin, minutes) {
 // A key just unsealed (its PKCS #8 bytes, wiped here) into the vault, or
 // into this page; its mark is remembered in this browser.
 export async function hold(record, pkcs8, minutes) {
+  if (await raised()) { new Uint8Array(pkcs8).fill(0); throw new Error(alarmText()); }
   let keep = null;
   if (minutes > 0) {
     const copy = pkcs8.slice(0);  // moved to the vault, or wiped here

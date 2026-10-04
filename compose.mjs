@@ -19,6 +19,7 @@ import * as vault from './vault.mjs';
 import {openWith, recipientsOf} from './decrypt.mjs';
 import {fromOurFrame, readerFrames} from './tab.mjs';
 import {NOTICES} from './notices.mjs';
+import {alarmText, raised} from './alarm.mjs';
 
 const form = document.getElementById('compose'), subject = document.getElementById('subject'), editor = document.getElementById('editor');
 const tools = document.getElementById('tools'), filesBox = document.getElementById('files'), dock = document.getElementById('mark-dock');
@@ -551,6 +552,14 @@ function clean(html) {
 // (notices.mjs), for the sender's domain. Mail hands over the signature
 // alone; a paragraph that reads as a notice is taken out wherever it came
 // from, and the reader's own go at the end of the signature, small and gray.
+raised().then(at => {
+  if (!at) return;
+  const note = document.createElement('div');
+  note.className = 'reader-alert';
+  note.setAttribute('role', 'alert');
+  note.innerHTML = `${icon('warning')}<div><p>${escape(alarmText())}</p></div>`;
+  form.prepend(note);
+});
 const plainText = s => String(s || '').replace(/\s+/g, ' ').trim();
 const known = new Set(Object.values(NOTICES).flatMap(n => [n.sealed, n.notice]).filter(Boolean).map(plainText));
 function placeNotices() {
