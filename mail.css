@@ -640,6 +640,12 @@ color:var(--c-inverse-accent);font:inherit;font-weight:var(--w-medium);cursor:po
 .snack-edge path{fill:none;stroke:var(--c-inverse-accent);stroke-width:3;stroke-dasharray:100 100;animation:snack-run linear forwards}
 @keyframes snack-run{to{stroke-dashoffset:-100}}
 @media (prefers-reduced-motion:reduce){.snackbar{animation:none;transition:none}}
+
+body:has(form.composer.e2e-on) .snackbar{top:calc(var(--h-top) + var(--s-2));bottom:auto;animation-name:snack-down}
+body:has(form.composer.e2e-on) .snackbar.leaving{transform:translateY(-4px)}
+@keyframes snack-down{from{opacity:0;transform:translateY(-8px)}}:root.wide body:has(form.composer.e2e-on) .snackbar{left:50%;translate:-50% 0}
+
+.attachments.outside .attachment{background:var(--c-warn-soft);color:var(--c-on-warn-soft)}
 .loading{position:fixed;top:var(--s-2);left:50%;z-index:60;transform:translateX(-50%);padding:var(--s-1) var(--s-4);border-radius:var(--r-full);
 background:var(--c-inverse);color:var(--c-on-inverse);font-size:var(--t-xs);font-weight:var(--w-medium);box-shadow:var(--e-2);pointer-events:none}.snackbar.error{background:var(--c-danger-soft);color:var(--c-on-danger-soft)}.snackbar.inline{position:static;max-width:none;margin:0 0 var(--s-4)}
 .alert{margin:0 0 var(--s-3);padding:var(--s-3) var(--s-4);border-radius:var(--r-md);background:var(--c-danger-soft);color:var(--c-on-danger-soft)}

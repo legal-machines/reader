@@ -80,5 +80,7 @@ export function glance(m) {
   if (text === undefined && m.html !== undefined) text = new DOMParser().parseFromString(m.html, 'text/html').body?.textContent || '';
   text = (text || '').replace(/[­͏؜ᅟᅠ឴឵᠎​-‏‪-‮⁠-⁯ㅤ﻿ﾠ]/g, '').replace(/\s+/g, ' ').trim();
   if (!text) text = m.files.length ? (m.files.length === 1 ? 'Attachment: ' : `${m.files.length} attachments: `) + m.files.map(f => f.name).join(', ') : 'No text';
-  return {subject: m.subject, preview: text.slice(0, 300), date: m.date};
+  // Files as the message shows them: a picture its text shows is not one.
+  const files = m.files.filter(f => !(m.html !== undefined && f.id && f.type.startsWith('image/') && m.html.includes('cid:' + f.id))).length;
+  return {subject: m.subject, preview: text.slice(0, 300), date: m.date, files};
 }

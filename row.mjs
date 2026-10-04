@@ -6,6 +6,8 @@
 import {MAIL_SITES} from './sites.mjs';
 
 const LOCK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>';
+// Material's attach_file: the line of a message with files, as Mail marks its own.
+const CLIP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/></svg>';
 const parts = {subject: document.getElementById('s'), preview: document.getElementById('p')};
 const still = matchMedia('(prefers-reduced-motion: reduce)');
 let mailOrigin = null, channel = null, slot = null, shown = null, asked = false;
@@ -32,12 +34,13 @@ function place(boxes) {
 // characters still to go stay put (nothing flickers); only the edge moves,
 // over Material 3's long1 (450 ms) on its emphasized decelerate curve.
 const ease = t => 1 - Math.pow(1 - t, 4);
-function write(el, text, lock) {
+function write(el, text, lock, files = 0) {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
   const holder = document.createElement('span');
   holder.className = 'text';
   el.replaceChildren();
   if (lock) el.insertAdjacentHTML('beforeend', `<span class="lock">${LOCK}</span>`);
+  if (files > 0) el.insertAdjacentHTML('beforeend', `<span class="clip" title="${files === 1 ? '1 attachment' : files + ' attachments'}">${CLIP}</span>`);
   el.append(holder);
   if (still.matches) { holder.textContent = text; return; }
   const length = Math.min(text.length, 160);
@@ -71,7 +74,7 @@ addEventListener('message', e => {
     if (x.type !== 'line' || x.slot !== slot || shown) return;
     shown = x;
     if (!parts.subject.hidden) write(parts.subject, String(x.subject || '(no subject)').slice(0, 300), false);
-    write(parts.preview, String(x.preview || '').slice(0, 300), true);
+    write(parts.preview, String(x.preview || '').slice(0, 300), true, Number.isInteger(x.files) ? x.files : 0);
     parent.postMessage({type: 'line-shown', shown: true}, mailOrigin);
   };
   // Asked for once the line is on the screen (see embed.mjs).
