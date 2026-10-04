@@ -1,67 +1,415 @@
-// Writing an end-to-end encrypted message inside the Mail app: the subject
-// and the text are typed here, in a frame of another site that the mail page
-// cannot read, and encrypted here to keys this reader carries (keys.mjs,
-// published with it), never to keys the mail page offers. The mail page gets
-// the encrypted message and sends it; this page sends nothing itself.
+// Writing an end-to-end encrypted message inside the Mail app: the subject,
+// the text and the files are typed and added here, in a frame of another
+// site that the mail page cannot read, and encrypted here to keys this
+// reader carries (keys.mjs, published with it), never to keys the mail page
+// offers. It looks as Mail's own composer does (its stylesheet, its
+// formatting bar, the signature Mail hands over at the start); the mail page
+// gets the encrypted message and sends it. This page sends nothing itself.
+//
+// While this frame has the keyboard, it shows the owner's mark (mark.mjs) in
+// the Subject line: a field that only looks like this one cannot.
 
 import {MAIL_SITES} from './sites.mjs';
+import {widths} from './width.mjs';
 import {escape} from './mime.mjs';
+import {icon} from './icons.mjs';
 import {KEYS} from './keys.mjs';
+import {chip, explained, markFor, setExplained} from './mark.mjs';
+import {used} from './vault.mjs';
 
-const subject = document.getElementById('subject'), body = document.getElementById('body');
-let parentOrigin = null, library = null;
+const form = document.getElementById('compose'), subject = document.getElementById('subject'), editor = document.getElementById('editor');
+const tools = document.getElementById('tools'), filesBox = document.getElementById('files'), seal = document.getElementById('seal');
+const pictureInput = document.getElementById('pictures'), dropHint = form.querySelector('.drop-hint');
+const LIMIT = 15 * 1024 * 1024;  // the files of one message, as the mail server takes them encrypted
+let parentOrigin = null, library = null, from = '', attachChannel = null, started = false;
+const files = [];                 // {file, id}
+const pictures = new Map();       // number -> File, for <img data-pic>
+let pictureCount = 0;
 const openpgpLib = () => (library ||= import('./openpgp.min.mjs'));
 const tell = m => { if (parentOrigin) parent.postMessage(m, parentOrigin); };
-const report = () => tell({type: 'reader-height', height: Math.ceil(document.documentElement.getBoundingClientRect().height)});
-new ResizeObserver(report).observe(document.documentElement);
-const grow = () => { body.style.height = 'auto'; body.style.height = Math.max(body.scrollHeight, 240) + 'px'; };
-body.addEventListener('input', () => { grow(); tell({type: 'reader-dirty'}); });
-subject.addEventListener('input', () => tell({type: 'reader-dirty'}));
+// Mail hears once that the text changed (so an old encrypted copy is not
+// sent), not at every key: the timing of keys is the writer's own.
+let lastUse = 0, dirty = false;
+const touched = () => {
+  if (!dirty) { dirty = true; tell({type: 'reader-dirty'}); }
+  if (Date.now() - lastUse > 30000) { lastUse = Date.now(); used(true); }
+};
 
-// The keys of our own addresses, published as part of this reader (keys.mjs).
-const keys = async () => KEYS;
+// ---- The formatting bar, as Mail draws it (webmail/src/RoutesCompose.cpp, editor_tools).
+function bar() {
+  const tool = (cmd, glyph, title, keys = '') =>
+    `<button type="button" class="icon-button" data-cmd="${cmd}"${keys ? ` data-keys="${keys}"` : ''} title="${title}" aria-label="${title}">${icon(glyph)}</button>`;
+  const item = (cmd, value, label, extra = '') => `<button type="button" class="menu-item" data-cmd="${cmd}" data-value="${escape(value)}"${extra}>${label}</button>`;
+  const pop = (glyph, title, items) =>
+    `<details class="pop up"><summary class="icon-button" title="${title}" aria-label="${title}">${icon(glyph)}</summary><div class="pop-card">${items}</div></details>`;
+  const sizes = '<p class="pop-title">Text size</p>' + item('fontSize', '2', '<small>Small</small>') + item('fontSize', '3', 'Normal') +
+                item('fontSize', '5', '<span class="big">Large</span>') + item('fontSize', '6', '<span class="huge">Huge</span>');
+  const swatch = (cmd, hex, name) => `<button type="button" class="swatch" data-cmd="${cmd}" data-value="${hex}" title="${name}" aria-label="${name}" style="background:${hex}"></button>`;
+  const colors = '<p class="pop-title">Text color</p><div class="swatches">' +
+    [['#1f1f1f', 'Black'], ['#5f6368', 'Gray'], ['#d93025', 'Red'], ['#e8710a', 'Orange'], ['#188038', 'Green'], ['#12a4af', 'Teal'], ['#1a73e8', 'Blue'], ['#9334e6', 'Purple']]
+      .map(([h, n]) => swatch('foreColor', h, n)).join('') + '</div><p class="pop-title">Highlight</p><div class="swatches">' +
+    [['#fff475', 'Yellow'], ['#ccff90', 'Green'], ['#cbf0f8', 'Blue'], ['#fdcfe8', 'Pink'], ['#e8eaed', 'Gray']].map(([h, n]) => swatch('hiliteColor', h, n + ' highlight')).join('') +
+    '<button type="button" class="swatch none" data-cmd="hiliteColor" data-value="transparent" title="No highlight" aria-label="No highlight"></button></div>';
+  const aligns = '<p class="pop-title">Align</p>' + item('justifyLeft', '', icon('align_left') + '<span>Left</span>', ' data-keys="Shift+L"') +
+    item('justifyCenter', '', icon('align_center') + '<span>Center</span>', ' data-keys="Shift+E"') +
+    item('justifyRight', '', icon('align_right') + '<span>Right</span>', ' data-keys="Shift+R"') +
+    item('justifyFull', '', icon('align_justify') + '<span>Justify</span>', ' data-keys="Shift+J"');
+  const emoji = '<div class="emoji-grid">' + ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🙂', '😉', '😊', '😍', '😘', '😎', '🤔', '😐', '😴', '😢', '😭', '😡', '😮',
+    '👍', '👎', '👏', '🙏', '💪', '👋', '🤝', '✌️', '👌', '🔥', '🎉', '✅', '❌', '⭐', '❤️', '💡', '📎', '📅', '📞', '✉️', '🚀', '💼', '📈', '🏆', '☕', '🌍', '🎯', '⚖️']
+    .map(e => `<button type="button" data-cmd="insertText" data-value="${e}">${e}</button>`).join('') + '</div>';
+  let table = '<p class="pop-title table-size">Table</p><div class="table-grid">';
+  for (let r = 1; r <= 6; r++) for (let c = 1; c <= 8; c++) table += `<button type="button" data-cmd="insertTable" data-value="${c}x${r}" aria-label="${c} by ${r} table"></button>`;
+  table += '</div>';
+  return '<span class="tool-group">' + tool('undo', 'undo', 'Undo') + tool('redo', 'redo', 'Redo') + '</span>' +
+    '<span class="tool-group">' + pop('text_size', 'Text size', sizes) + tool('bold', 'bold', 'Bold', 'B') + tool('italic', 'italic', 'Italic', 'I') +
+    tool('underline', 'underline', 'Underline', 'U') + tool('strikeThrough', 'strike', 'Strikethrough', 'Shift+X') + pop('text_color', 'Text color', colors) +
+    '</span><span class="tool-group">' + pop('align_left', 'Align', aligns) + tool('insertOrderedList', 'numbers', 'Numbered list', 'Shift+7') +
+    tool('insertUnorderedList', 'bullets', 'Bulleted list', 'Shift+8') + tool('outdent', 'indent_less', 'Indent less', '[') +
+    tool('indent', 'indent_more', 'Indent more', ']') + tool('blockquote', 'quote', 'Quote', 'Shift+9') +
+    '</span><span class="tool-group pictures">' + tool('insertImage', 'image', 'Insert picture') + '</span><span class="tool-group">' + tool('createLink', 'link', 'Link', 'K') +
+    pop('emoji', 'Emoji', emoji) + pop('table', 'Table', table) + tool('removeFormat', 'clear', 'Remove formatting', '\\') + '</span>';
+}
+tools.innerHTML = bar();
+dropHint.querySelector('span').innerHTML = icon('attach') + 'Drop files to attach them';
 
+const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+for (const b of tools.querySelectorAll('[data-keys]')) b.title += ' (' + (mac ? '⌘' + b.dataset.keys.replace('Shift+', '⇧') : 'Ctrl+' + b.dataset.keys) + ')';
+const closeMenus = () => { for (const d of tools.querySelectorAll('details[open]')) d.open = false; };
+document.addEventListener('click', e => { for (const d of tools.querySelectorAll('details[open]')) if (!d.contains(e.target)) d.open = false; });
+tools.addEventListener('toggle', e => { if (e.target.open) for (const d of tools.querySelectorAll('details[open]')) if (d !== e.target) d.open = false; }, true);
+
+let saved = null;
+document.addEventListener('selectionchange', () => {
+  const sel = getSelection();
+  if (sel.rangeCount && editor.contains(sel.anchorNode)) saved = sel.getRangeAt(0).cloneRange();
+});
+const restore = range => { editor.focus({preventScroll: true}); if (range) { const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range); } };
+
+// A link: its address asked in a small card over the bar, as Mail asks it.
+const linkCard = document.getElementById('link-card'), linkAddress = document.getElementById('link-address');
+let linkRange = null;
+function askLink() {
+  linkRange = saved;
+  linkCard.hidden = false;
+  linkAddress.value = 'https://';
+  linkAddress.focus();
+  linkAddress.setSelectionRange(8, 8);
+}
+function insertLink() {
+  const address = linkAddress.value.trim();
+  linkCard.hidden = true;
+  restore(linkRange);
+  if (!/^(https?:\/\/|mailto:)\S+$/i.test(address)) return;
+  if (getSelection().isCollapsed) document.execCommand('insertText', false, address);
+  if (!getSelection().isCollapsed) document.execCommand('createLink', false, address);
+  touched();
+}
+document.getElementById('link-insert').addEventListener('click', insertLink);
+document.getElementById('link-cancel').addEventListener('click', () => { linkCard.hidden = true; restore(linkRange); });
+linkAddress.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); insertLink(); } if (e.key === 'Escape') { linkCard.hidden = true; restore(linkRange); } });
+
+const format = (cmd, value) => {
+  restore(saved);
+  if (cmd === 'createLink') { closeMenus(); askLink(); return; }
+  if (cmd === 'insertImage') { closeMenus(); pictureInput.click(); return; }
+  if (cmd === 'blockquote') document.execCommand('formatBlock', false, 'blockquote');
+  else if (cmd === 'insertTable') {
+    const [cols, rows] = value.split('x').map(Number);
+    const cell = '<td style="border:1px solid #c4c7c5;padding:6px 10px;min-width:48px">&nbsp;</td>';
+    document.execCommand('insertHTML', false, '<table style="border-collapse:collapse;margin:8px 0"><tbody>' +
+      ('<tr>' + cell.repeat(cols) + '</tr>').repeat(rows) + '</tbody></table><p><br></p>');
+  } else if (cmd === 'hiliteColor') {
+    document.execCommand('styleWithCSS', false, true);
+    document.execCommand('hiliteColor', false, value);
+    document.execCommand('styleWithCSS', false, false);
+  } else document.execCommand(cmd, false, value || null);
+  touched();
+  closeMenus();
+  mark();
+};
+tools.addEventListener('mousedown', e => { if (e.target.closest('[data-cmd]')) e.preventDefault(); });  // the text keeps its selection
+tools.addEventListener('click', e => { const b = e.target.closest('[data-cmd]'); if (b) format(b.dataset.cmd, b.dataset.value); });
+
+// The bar follows the caret, as in Mail.
+const toggles = ['bold', 'italic', 'underline', 'strikeThrough', 'insertOrderedList', 'insertUnorderedList'];
+const alignButton = tools.querySelector('.menu-item[data-cmd="justifyLeft"]')?.closest('details')?.querySelector('summary');
+const applies = cmd => { try { return document.queryCommandState(cmd); } catch (e) { return false; } };
+function mark() {
+  const sel = getSelection();
+  if (!sel.rangeCount || !editor.contains(sel.anchorNode)) return;
+  const at = sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement;
+  const inside = tag => { const e = at?.closest(tag); return !!e && editor.contains(e); };
+  for (const cmd of toggles) tools.querySelector(`.icon-button[data-cmd="${cmd}"]`)?.setAttribute('aria-pressed', String(applies(cmd)));
+  tools.querySelector('[data-cmd="blockquote"]')?.setAttribute('aria-pressed', String(inside('blockquote')));
+  tools.querySelector('[data-cmd="createLink"]')?.setAttribute('aria-pressed', String(inside('a')));
+  const sized = at?.closest('font[size]'), size = sized && editor.contains(sized) ? sized.getAttribute('size') : '3';
+  for (const item of tools.querySelectorAll('.menu-item[data-cmd="fontSize"]')) item.setAttribute('aria-checked', String(item.dataset.value === size));
+  const align = ['justifyCenter', 'justifyRight', 'justifyFull'].find(applies) || 'justifyLeft';
+  for (const item of tools.querySelectorAll('.menu-item[data-cmd^="justify"]')) item.setAttribute('aria-checked', String(item.dataset.cmd === align));
+  if (alignButton && alignButton.dataset.align !== align) {
+    const glyph = tools.querySelector(`.menu-item[data-cmd="${align}"] svg.i`);
+    if (glyph) { alignButton.querySelector('svg.i').replaceWith(glyph.cloneNode(true)); alignButton.dataset.align = align; }
+  }
+}
+for (const cmd of [...toggles, 'blockquote', 'createLink']) tools.querySelector(`.icon-button[data-cmd="${cmd}"]`)?.setAttribute('aria-pressed', 'false');
+document.addEventListener('selectionchange', mark);
+const grid = tools.querySelector('.table-grid'), sizeLabel = tools.querySelector('.table-size');
+grid.addEventListener('mouseover', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  const [c, r] = b.dataset.value.split('x').map(Number);
+  for (const cell of grid.children) { const [cc, rr] = cell.dataset.value.split('x').map(Number); cell.classList.toggle('on', cc <= c && rr <= r); }
+  sizeLabel.textContent = `Table ${c} × ${r}`;
+});
+const plainKeys = {KeyB: 'bold', KeyI: 'italic', KeyU: 'underline', KeyK: 'createLink', Backslash: 'removeFormat', BracketLeft: 'outdent', BracketRight: 'indent'};
+const shiftKeys = {KeyX: 'strikeThrough', Digit7: 'insertOrderedList', Digit8: 'insertUnorderedList', Digit9: 'blockquote',
+  KeyL: 'justifyLeft', KeyE: 'justifyCenter', KeyR: 'justifyRight', KeyJ: 'justifyFull'};
+editor.addEventListener('keydown', e => {
+  if (!(mac ? e.metaKey : e.ctrlKey) || e.altKey) return;
+  const cmd = (e.shiftKey ? shiftKeys : plainKeys)[e.code];
+  if (cmd) { e.preventDefault(); format(cmd); }
+});
+editor.addEventListener('input', () => { touched(); mark(); });
+subject.addEventListener('input', touched);
+// Enter in Subject goes on to the text, as in Mail.
+subject.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const range = document.createRange();
+  range.setStart(editor, 0);
+  range.collapse(true);
+  restore(range);
+});
+form.addEventListener('submit', e => e.preventDefault());
+
+// ---- Pictures in the text: from the picture button, pasted, or dropped.
+const isPicture = f => /^image\/(png|jpeg|gif|webp)$/.test(f.type);
+function placePictures(list) {
+  let markup = '';
+  for (const f of list) {
+    const n = ++pictureCount;
+    pictures.set(n, f);
+    markup += `<img src="${URL.createObjectURL(f)}" data-pic="${n}" alt="${escape(f.name || 'picture')}">`;
+  }
+  if (!markup) return;
+  restore(saved);
+  document.execCommand('insertHTML', false, markup);
+  touched();
+}
+pictureInput.addEventListener('change', () => { placePictures([...pictureInput.files].filter(isPicture)); pictureInput.value = ''; });
+editor.addEventListener('paste', e => {
+  const list = [...(e.clipboardData?.files || [])];
+  if (!list.length) return;
+  e.preventDefault();
+  placePictures(list.filter(isPicture));
+  attach(list.filter(f => !isPicture(f)));
+});
+
+// ---- Attachments: chips as Mail's, added from the clip (attach.html, a
+// frame of this site in Mail's row of buttons) or dropped on the message.
+const sizeText = n => n < 1024 ? `${n} B` : n < 1048576 ? `${Math.round(n / 1024)} KB` : `${(n / 1048576).toFixed(1)} MB`;
+const total = () => files.reduce((n, f) => n + f.file.size, 0) + [...pictures.values()].reduce((n, f) => n + f.size, 0);
+function attach(list) {
+  for (const file of list) {
+    if (!(file instanceof File) || !file.size) continue;
+    if (total() + file.size > LIMIT) { tell({type: 'reader-error', message: 'End-to-end messages take files of up to 15 MB in all.'}); break; }
+    const id = Math.random().toString(36).slice(2);
+    files.push({file, id});
+    const chipEl = document.createElement('span');
+    chipEl.className = 'attachment';
+    chipEl.dataset.id = id;
+    const url = URL.createObjectURL(new Blob([file], {type: 'application/octet-stream'}));  // saved, never shown as a page of this site
+    chipEl.innerHTML = `${icon('attach')}<a download="${escape(file.name)}" href="${url}" draggable="false">${escape(file.name)}</a><small>${sizeText(file.size)}</small>` +
+      `<button class="icon-button" type="button" title="Remove" aria-label="Remove ${escape(file.name)}">${icon('close')}</button>`;
+    chipEl.querySelector('button').addEventListener('click', () => {
+      files.splice(files.findIndex(f => f.id === id), 1);
+      URL.revokeObjectURL(url);
+      chipEl.remove();
+      touched();
+    });
+    filesBox.append(chipEl);
+    touched();
+  }
+}
+let dragging = 0;
+const hasFiles = e => [...(e.dataTransfer?.types || [])].includes('Files');
+form.addEventListener('dragenter', e => { if (hasFiles(e)) { dragging++; dropHint.hidden = false; } });
+form.addEventListener('dragleave', e => { if (hasFiles(e) && --dragging <= 0) { dragging = 0; dropHint.hidden = true; } });
+form.addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); });
+form.addEventListener('drop', e => {
+  if (!hasFiles(e)) return;
+  e.preventDefault();
+  dragging = 0;
+  dropHint.hidden = true;
+  const list = [...e.dataTransfer.files];
+  if (editor.contains(e.target)) {
+    const at = document.caretRangeFromPoint?.(e.clientX, e.clientY);
+    if (at) saved = at;
+    placePictures(list.filter(isPicture));
+    attach(list.filter(f => !isPicture(f)));
+  } else attach(list);
+});
+
+// ---- The mark, while this frame has the keyboard.
+function showSeal() {
+  const own = KEYS.find(k => k.address === from.toLowerCase());
+  const m = own && markFor(own.subkeys);
+  // While the keyboard is here: your mark, which a field that only looks
+  // like this one cannot show; otherwise the lock of an end-to-end message.
+  const typing = document.hasFocus() && m;
+  seal.innerHTML = typing ? `<span class="e2e-label mark">${icon('lock')}<span class="mark-word">Your mark</span>${chip(m.mark, ' data-inline')}</span>`
+                          : `<span class="e2e-label">${icon('lock')}<span>End to end</span></span>`;
+  seal.title = m ? (typing ? 'Your mark: only the Mail Reader shows it' : 'Your mark shows here while you type') : 'Your mark appears once this browser has opened your key';
+  hint.hidden = !(typing && !explained(m.keyId));
+  if (!hint.hidden) hint.dataset.key = m.keyId;
+}
+const hint = document.getElementById('mark-hint');
+hint.querySelector('button').addEventListener('mousedown', e => e.preventDefault());  // the keyboard stays where it was
+hint.querySelector('button').addEventListener('click', () => { setExplained(hint.dataset.key); hint.hidden = true; });
+addEventListener('focus', showSeal);
+addEventListener('blur', showSeal);
+document.addEventListener('focusin', showSeal);
+
+// ---- The message, encrypted.
 // RFC 2047, for a header that is not plain ASCII.
-const header = text => /^[\x20-\x7e]*$/.test(text) ? text
-  : '=?UTF-8?B?' + btoa(String.fromCharCode(...new TextEncoder().encode(text))) + '?=';
+const header = text => /^[\x20-\x7e]*$/.test(text) ? text : '=?UTF-8?B?' + b64(new TextEncoder().encode(text)) + '?=';
 const list = addresses => addresses.join(', ');
+function b64(bytes) {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 32768) s += String.fromCharCode(...bytes.subarray(i, i + 32768));
+  return btoa(s);
+}
+const lines = bytes => b64(bytes).replace(/.{76}/g, '$&\r\n').replace(/\r\n$/, '');
+const boundary = kind => `=_reader_${kind}_${crypto.getRandomValues(new Uint32Array(3)).join('')}`;
+const ascii = name => name.replace(/[^\x20-\x7e]|["\\]/g, '_') || 'file';
+const named = (kind, name) => /^[\x20-\x7e]*$/.test(name) && !/["\\]/.test(name) ? `${kind}="${name}"`
+  : `${kind}="${ascii(name)}"; ${kind}*=UTF-8''${encodeURIComponent(name).replace(/['()*]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase())}`;
+const filePart = async (file, disposition, extra = '') => {
+  const type = /^[\w.+-]+\/[\w.+-]+$/.test(file.type) ? file.type : 'application/octet-stream';
+  return `Content-Type: ${type}; ${named('name', file.name || 'file')}\r\n${extra}Content-Disposition: ${disposition}; ${named('filename', file.name || 'file')}\r\n` +
+         `Content-Transfer-Encoding: base64\r\n\r\n${lines(new Uint8Array(await file.arrayBuffer()))}\r\n`;
+};
 
-async function encrypt({from, to, cc, bcc}) {
-  const all = [...to, ...cc, ...bcc].map(a => a.toLowerCase());
-  if (!all.length) throw new Error('Add a recipient.');
-  const known = await keys();
-  const keyOf = address => known.find(k => k.address === address);
-  const missing = [...all, from.toLowerCase()].filter(a => !keyOf(a));
+// The text as it goes out: the editor's HTML with its pictures named by
+// Content-ID, and the same as plain text.
+async function body() {
+  const holder = document.createElement('template');  // inert: its pictures load nothing
+  holder.innerHTML = editor.innerHTML;
+  const copy = holder.content;
+  const used = [];
+  for (const img of copy.querySelectorAll('img')) {
+    const n = Number(img.dataset.pic);
+    if (!pictures.has(n)) { img.remove(); continue; }
+    const id = `pic-${n}.${crypto.getRandomValues(new Uint32Array(2)).join('')}@reader`;
+    used.push({file: pictures.get(n), id});
+    img.setAttribute('src', 'cid:' + id);
+    img.removeAttribute('data-pic');
+  }
+  const text = (editor.innerText || '').replace(/\u00a0/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  const html = '<!doctype html><html><head><meta charset="utf-8"></head><body>' + holder.innerHTML + '</body></html>';
+  const enc = new TextEncoder();
+  const alt = boundary('alt');
+  let part = `Content-Type: multipart/alternative; boundary="${alt}"\r\n\r\n` +
+    `--${alt}\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${lines(enc.encode(text.replace(/\r?\n/g, '\r\n') + '\r\n'))}\r\n` +
+    `--${alt}\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${lines(enc.encode(html))}\r\n--${alt}--\r\n`;
+  if (used.length) {
+    const rel = boundary('rel');
+    let wrapped = `Content-Type: multipart/related; boundary="${rel}"\r\n\r\n--${rel}\r\n${part}`;
+    for (const p of used) wrapped += `--${rel}\r\n` + await filePart(p.file, 'inline', `Content-ID: <${p.id}>\r\n`);
+    part = wrapped + `--${rel}--\r\n`;
+  }
+  return part;
+}
+
+async function encrypt({to, cc, bcc}) {
+  const everyone = [...to, ...cc, ...bcc].map(a => a.toLowerCase());
+  if (!everyone.length) throw new Error('Add a recipient.');
+  const keyOf = address => KEYS.find(k => k.address === address);
+  const missing = [...everyone, from.toLowerCase()].filter(a => !keyOf(a));
   if (missing.length) throw new Error(`End to end goes only to mailboxes here with keys; not to ${missing.join(', ')}.`);
+  if (total() > LIMIT) throw new Error('End-to-end messages take files of up to 15 MB in all.');
   const openpgp = await openpgpLib();
-  const recipients = await Promise.all([...new Set([...all, from.toLowerCase()])].map(a => openpgp.readKey({armoredKey: keyOf(a).armored})));
+  const recipients = await Promise.all([...new Set([...everyone, from.toLowerCase()])].map(a => openpgp.readKey({armoredKey: keyOf(a).armored})));
   // The headers people read travel inside (protected-headers="v1", as
   // Thunderbird writes them); outside the subject is "...".
-  const inner = `Content-Type: text/plain; charset=UTF-8; protected-headers="v1"\r\n` +
-                `From: ${from}\r\nTo: ${list(to)}\r\n` + (cc.length ? `Cc: ${list(cc)}\r\n` : '') +
-                `Subject: ${header(subject.value.trim())}\r\nDate: ${new Date().toUTCString()}\r\nContent-Transfer-Encoding: 8bit\r\n\r\n` +
-                body.value.replace(/\r?\n/g, '\r\n') + '\r\n';
-  const message = await openpgp.createMessage({binary: new TextEncoder().encode(inner)});
+  const heads = `From: ${from}\r\nTo: ${list(to)}\r\n` + (cc.length ? `Cc: ${list(cc)}\r\n` : '') +
+                `Subject: ${header(subject.value.trim())}\r\nDate: ${new Date().toUTCString()}\r\nMIME-Version: 1.0\r\n`;
+  let inner = await body();
+  if (files.length) {
+    const mixed = boundary('mix');
+    let all = `--${mixed}\r\n${inner}`;
+    for (const f of files) all += `--${mixed}\r\n` + await filePart(f.file, 'attachment');
+    inner = `Content-Type: multipart/mixed; boundary="${mixed}"; protected-headers="v1"\r\n${heads}\r\n${all}--${mixed}--\r\n`;
+  } else {
+    inner = inner.replace(/^Content-Type: ([^\r]+)\r\n/, (_, t) => `Content-Type: ${t}; protected-headers="v1"\r\n${heads}`);
+  }
+  // Padded to a step of 4 KB (64 KB past 64 KB) with blank lines before the
+  // first part, which every mail program skips: the size of the encrypted
+  // message tells Mail little about how much was written.
+  const enc = new TextEncoder(), size = enc.encode(inner).length + 2;
+  const step = size < 65536 ? 4096 : 65536, pad = Math.ceil(size / step) * step - size;
+  const cut = inner.indexOf('\r\n\r\n') + 4;
+  const filler = (' '.repeat(74) + '\r\n').repeat(Math.floor(pad / 76)) + ' '.repeat(pad % 76);
+  inner = inner.slice(0, cut) + filler + '\r\n' + inner.slice(cut);
+  const message = await openpgp.createMessage({binary: enc.encode(inner)});
   return openpgp.encrypt({message, encryptionKeys: recipients, format: 'armored'});
+}
+
+// What Mail hands over at the start (the signature and its notice, and the
+// quote of a reply) is made plain markup: text, line breaks, links, bold,
+// small gray type and quotes, nothing that runs or loads.
+function clean(html) {
+  const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
+  const keep = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'BR', 'P', 'DIV', 'SPAN', 'A', 'FONT', 'BLOCKQUOTE', 'UL', 'OL', 'LI']);
+  const walk = node => {
+    for (const child of [...node.childNodes]) {
+      if (child.nodeType === 3) continue;
+      if (child.nodeType !== 1 || ['SCRIPT', 'STYLE', 'TEMPLATE', 'NOSCRIPT'].includes(child.tagName)) { child.remove(); continue; }
+      walk(child);  // inside first, so what is lifted out of an element is clean already
+      if (!keep.has(child.tagName)) { child.replaceWith(...child.childNodes); continue; }
+      for (const a of [...child.attributes]) {
+        const ok = (child.tagName === 'A' && a.name === 'href' && /^(https?:|mailto:)/i.test(a.value)) ||
+                   (child.tagName === 'FONT' && (a.name === 'size' && /^[1-7]$/.test(a.value) || a.name === 'color' && /^#[0-9a-f]{6}$/i.test(a.value))) ||
+                   (a.name === 'class' && /^(signature|quoted)$/.test(a.value));
+        if (!ok) child.removeAttribute(a.name);
+      }
+    }
+  };
+  walk(doc.body);
+  return doc.body.innerHTML;
 }
 
 addEventListener('message', async e => {
   if (e.source !== parent || !MAIL_SITES.includes(e.origin)) return;
   parentOrigin = e.origin;
-  if (e.data?.type === 'reader-compose') {  // the frame's first word from the Mail app: the reply's quote, if any
-    if (typeof e.data.subject === 'string' && !subject.value) subject.value = e.data.subject;
-    if (typeof e.data.quote === 'string' && !body.value) { body.value = e.data.quote; grow(); body.setSelectionRange(0, 0); }
-    report();
-  } else if (e.data?.type === 'reader-encrypt') {
+  const d = e.data || {};
+  if (Number.isFinite(d.vw)) widths(d.vw);
+  if (d.type === 'reader-compose' && !started) {  // the frame's first word from Mail: the start of the text, and who writes
+    started = true;
+    from = typeof d.from === 'string' ? d.from.slice(0, 254) : '';
+    if (typeof d.subject === 'string') subject.value = d.subject.slice(0, 998);
+    editor.innerHTML = clean(d.html);
+    if (typeof d.files === 'string' && /^page-[\w-]{8,64}$/.test(d.files)) {
+      attachChannel = new BroadcastChannel(d.files);
+      attachChannel.onmessage = m => { if (m.data?.type === 'files' && Array.isArray(m.data.files)) attach(m.data.files); };
+    }
+    showSeal();
+    if (d.focus) {
+      if (!subject.value) subject.focus();
+      else { const range = document.createRange(); range.setStart(editor, 0); range.collapse(true); restore(range); }
+    }
+  } else if (d.type === 'reader-encrypt') {
     const s = v => Array.isArray(v) ? v.filter(a => typeof a === 'string').slice(0, 100) : [];
     try {
-      if (!subject.value.trim() && !body.value.trim()) throw new Error('The message is empty.');
-      const armored = await encrypt({from: String(e.data.from || ''), to: s(e.data.to), cc: s(e.data.cc), bcc: s(e.data.bcc)});
+      if (!subject.value.trim() && !(editor.innerText || '').trim() && !files.length) throw new Error('The message is empty.');
+      const armored = await encrypt({to: s(d.to), cc: s(d.cc), bcc: s(d.bcc)});
+      dirty = false;
       tell({type: 'reader-encrypted', armored});
     } catch (err) {
       tell({type: 'reader-error', message: escape(err.message)});
     }
+  } else if (d.type === 'reader-focus') {
+    if (!subject.value) subject.focus(); else editor.focus();
   }
 });
 if (parent !== window) parent.postMessage({type: 'reader-ready'}, '*');
-grow();

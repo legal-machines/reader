@@ -8,14 +8,14 @@ set -e
 cd "$(dirname "$0")"
 python3 make-keys.py
 python3 make-styles.py
-shasum -a 256 *.html *.mjs *.css CNAME > SHA256SUMS
+shasum -a 256 *.html *.mjs *.js *.css CNAME > SHA256SUMS
 git add -A
 git diff --cached --quiet || git commit -q -m "${1:-Update the reader}"
 git push -q origin main
 out="$(mktemp -d)"
 git archive HEAD | tar -x -C "$out"
 echo reader.dzyza.com > "$out/CNAME"
-(cd "$out" && shasum -a 256 *.html *.mjs *.css CNAME > SHA256SUMS && git init -q && git add -A &&
+(cd "$out" && shasum -a 256 *.html *.mjs *.js *.css CNAME > SHA256SUMS && git init -q && git add -A &&
  git -c user.name="Alexander Dzyza" -c user.email="quirites.suijuris@gmail.com" commit -q -m "${1:-Update the reader}" &&
  git push -q --force https://github.com/legal-machines/reader2.git HEAD:main)
 rm -rf "$out"

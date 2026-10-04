@@ -29,8 +29,10 @@ export const pkcs8Of = scalar => concat(PKCS8_X25519, scalar);
 // key's parameters, but no secret.
 export const describe = (fingerprint, keyId, hash, cipher) => ({fingerprint: hex(fingerprint), keyId, hash, cipher});
 
-// The session key of a message encrypted to this key, or null.
-export async function sessionKey(openpgp, message, privateKey, info) {
+// The session key of a message encrypted to this key, or null. derive gives
+// X25519 of the key with a sender's ephemeral key (vault.mjs): the key itself
+// never comes here.
+export async function sessionKey(openpgp, message, derive, info) {
   const fingerprint = Uint8Array.from(info.fingerprint.match(/../g).map(h => parseInt(h, 16)));
   const params = concat(new Uint8Array([CURVE25519_OID.length]), CURVE25519_OID, new Uint8Array([18, 3, 1, info.hash, info.cipher]), ANONYMOUS_SENDER, fingerprint);
   for (const p of message.packets.filterByTag(openpgp.enums.packet.publicKeyEncryptedSessionKey)) {
@@ -39,8 +41,8 @@ export async function sessionKey(openpgp, message, privateKey, info) {
     if (id !== '0000000000000000' && id !== info.keyId) continue;
     const ephemeral = p.encrypted.V;
     if (!ephemeral || ephemeral.length !== 33 || ephemeral[0] !== 0x40) continue;
-    const peer = await crypto.subtle.importKey('raw', ephemeral.slice(1), {name: 'X25519'}, false, []);
-    const shared = new Uint8Array(await crypto.subtle.deriveBits({name: 'X25519', public: peer}, privateKey, 256));
+    const shared = await derive(ephemeral.slice(1));
+    if (!shared) throw new Error('locked');
     const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', concat(new Uint8Array([0, 0, 0, 1]), shared, params)));
     shared.fill(0);
     const length = KEY_BYTES[info.cipher];
@@ -70,9 +72,9 @@ export async function sessionKey(openpgp, message, privateKey, info) {
 }
 
 // The message's content (the MIME entity inside), opened with that key.
-export async function open(openpgp, armored, privateKey, info) {
+export async function open(openpgp, armored, derive, info) {
   const message = await openpgp.readMessage({armoredMessage: armored});
-  const key = await sessionKey(openpgp, message, privateKey, info);
+  const key = await sessionKey(openpgp, message, derive, info);
   if (!key) throw new Error('This message is not encrypted to the key on this device.');
   const {data} = await openpgp.decrypt({message, sessionKeys: key, format: 'binary', expectSigned: false});
   key.data.fill(0);

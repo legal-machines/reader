@@ -115,26 +115,24 @@ export async function keep(passkey, pin, pkcs8, info, addresses) {
   return record;
 }
 
-// The key of whichever of these records the touched passkey opens, as a
-// non-extractable X25519 key.
-export async function unlock(records, pin) {
+// The key of whichever of these records the touched passkey opens, as its
+// PKCS #8 bytes (an ArrayBuffer the caller wipes or hands on), and the record.
+export async function unseal(records, pin) {
   const {record, out} = await prf(records);
   const key = await sealingKey(out, record.pinSalt ? pin : '', record.pinSalt);
   out.fill(0);
-  let pkcs8;
   try {
-    pkcs8 = new Uint8Array(await crypto.subtle.decrypt({name: 'AES-GCM', iv: unb64u(record.iv), ...bound(record)}, key, unb64u(record.sealed)));
+    return {record, pkcs8: await crypto.subtle.decrypt({name: 'AES-GCM', iv: unb64u(record.iv), ...bound(record)}, key, unb64u(record.sealed))};
   } catch (e) {
     throw new Error(record.pinSalt ? 'Wrong PIN.' : 'This passkey does not open the key.');
   }
-  const privateKey = await crypto.subtle.importKey('pkcs8', pkcs8, {name: 'X25519'}, false, ['deriveBits']);
-  pkcs8.fill(0);
-  return {privateKey, record};
 }
 
 // A record handed over by the Mail app, checked for shape: anything else is ignored.
 export function valid(r) {
-  return r && typeof r === 'object' && r.rp === location.hostname && /^[0-9a-f]{16}$/.test(r.keyId) && typeof r.credentialId === 'string' &&
+  // Version 2 only: its sealed bytes are bound to the record (bound above),
+  // so Mail cannot pass one key's seal off under another record.
+  return r && typeof r === 'object' && r.v === 2 && r.rp === location.hostname && /^[0-9a-f]{16}$/.test(r.keyId) && typeof r.credentialId === 'string' &&
     typeof r.salt === 'string' && typeof r.iv === 'string' && typeof r.sealed === 'string' && r.info && /^[0-9a-f]{40}$/.test(r.info.fingerprint) &&
     r.info.keyId === r.keyId && Number.isInteger(r.info.hash) && Number.isInteger(r.info.cipher) && Array.isArray(r.addresses);
 }

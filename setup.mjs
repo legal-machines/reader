@@ -5,6 +5,8 @@
 import * as openpgp from './openpgp.min.mjs';
 import {extract, pkcs8Of} from './sealed-core.mjs';
 import {all, keep, newPasskey, remove} from './store.mjs';
+import {known, markOf, remember, setExplained, text as markText} from './mark.mjs';
+import {hold} from './vault.mjs';
 import {escape} from './mime.mjs';
 import {MAIL_SITES} from './sites.mjs';
 
@@ -40,7 +42,8 @@ async function list() {
   const records = await all(), box = document.getElementById('keys');
   box.hidden = !records.length;
   box.querySelector('.key-list').innerHTML = records.map(r =>
-    `<li><div><b>${escape(r.addresses.join(', '))}</b><small>Added ${escape(r.created.slice(0, 10))}${r.pinSalt ? ', with a PIN' : ''}</small></div>` +
+    `<li><div><b>${escape(r.addresses.join(', '))}</b><small>Added ${escape(r.created.slice(0, 10))}${r.pinSalt ? ', with a PIN' : ''}` +
+    `${known()[r.keyId] ? `. Your mark: ${markText(known()[r.keyId])}` : ''}</small></div>` +
     `<button class="text" type="button" data-remove="${escape(r.credentialId)}">Remove</button></li>`).join('');
   box.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', async () => {
     if (confirm('Remove this key from this browser? Encrypted messages will no longer open here until you add it again.')) { await remove(b.dataset.remove); list(); }
@@ -69,12 +72,26 @@ form.addEventListener('submit', async e => {
     const addresses = found.userIds.map(u => (/<([^>]+)>/.exec(u) || [, u])[1].toLowerCase());
     const passkey = await newPasskey(addresses[0]);
     const record = await keep(passkey, pin, pkcs8Of(found.scalar), found.info, addresses);
+    // The key's mark (mark.mjs), shown here once with what it is for; and the
+    // key, just opened, kept open for Mail for a while (vault.mjs).
+    const bytes = pkcs8Of(found.scalar);
+    const key = await crypto.subtle.importKey('pkcs8', bytes, {name: 'X25519'}, false, ['deriveBits']);
+    bytes.fill(0);
+    const mark = await markOf(key);
+    remember({[record.keyId]: mark});
+    setExplained(record.keyId);
+    await hold(record, pkcs8Of(found.scalar).buffer, 15).catch(() => {});
     found.scalar.fill(0);
     // The Mail app keeps the sealed key with the mailbox, for frames and for
     // the owner's other devices; without the passkey it opens nothing.
     if (mailOrigin && window.opener) window.opener.postMessage({type: 'reader-sealed', record}, mailOrigin);
     form.reset();
-    done.textContent = `Ready. Encrypted messages to ${addresses.join(', ')} now open in this browser, right in the Mail app.${handed ? ' You can close this tab.' : ''}`;
+    if (handed) form.hidden = true;  // its work is done; what is left is the mark
+    done.innerHTML = `<b>Ready.</b> Encrypted messages to ${escape(addresses.join(', '))} now open in this browser, right in the Mail app.` +
+      `<span class="mark-line"><span class="reader-mark" data-big>${markText(mark)}</span><span><b>This is your mark.</b> The Mail Reader shows these four pictures with ` +
+      `every encrypted message it opens; when you write end to end, they appear in the Subject line as you type. Mail itself cannot show them: type only where they appear like that, ` +
+      `and type your key's passphrase only on this page, with ${escape(location.host)} in the address bar.</span></span>` +
+      (handed ? 'You can close this tab.' : '');
     done.hidden = false;
     list();
   } catch (err) {
