@@ -421,6 +421,9 @@ border-radius:var(--r-md);background:var(--c-surface-2)}
 .table-grid{display:grid;grid-template-columns:repeat(8,20px);gap:4px;padding:var(--s-1) var(--s-3) var(--s-3)}
 .table-grid button{width:20px;height:20px;padding:0;border:1px solid var(--c-surface-4);border-radius:var(--r-xs);background:var(--c-surface);cursor:pointer}
 .table-grid button.on{border-color:var(--c-primary);background:var(--c-selected)}
+
+.table-grid{touch-action:none}
+@media (pointer:coarse){.table-grid{grid-template-columns:repeat(8,28px);gap:6px}.table-grid button{width:28px;height:28px}}
 .editor table{border-collapse:collapse}.editor td,.editor th{min-width:40px}
 .editor img{max-width:100%;height:auto;border-radius:var(--r-xs);vertical-align:bottom;cursor:pointer}
 

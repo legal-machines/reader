@@ -78,7 +78,9 @@ function bar() {
     tool('insertUnorderedList', 'bullets', 'Bulleted list', 'Shift+8') + tool('outdent', 'indent_less', 'Indent less', '[') +
     tool('indent', 'indent_more', 'Indent more', ']') + tool('blockquote', 'quote', 'Quote', 'Shift+9') +
     '</span><span class="tool-group pictures">' + tool('attachFiles', 'attach', 'Attach files') + tool('insertImage', 'image', 'Insert picture') + '</span><span class="tool-group">' + tool('createLink', 'link', 'Link', 'K') +
-    pop('emoji', 'Emoji', emoji) + pop('table', 'Table', table) + tool('removeFormat', 'clear', 'Remove formatting', '\\') + '</span>';
+    pop('emoji', 'Emoji', emoji) + pop('table', 'Table', table) +
+    `<button type="button" class="icon-button" data-cmd="deleteTable" title="Delete table" aria-label="Delete table" hidden>${icon('delete')}</button>` +
+    tool('removeFormat', 'clear', 'Remove formatting', '\\') + '</span>';
 }
 tools.innerHTML = bar();
 dropHint.querySelector('span').innerHTML = icon('attach') + 'Drop files to attach them';
@@ -125,7 +127,18 @@ const format = (cmd, value) => {
   if (cmd === 'insertImage') { closeMenus(); pictureInput.click(); return; }
   if (cmd === 'attachFiles') { closeMenus(); filesInput.click(); return; }
   if (cmd === 'blockquote') document.execCommand('formatBlock', false, 'blockquote');
-  else if (cmd === 'insertTable') {
+  else if (cmd === 'deleteTable') {
+    // The table the caret is in, as one deletion, which Undo brings back.
+    const sel = getSelection(), at = sel.anchorNode && (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement);
+    const table = at?.closest('table');
+    if (table && editor.contains(table)) {
+      const r = document.createRange();
+      r.selectNode(table);
+      sel.removeAllRanges();
+      sel.addRange(r);
+      document.execCommand('delete');
+    }
+  } else if (cmd === 'insertTable') {
     const [cols, rows] = value.split('x').map(Number);
     const cell = '<td style="border:1px solid #c4c7c5;padding:6px 10px;min-width:48px">&nbsp;</td>';
     document.execCommand('insertHTML', false, '<table style="border-collapse:collapse;margin:8px 0"><tbody>' +
@@ -154,6 +167,7 @@ function mark() {
   for (const cmd of toggles) tools.querySelector(`.icon-button[data-cmd="${cmd}"]`)?.setAttribute('aria-pressed', String(applies(cmd)));
   tools.querySelector('[data-cmd="blockquote"]')?.setAttribute('aria-pressed', String(inside('blockquote')));
   tools.querySelector('[data-cmd="createLink"]')?.setAttribute('aria-pressed', String(inside('a')));
+  tools.querySelector('[data-cmd="deleteTable"]')?.toggleAttribute('hidden', !inside('table'));
   const sized = at?.closest('font[size]'), size = sized && editor.contains(sized) ? sized.getAttribute('size') : '3';
   for (const item of tools.querySelectorAll('.menu-item[data-cmd="fontSize"]')) item.setAttribute('aria-checked', String(item.dataset.value === size));
   const align = ['justifyCenter', 'justifyRight', 'justifyFull'].find(applies) || 'justifyLeft';
@@ -166,13 +180,34 @@ function mark() {
 for (const cmd of [...toggles, 'blockquote', 'createLink']) tools.querySelector(`.icon-button[data-cmd="${cmd}"]`)?.setAttribute('aria-pressed', 'false');
 document.addEventListener('selectionchange', mark);
 const grid = tools.querySelector('.table-grid'), sizeLabel = tools.querySelector('.table-size');
-grid.addEventListener('mouseover', e => {
-  const b = e.target.closest('button');
-  if (!b) return;
-  const [c, r] = b.dataset.value.split('x').map(Number);
+const showSize = value => {
+  const [c, r] = value.split('x').map(Number);
   for (const cell of grid.children) { const [cc, rr] = cell.dataset.value.split('x').map(Number); cell.classList.toggle('on', cc <= c && rr <= r); }
   sizeLabel.textContent = `Table ${c} × ${r}`;
+};
+grid.addEventListener('mouseover', e => { const b = e.target.closest('button'); if (b) showSize(b.dataset.value); });
+// A finger (or pen) presses a cell and slides: the size follows it, as rows
+// do in Mail's list, and lifting it puts the table in. The mouse hovers and
+// clicks as before.
+let sizing = null, swallow = 0;
+const sizeAt = (x, y) => { const b = document.elementFromPoint(x, y)?.closest('.table-grid button'); return b && grid.contains(b) ? b.dataset.value : null; };
+grid.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'mouse') return;
+  const value = sizeAt(e.clientX, e.clientY);
+  if (!value) return;
+  e.preventDefault();
+  grid.setPointerCapture(e.pointerId);
+  sizing = value;
+  showSize(value);
 });
+grid.addEventListener('pointermove', e => {
+  if (!sizing) return;
+  const value = sizeAt(e.clientX, e.clientY);
+  if (value && value !== sizing) { sizing = value; showSize(value); }
+});
+grid.addEventListener('pointerup', () => { if (!sizing) return; const value = sizing; sizing = null; swallow = Date.now(); format('insertTable', value); });
+grid.addEventListener('pointercancel', () => { sizing = null; });
+grid.addEventListener('click', e => { if (Date.now() - swallow < 700) { e.preventDefault(); e.stopPropagation(); } }, true);  // the lift was the choice
 const plainKeys = {KeyB: 'bold', KeyI: 'italic', KeyU: 'underline', KeyK: 'createLink', Backslash: 'removeFormat', BracketLeft: 'outdent', BracketRight: 'indent'};
 const shiftKeys = {KeyX: 'strikeThrough', Digit7: 'insertOrderedList', Digit8: 'insertUnorderedList', Digit9: 'blockquote',
   KeyL: 'justifyLeft', KeyE: 'justifyCenter', KeyR: 'justifyRight', KeyJ: 'justifyFull'};
