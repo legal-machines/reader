@@ -296,14 +296,32 @@ addEventListener('blur', showSeal);
 document.addEventListener('focusin', showSeal);
 
 // A phone's keyboard makes this frame shorter (Mail sizes it to end at the
-// keyboard): the caret stays in sight, above your mark.
+// keyboard): the line with the caret stays in sight, above your mark, and the
+// text moves only if it has to.
 addEventListener('resize', () => {
   const s = getSelection();
   if (!s.rangeCount || !editor.contains(s.anchorNode)) return;
-  const r = s.getRangeAt(0).getClientRects()[0] || s.anchorNode.parentElement?.getBoundingClientRect();
-  const end = editor.getBoundingClientRect().bottom - parseFloat(getComputedStyle(editor).paddingBottom);
-  if (r && r.bottom > end) editor.scrollTop += r.bottom - end;
+  const r = caretLine(s, editor);
+  if (!r) return;
+  const box = editor.getBoundingClientRect(), style = getComputedStyle(editor);
+  const top = box.top + parseFloat(style.paddingTop), end = box.bottom - parseFloat(style.paddingBottom);
+  if (r.bottom > end) editor.scrollTop += r.bottom - end;
+  else if (r.top < top) editor.scrollTop -= top - r.top;
 });
+// The line the caret is on. In an empty line a browser gives the caret no box:
+// then the node beside it, never the whole field.
+function caretLine(s, field) {
+  const rects = s.getRangeAt(0).getClientRects();
+  if (rects.length) return rects[0];
+  const a = s.anchorNode, at = s.anchorOffset, line = parseFloat(getComputedStyle(field).lineHeight) || 24;
+  const box = n => { if (n.nodeType === 1) return n.getBoundingClientRect(); const r = document.createRange(); r.selectNode(n); return r.getBoundingClientRect(); };
+  let top;
+  if (a.nodeType === 1 && a.childNodes[at]) top = box(a.childNodes[at]).top;
+  else if (a.nodeType === 1 && at > 0) top = box(a.childNodes[at - 1]).bottom - line;
+  else if (a !== field) top = box(a).top;
+  else return null;
+  return {top, bottom: top + line};
+}
 
 // ---- The message, encrypted.
 // RFC 2047, for a header that is not plain ASCII.
