@@ -296,17 +296,31 @@ addEventListener('blur', showSeal);
 document.addEventListener('focusin', showSeal);
 
 // A phone's keyboard makes this frame shorter (Mail sizes it to end at the
-// keyboard): the line with the caret stays in sight, above your mark, and the
-// text moves only if it has to.
+// keyboard). The text stays where it was under the Subject line and moves only
+// as far as the line with the caret needs to stay in sight, above your mark.
+// A browser may scroll it on its own as the keyboard comes up: for a moment
+// after, that is undone, until you touch, scroll or type.
+let rest = editor.scrollTop, height = innerHeight, hold = null, until = 0;
+const settled = () => hold !== null && performance.now() < until;
+editor.addEventListener('scroll', () => {
+  if (settled()) { if (editor.scrollTop !== hold) editor.scrollTop = hold; }
+  else if (innerHeight === height) rest = editor.scrollTop;
+});
+addEventListener('scroll', () => { if (settled() && scrollY) scrollTo(0, 0); });
+for (const type of ['touchstart', 'wheel', 'keydown', 'input']) editor.addEventListener(type, () => { hold = null; }, {passive: true});
 addEventListener('resize', () => {
-  const s = getSelection();
-  if (!s.rangeCount || !editor.contains(s.anchorNode)) return;
-  const r = caretLine(s, editor);
-  if (!r) return;
-  const box = editor.getBoundingClientRect(), style = getComputedStyle(editor);
-  const top = box.top + parseFloat(style.paddingTop), end = box.bottom - parseFloat(style.paddingBottom);
-  if (r.bottom > end) editor.scrollTop += r.bottom - end;
-  else if (r.top < top) editor.scrollTop -= top - r.top;
+  height = innerHeight;
+  if (scrollY) scrollTo(0, 0);
+  editor.scrollTop = rest;
+  const s = getSelection(), r = s.rangeCount && editor.contains(s.anchorNode) ? caretLine(s, editor) : null;
+  if (r) {
+    const box = editor.getBoundingClientRect(), style = getComputedStyle(editor);
+    const top = box.top + parseFloat(style.paddingTop), end = box.bottom - parseFloat(style.paddingBottom);
+    if (r.bottom > end) editor.scrollTop += r.bottom - end;
+    else if (r.top < top) editor.scrollTop -= top - r.top;
+  }
+  hold = rest = editor.scrollTop;
+  until = performance.now() + 700;
 });
 // The line the caret is on. In an empty line a browser gives the caret no box:
 // then the node beside it, never the whole field.

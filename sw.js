@@ -20,7 +20,7 @@
 // PINS-BEGIN (make-pins.py)
 const PINS = {
  "compose.html": "da65e60dbc342373b5f802c64f77d42552e5b36bdef0d83ef750e78110924377",
- "compose.mjs": "d10a484e43aa9938ac74c82d889849e9c43281d0265e77062499f472fb9ebb87",
+ "compose.mjs": "55b50abff53d40d7407f7b5c1e6cc087a84ef335c53b0eab3022cd3446a67a37",
  "decrypt.mjs": "9f226a49614f42b22e76b92f6dfa3e233f0569d0cfd2ec441cde1323f9167df0",
  "embed.mjs": "b4ddcf6cf33bcad25cd275ab1f26a036a7805fb626dcab16405e5d0563ec20fd",
  "frame.css": "c7111bb8d616141397b3ad6584ce8e8212911546b6cb4f73e2fca989dea72a49",
