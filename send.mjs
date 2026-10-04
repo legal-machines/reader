@@ -33,7 +33,7 @@ const ask = (to, cc) => new Promise((resolve, reject) => {
     channel.removeEventListener('message', hear);
     const all = [...answers.values()];
     if (all.length > 1) return reject(new Error('More than one message answered: nothing was sent. Reload the page.'));
-    if (!all.length) return reject(new Error('Type something in the message first.'));
+    if (!all.length) return reject(new Error('Click into the message first, then press Send.'));
     if (typeof all[0].text === 'string') resolve(all[0].text); else reject(new Error(all[0].error || 'The message could not be read.'));
   }, 400);
 });

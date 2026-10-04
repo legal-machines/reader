@@ -419,12 +419,14 @@ async function message({to, cc}) {
 // encrypted text (its server has it anyway); with your key open, the reader
 // opens it here and starts the new one as Mail would any other: "Re: " and
 // the real subject, and the old text quoted under the signature.
-async function answer(armored, forward) {
+async function answer(armored, mode) {
+  const forward = mode === 'forward';
   try {
     const ids = await recipientsOf(armored), s = await vault.state();
     const keyId = ids.find(id => s.keyIds.includes(id));
     if (!keyId) return;
     const m = await openWith(armored, s.infos[keyId]);
+    if (mode === 'edit') { if (editor.innerHTML === untouched && !subject.value) restoreMessage(m); return; }
     if (typed) return;
     const base = (m.subject || '').replace(/^\s*((re|fwd?|aw|wg)\s*:\s*)+/i, '');
     if (!subject.value && base) subject.value = (forward ? 'Fwd: ' : 'Re: ') + base;
@@ -436,6 +438,28 @@ async function answer(armored, forward) {
     editor.insertAdjacentHTML('beforeend', `<br><br><div class="quoted">${escape(said)}</div>` + (forward ? `<div>${quote}</div>` : `<blockquote>${quote}</blockquote>`));
     untouched = editor.innerHTML;
   } catch (e) {}  // locked, or not a message for this key: the subject stays to write
+}
+
+// A message of yours to change (Edit on a scheduled one): its subject, its
+// text with the pictures in place, and its files come back into this
+// composer. The text is cleaned as anything Mail hands over is: anyone can
+// encrypt a message to your key, so the text earns no more trust than that.
+function restoreMessage(m) {
+  subject.value = m.subject || '';
+  const isInline = f => f.id && isPicture(f) && (m.html || '').includes('cid:' + f.id);
+  let html = m.html !== undefined ? m.html : escape(m.text || '').replace(/\r?\n/g, '<br>');
+  html = html.replace(/<img\b[^>]*?\bsrc\s*=\s*["']?cid:([^"'\s>]+)["']?[^>]*>/gi, (all, cid) => {
+    const f = m.files.find(x => x.id === cid && isPicture(x));
+    if (!f) return '';
+    const n = ++pictureCount;
+    pictures.set(n, new File([f.data], f.name || 'picture', {type: f.type}));
+    return `\ue000${n}\ue001`;  // a mark that cleaning keeps, for the picture to come back
+  });
+  editor.innerHTML = clean(html).replace(/\ue000(\d+)\ue001/g, (all, n) =>
+    `<img src="${URL.createObjectURL(pictures.get(Number(n)))}" data-pic="${n}" alt="${escape(pictures.get(Number(n)).name)}">`);
+  attach(m.files.filter(f => !isInline(f)).map(f => new File([f.data], f.name || 'attachment', {type: f.type || 'application/octet-stream'})));
+  untouched = editor.innerHTML;
+  showSeal();
 }
 
 // What Mail hands over at the start (the signature and its notice, and the
@@ -475,7 +499,7 @@ addEventListener('message', async e => {
     if (typeof d.subject === 'string') subject.value = d.subject.slice(0, 998);
     editor.innerHTML = clean(d.html);
     untouched = editor.innerHTML;
-    if (d.original && typeof d.original.armored === 'string' && d.original.armored.length <= 4e6) answer(d.original.armored, d.original.mode === 'forward');
+    if (d.original && typeof d.original.armored === 'string' && d.original.armored.length <= 4e6) answer(d.original.armored, d.original.mode);
     if (typeof d.channel === 'string' && /^page-[\w-]{8,64}$/.test(d.channel)) {
       // The reader's Send (send.mjs) asks for the message here, once you
       // press it; Mail cannot have it encrypted at any other time.
