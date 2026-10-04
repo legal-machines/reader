@@ -73,7 +73,14 @@ function recipients(text) {
   return ids;
 }
 
+// WebCrypto X25519, which keeps the key unreadable even to this page's code:
+// Safari 17, Chrome and Edge 133, Firefox 130 and later.
+let capable = null;
+const canOpen = () => (capable ||= crypto.subtle.importKey('raw', new Uint8Array(32).fill(9), {name: 'X25519'}, false, []).then(() => true, () => false));
+
 async function prepare() {
+  if (!await canOpen())
+    return show(card('End-to-end encrypted', 'This browser is too old to open it safely. Update it (Safari 17, Chrome or Edge 133, Firefox 130 or later), or read it in Thunderbird.'));
   let ids = [];
   try {
     ids = recipients(armored);
@@ -96,7 +103,7 @@ async function prepare() {
   const record = fitting[0];
   if (!record) {
     return show(card('End-to-end encrypted',
-      records.length ? 'The key on this browser does not open this message; it was encrypted to another key.'
+      records.length ? 'It was encrypted to a key this browser does not hold yet. Open the message "Your encryption key" of that mailbox and click Add to this browser.'
                      : 'This browser has no key for it yet. Open the message "Your encryption key" in your Inbox and click Add to this browser: then messages open here with Touch ID or your fingerprint.',
       `<div class="actions">${setupLink}</div>`));
   }
