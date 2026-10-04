@@ -32,6 +32,7 @@ import datetime
 import hashlib
 import json
 import os
+import re
 import smtplib
 import socket
 import ssl
@@ -283,11 +284,11 @@ def tell_postmasters(problems):
     except OSError:
         token = ""
     if problems:
-        subject = "Mail Reader: someone else may be serving it"
+        subject = "Mail Reader check: 1 problem" if len(problems) == 1 else f"Mail Reader check: {len(problems)} problems"
         text = ("The check of the Mail Reader found:\n\n" + "".join(f"- {p}\n" for p in problems) +
                 "\nUntil this clears, the webmail opens no encrypted message and adds no key by itself; each message offers "
                 "Open anyway. Look at the domain's registrar (REG.RU), deSEC and the GitHub repositories legal-machines/reader "
-                "and reader2 before opening encrypted mail.\n")
+                "and legal-machines/reader2 before opening encrypted mail. This note repeats once a day while a problem lasts.\n")
     else:
         subject = "Mail Reader: all clear again"
         text = "The Mail Reader check finds nothing wrong again. The webmail opens encrypted messages as before.\n"
@@ -327,9 +328,16 @@ def run_server():
         pass
     old = state.get("problems", [])
     since = state.get("since") if problems and old else (iso(now()) if problems else None)
+    # The same problems are told once a day, not on every run: a link that
+    # changes with each run at GitHub does not make a problem new.
+    same = lambda ps: sorted(re.sub(r"https://\S+", "", p) for p in ps)
+    told = state.get("told")
+    due = same(problems) != same(old) or (problems and (not told or now() - parse_time(told) >= 86400))
+    if due:
+        told = iso(now())
     write_public(ALERT, json.dumps({"problems": problems, "since": since, "checked": iso(now())}))
-    write_public(STATE, json.dumps({"ds": ds_ever, "problems": problems, "since": since, "notes": notes, "checked": iso(now())}))
-    if sorted(problems) != sorted(old):
+    write_public(STATE, json.dumps({"ds": ds_ever, "problems": problems, "since": since, "notes": notes, "checked": iso(now()), "told": told}))
+    if due:
         tell_postmasters(problems)
     for line in problems:
         print("PROBLEM", line)
