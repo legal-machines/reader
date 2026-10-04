@@ -10,11 +10,14 @@ import {MAIL_SITES} from './sites.mjs';
 import {widths} from './width.mjs';
 import {keyOf, seal} from './seal.mjs';
 import * as vault from './vault.mjs';
-import {valid} from './store.mjs';
+import {all, valid} from './store.mjs';
 import {openpgpLib} from './decrypt.mjs';
 
 const button = document.getElementById('send'), pinField = document.querySelector('.send-pin'), pin = document.getElementById('pin');
 let parentOrigin = null, channel = null, records = [], minutes = 15, from = '', people = {to: [], cc: [], bcc: []}, busy = false;
+// An address as it may stand in a header: nothing that could end the line
+// and start a header of Mail's choosing inside the sealed message.
+const ADDRESS = /^[a-z0-9._%+-]{1,64}@[a-z0-9-]{1,63}(\.[a-z0-9-]{1,63})+$/;
 const tell = m => { if (parentOrigin) parent.postMessage(m, parentOrigin); };
 const report = () => { const r = document.getElementById('actions').getBoundingClientRect(); tell({type: 'reader-size', width: Math.ceil(r.width), height: Math.ceil(r.height)}); };
 new ResizeObserver(report).observe(document.getElementById('actions'));
@@ -26,7 +29,7 @@ const ask = (to, cc) => new Promise((resolve, reject) => {
   const id = crypto.randomUUID(), answers = new Map();
   const hear = m => { if (m.data?.type === 'message' && m.data.id === id && typeof m.data.from === 'string') answers.set(m.data.from, m.data); };
   channel.addEventListener('message', hear);
-  channel.postMessage({type: 'compose-message', id, to, cc});
+  channel.postMessage({type: 'compose-message', id, to, cc, from});
   setTimeout(() => {
     channel.removeEventListener('message', hear);
     const all = [...answers.values()];
@@ -53,17 +56,25 @@ button.addEventListener('click', async e => {
   try {
     const everyone = [...to, ...cc, ...bcc].map(a => a.toLowerCase());
     if (!everyone.length) throw new Error('Add a recipient.');
+    if (!ADDRESS.test(from) || everyone.some(a => !ADDRESS.test(a))) throw new Error('An address here is not a plain email address: nothing was sent.');
     // Our keys only (keys.mjs, by the hash of each address).
     const known = new Map(await Promise.all([...new Set([...everyone, from])].map(async a => [a, await keyOf(a)])));
     const own = known.get(from);
     const missing = [...everyone, from].filter(a => !known.get(a));
     if (missing.length) throw new Error(`End to end goes only to mailboxes here with keys; not to ${missing.join(', ')}.`);
     // Your key, for the seal: open already, or opened now with this press.
+    // Every message written here is sealed: one that is not could have come
+    // from anyone who has your public key, the mail server included, so
+    // there is no sending without it. The records Mail hands over count, and
+    // so do those this browser keeps itself, so Mail cannot leave them out.
     const fromId = own.subkeys[0];
     const mine = records.filter(r => r.keyId === fromId);
+    try { for (const r of await all()) if (valid(r) && r.keyId === fromId && !mine.some(m => m.credentialId === r.credentialId)) mine.push(r); } catch (e) {}
+    const opened = (await vault.state()).keyIds.includes(fromId);
+    if (!mine.length && !opened) throw new Error('Sending end to end needs your own key in this browser. Add it on the Security page, then press Send.');
     let derive = null;
-    if (mine.length) {
-      if (!(await vault.state()).keyIds.includes(fromId)) {
+    {
+      if (!opened) {
         if (mine.some(r => r.pinSalt) && !pin.value) { pinField.hidden = false; report(); pin.focus(); throw new Error('Enter your PIN, then press Send.'); }
         await vault.unlock(mine, pin.value, minutes);
         pin.value = '';
@@ -74,7 +85,7 @@ button.addEventListener('click', async e => {
     const openpgp = await openpgpLib();
     let text = await ask(to, cc);
     const keys = [...new Set([...everyone, from])].map(a => known.get(a));
-    if (derive) text = await seal(openpgp, text, fromId, derive, keys.map(k => k.subkeys[0]));
+    text = await seal(openpgp, text, fromId, derive, keys.map(k => k.subkeys[0]));
     const encryptionKeys = await Promise.all(keys.map(k => openpgp.readKey({armoredKey: k.armored})));
     const armored = await openpgp.encrypt({message: await openpgp.createMessage({binary: new TextEncoder().encode(text)}), encryptionKeys, format: 'armored'});
     tell({type: 'reader-encrypted', armored});
@@ -96,7 +107,7 @@ addEventListener('message', e => {
     channel = new BroadcastChannel(d.channel);
     records = Array.isArray(d.records) ? d.records.filter(valid).slice(0, 20) : [];
     minutes = [0, 5, 15, 30, 60].includes(d.minutes) ? d.minutes : 15;
-    from = typeof d.from === 'string' ? d.from.toLowerCase().slice(0, 254) : '';
+    from = typeof d.from === 'string' && ADDRESS.test(d.from.toLowerCase()) ? d.from.toLowerCase() : '';
     report();
   } else if (d.type === 'send-people') {
     const s = v => Array.isArray(v) ? v.filter(a => typeof a === 'string').slice(0, 100) : [];

@@ -20,9 +20,9 @@
 // PINS-BEGIN (make-pins.py)
 const PINS = {
  "compose.html": "da65e60dbc342373b5f802c64f77d42552e5b36bdef0d83ef750e78110924377",
- "compose.mjs": "8cf291dd09cb8630e0df3e4c42452b2b78323c47dd0c7181808450563f7b2415",
+ "compose.mjs": "8d318faa0eeb7ef3878f308d7b68e909833adedafa5023355f5df53537b4731c",
  "decrypt.mjs": "7b280f474ebbd0bb017123020767d7dc14e906c890a1a054862379db3409ac6d",
- "embed.mjs": "f69e897ad388cc555d7a51b89e590721ad3a9c925a680dffc9b09d857dc74b46",
+ "embed.mjs": "cbcc79a221ebf5294d0f7f20b619809e741dc31ec5c5efc7fb0025ebeeaa8024",
  "frame.css": "c7111bb8d616141397b3ad6584ce8e8212911546b6cb4f73e2fca989dea72a49",
  "hub.html": "c70d16f0b7c3f93df8bf681560a0448eba840bb408c5ee2a5f5220d772ee4186",
  "hub.mjs": "40de18a28649e25f911b5ed7f37ff27d69862671a1574dcba070b3c447fdeb73",
@@ -42,7 +42,7 @@ const PINS = {
  "seal.mjs": "e4a07ce6c23006c791cd55b4626e117df06683a963eab1239dfd475645b983bf",
  "sealed-core.mjs": "751cda0c898ab62b88e8d907c6e8431222084656a3ec1e7c474f0a8092a92c52",
  "send.html": "c675174a48ac3062ea557a8ef99f1b4ba33b3cf5f8a627ff6bca9c26e2a80aac",
- "send.mjs": "c40368790b52d30ee68415afb7cb66f8da84d5a1754d6d85b4472c6671ed5bf9",
+ "send.mjs": "593d7460d78446d206f2822113014fe37bbf4b7fa5d1cfab1d41c628454515ce",
  "setup.html": "1e86addfdf6b5e8dc5711fa75b9a6b9e4119bd06f5c6c569df7eb86edf063b0d",
  "setup.mjs": "57e3dc467b4631accfc6cd6a3951545369462aa866f72ef53183e63885e9d7f1",
  "sites.mjs": "da735072fc0ca68478199a4a477358f6283792952d8d435f91e33b268d91c7ce",
@@ -122,8 +122,12 @@ async function markOf(key) {
 async function handle(d, from) {
   if (vault) check();
   switch (d.type) {
-    case 'state':
-      return {...state(), served: await served(from)};
+    case 'state': {
+      // The mark proves a page is the reader's own: a page from the network
+      // gets the state without it.
+      const ok = await served(from);
+      return ok ? {...state(), served: true} : {...state(), marks: {}, served: false};
+    }
     case 'hold': {
       if (!await served(from)) return {...state(), served: false};  // a page from the network may not put a key in
       // From a page that has just unsealed the key with the passkey.

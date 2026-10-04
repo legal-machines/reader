@@ -25,6 +25,12 @@ const pictureInput = document.getElementById('pictures'), filesInput = document.
 const LIMIT = 15 * 1024 * 1024;  // the files of one message, as the mail server takes them encrypted
 let parentOrigin = null, from = '', own = null, channel = null, started = false, typed = false;
 const instance = crypto.randomUUID();
+// An address as it may stand in a header (as send.mjs checks it): nothing
+// that could end the line and start a header of Mail's choosing.
+const ADDRESS = /^[a-z0-9._%+-]{1,64}@[a-z0-9-]{1,63}(\.[a-z0-9-]{1,63})+$/;
+// Characters that change how text reads without showing: direction
+// overrides and isolates, zero-width ones, invisible tags, the soft hyphen.
+const HIDDEN = /[\u00ad\u061c\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]|\udb40[\udc00-\udc7f]/g;
 // Typed here by a person (the browser marks such events as trusted).
 for (const type of ['keydown', 'pointerdown', 'paste', 'drop']) addEventListener(type, e => { if (e.isTrusted) typed = true; }, true);
 const files = [];                 // {file, id}
@@ -393,7 +399,11 @@ async function body() {
 // is "..."), padded to a step of 4 KB (64 KB past 64 KB) with blank lines
 // before the first part, which every mail program skips, so that the size
 // of the encrypted message tells Mail little about how much was written.
-async function message({to, cc}) {
+async function message({to, cc, from: sender}) {
+  // Send's sender and this composer's must agree, and be plain addresses, as
+  // must everyone the message goes to: Mail hands over all of them.
+  if (sender !== from || !ADDRESS.test(from) || [...to, ...cc].some(a => !ADDRESS.test(a)))
+    throw new Error('The addresses Send and this message were given differ: nothing was sent. Reload the page.');
   if (!subject.value.trim() && !(editor.innerText || '').trim() && !files.length) throw new Error('The message is empty.');
   if (total() > LIMIT) throw new Error('End-to-end messages take files of up to 15 MB in all.');
   const heads = `From: ${from}\r\nTo: ${list(to)}\r\n` + (cc.length ? `Cc: ${list(cc)}\r\n` : '') +
@@ -469,7 +479,7 @@ function clean(html) {
   const keep = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'BR', 'P', 'DIV', 'SPAN', 'A', 'FONT', 'BLOCKQUOTE', 'UL', 'OL', 'LI']);
   const walk = node => {
     for (const child of [...node.childNodes]) {
-      if (child.nodeType === 3) continue;
+      if (child.nodeType === 3) { child.data = child.data.replace(HIDDEN, ''); continue; }
       if (child.nodeType !== 1 || ['SCRIPT', 'STYLE', 'TEMPLATE', 'NOSCRIPT'].includes(child.tagName)) { child.remove(); continue; }
       walk(child);  // inside first, so what is lifted out of an element is clean already
       if (!keep.has(child.tagName)) { child.replaceWith(...child.childNodes); continue; }
@@ -480,6 +490,12 @@ function clean(html) {
                    (child.tagName === 'FONT' && (a.name === 'size' && a.value === '2' || a.name === 'color' && /^#5f6368$/i.test(a.value))) ||
                    (a.name === 'class' && /^(signature|quoted)$/.test(a.value));
         if (!ok) child.removeAttribute(a.name);
+      }
+      // A link that reads as one address and goes to another shows where it goes.
+      if (child.tagName === 'A' && child.hasAttribute('href')) {
+        const text = child.textContent.trim(), href = child.getAttribute('href');
+        const host = s => { try { return new URL(/^[a-z]+:/i.test(s) ? s : 'https://' + s).hostname.replace(/^www\./, ''); } catch (e) { return null; } };
+        if (/^\S+\.\S+$/.test(text) && /^https?:/i.test(href) && host(text) !== host(href)) child.textContent = href;
       }
     }
   };
@@ -494,7 +510,7 @@ addEventListener('message', async e => {
   if (Number.isFinite(d.vw)) widths(d.vw);
   if (d.type === 'reader-compose' && !started) {  // the frame's first word from Mail: the start of the text, and who writes
     started = true;
-    from = typeof d.from === 'string' ? d.from.slice(0, 254) : '';
+    from = typeof d.from === 'string' && ADDRESS.test(d.from.toLowerCase()) ? d.from.toLowerCase() : '';
     if (from) keyOf(from).then(k => { own = k || null; showSeal(); });  // your key, for your mark (keys.mjs knows addresses by hash)
     if (typeof d.subject === 'string') subject.value = d.subject.slice(0, 998);
     editor.innerHTML = clean(d.html);
@@ -512,7 +528,8 @@ addEventListener('message', async e => {
         if (x.type !== 'compose-message' || typeof x.id !== 'string' || !typed) return;
         const s = v => Array.isArray(v) ? v.filter(a => typeof a === 'string').slice(0, 100) : [];
         try {
-          channel.postMessage({type: 'message', id: x.id, from: instance, text: await message({to: s(x.to), cc: s(x.cc)})});
+          channel.postMessage({type: 'message', id: x.id, from: instance,
+                               text: await message({to: s(x.to).map(a => a.toLowerCase()), cc: s(x.cc).map(a => a.toLowerCase()), from: typeof x.from === 'string' ? x.from : ''})});
           dirty = false;
         } catch (err) {
           channel.postMessage({type: 'message', id: x.id, from: instance, error: err.message});

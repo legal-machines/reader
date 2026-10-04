@@ -283,7 +283,7 @@ addEventListener('message', e => {
     cipher = typeof d.cipher === 'string' ? d.cipher.slice(0, 2000) : '';
     show(cipherBlock());
     join(d.channel, d.slot);
-  } else if (d.type === 'reader-open' && !framed && typeof d.armored === 'string') {
+  } else if (d.type === 'reader-open' && !framed && armored === null && typeof d.armored === 'string') {  // once: the letter checked stays the letter shown
     armored = d.armored;
     handedRecords = Array.isArray(d.records) ? d.records.filter(valid).slice(0, 20) : [];
     sentFrom = typeof d.from === 'string' && d.from.length <= 320 ? addressOf(d.from) : '';
