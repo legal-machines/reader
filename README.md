@@ -15,8 +15,10 @@ Mail app out of these frames and out of this site's storage.
 
 Every mailbox has a key pair, which works like a padlock and its key.
 
-* **The public key is the open padlock.** It is published (WKD, Autocrypt
-  headers) so that anyone can snap it shut: encrypt a message that only the
+* **The public key is the open padlock.** It is published (the Web Key
+  Directory at openpgpkey.<domain>, which GitHub Pages serves from
+  legal-machines/openpgpkey and openpgpkey2, and Autocrypt headers, which
+  the mail server writes) so that anyone can snap it shut: encrypt a message that only the
   mailbox can open. A public key cannot open anything, and the private key
   cannot be worked out from it (X25519; the best known attack costs about
   2^128 operations).
@@ -29,9 +31,13 @@ to every recipient's public key and to the sender's own, so the copy in Sent
 opens for the sender too.
 
 Because anyone can encrypt to a public key, an encrypted message does not
-prove who wrote it. The reader compares the sender written inside the
-message with the sender the mail server received it from, and warns when
-they differ. Signatures, which would prove it, are not made yet.
+prove who wrote it. Messages written here carry the sender's seal (see
+Writing), which does; the reader says "Sealed by" for one whose seal holds,
+"Not sealed" for one without (written elsewhere, or encrypted by the mail
+server on delivery), and warns when the sender written inside differs from
+the one the mail server received it from. The Mail app's header says
+"Encrypted", and "End-to-end encrypted" only once the reader reports that
+the seal holds.
 
 ## Reading
 
@@ -95,16 +101,28 @@ they differ. Signatures, which would prove it, are not made yet.
 ## Writing
 
 `compose.html` is the Mail app's composer from the Subject line down when End
-to end is on, in its own look: the formatting bar with its own clip for
-files, the signature with the end-to-end notice, pictures in the text. The
-subject, the text and the files stay there. `send.html` is Send: the
-reader's own button where Mail's stands. Only a press there has the message
-sealed with your key (`seal.mjs`; Touch ID first if encrypted mail is
-locked) and encrypted, as one PGP/MIME message padded to steps of 4 KB, to
-the public keys in `keys.mjs` (made by `make-keys.py` from the mail
-repository's published keys, never taken from the mail page). The Mail app
-gets the encrypted message and sends it; it cannot have a draft encrypted at
-any other time. A time picked in Schedule send waits for that press.
+to end is on, in its own look: a For line with the addresses Send will
+encrypt to (Bcc too), the formatting bar with its own clip for files, the
+signature, pictures in the text. The subject, the text and the files stay
+there. The Mail app hands over the signature alone; the notices under it
+(the end-to-end one and the domain's own) the reader writes itself, from
+`notices.mjs` (made by `make-notices.py` from the mail repository), so the
+mail server has no say in what they tell the recipient.
+
+`send.html` is Send: the reader's own button where Mail's stands. Only a
+press there has the message sealed with your key (`seal.mjs`; Touch ID first
+if encrypted mail is locked) and encrypted, as one PGP/MIME message padded
+to steps of 4 KB, to the public keys in `keys.mjs` (made by `make-keys.py`
+from the mail repository's published keys, never taken from the mail page).
+Send finds the composer itself, by walking the frames of its own tab
+(`tab.mjs`), and refuses if there is more than one: the Mail app cannot
+point it at a composer of its own. The sender and every recipient must be
+plain addresses with keys here; a message goes sealed or not at all (no key
+of yours in this browser, no sending), with its own Message-ID inside. The
+Mail app gets the encrypted message and sends it; it cannot have a draft
+encrypted at any other time. A time picked in Schedule send waits for that
+press. A reply quotes an encrypted message as "X wrote" only when its seal
+holds, and says "not sealed" otherwise.
 
 `keys.mjs` lists no addresses: it has one entry a key, with the SHA-256 of
 each address the key serves (lower case, hex) and the key itself with one
@@ -121,7 +139,8 @@ secret.
   sender written inside, when the sealing key is that address's key (by its
   hash); otherwise it warns that the message was sealed with the key of
   another mailbox, and names that key's domain. One whose seal does not hold
-  is marked as such.
+  is marked as such. The line gives the time sealed, to the minute, so an
+  old message passed off as new shows its own.
 
 ## No network, and watched
 
@@ -130,11 +149,15 @@ secret.
   key, can be sent anywhere.
 * `SHA256SUMS` lists every file's hash. Two watches compare what is served at
   both addresses with it, and look for signs that someone else serves these
-  names: the domains' delegation and DNSSEC at their registries, the CNAME at
-  deSEC, and certificates for the names in the Certificate Transparency logs
-  that GitHub Pages does not serve. One runs on the mail server every 10
-  minutes, one here in GitHub Actions every 15 (`watch/`), which also checks
-  the Mail app's own files against what was deployed. While either reports a
+  names: the domains' delegation and DNSSEC at their registries, the CNAMEs
+  of seal.<domain> and openpgpkey.<domain> at deSEC, and certificates for the
+  names in the Certificate Transparency logs that GitHub Pages does not
+  serve. One runs on the mail server every 10 minutes, one here in GitHub
+  Actions, also every 10 minutes (`watch/`; each run checks for close to six
+  hours and the next waits its turn, since GitHub starts a schedule only
+  every few hours), which also checks the Mail app's own files against what
+  was deployed. The mail server's DNS token can change only its _dmarc and
+  _mta-sts records, so the server cannot repoint these names itself. While either reports a
   problem, the Mail app opens no encrypted message, adds no key and offers
   no End to end by itself.
 * Both watches also check our public keys as the mail server hands them out
@@ -145,8 +168,8 @@ secret.
   Web Key Directory and from that page's download, asked by hash. Each must
   be exactly our key, with that address's user ID alone. The mail server's
   own run reads `watch/keys.json` from GitHub.
-* `keys.html` shows each domain's fingerprint, for people to compare with
-  the one their mail app shows. GitHub serves it from this repository, so
+* `keys.html` shows the fingerprint of its own domain's key (each site its
+  own), for people to compare with the one their mail app shows. GitHub serves it from this repository, so
   the mail server and its hosting company cannot change it; the Mail app's
   guide (/encryption) sends people here to check.
 
@@ -160,7 +183,7 @@ service worker on that device. Exactly what that allows:
   names' DNS) cannot: pages not served from the worker's checked copy may
   not use the key, and a new `sw.js` means a new worker with an empty
   vault. Such code could still ask for a new touch; the watches see a
-  change within 15 minutes.
+  change within 10 minutes.
 * **The mail page** (its server, its hosting company) can hand the reader
   stored encrypted messages and have them shown in frames on the screen,
   without a touch. It cannot read what is shown; it learns each frame's
@@ -196,15 +219,20 @@ service worker on that device. Exactly what that allows:
   composer of its own, clip and Send included, with no reader in it. It
   cannot show your mark; a person who does not look for it can be fooled.
 * Prove the sender of mail written elsewhere: Thunderbird and other apps
-  do not add the reader's seal, so their messages show no Verified line.
+  do not add the reader's seal, so their messages say "Not sealed".
+* Keep the mail server from changing what it writes in ordinary mail: the
+  Autocrypt key in its headers, the footer and the /encryption page. The
+  Web Key Directory and keys.html, which GitHub serves, are where to check.
 * Hide the size of a message from the mail server, beyond steps of 4 KB.
 
 Files: `sealed-core.mjs` (ECDH session key, RFC 6637), `store.mjs` (sealing
 and passkeys), `vault.mjs` and `sw.js` (the key while unlocked), `hub.mjs`
 (Unlock and opening), `decrypt.mjs`, `mime.mjs`, `mark.mjs`, `embed.mjs`
 (a letter), `row.mjs` (a line of a list), `title.mjs` (the subject),
-`compose.mjs` and `send.mjs` (writing), `seal.mjs` (the sender's seal and
-key lookup by hash), `keys.mjs` and `keys.html` (our public keys, from
-`make-keys.py`), `setup.mjs`, `width.mjs`, and
+`compose.mjs` and `send.mjs` (writing), `tab.mjs` (the reader's frames in a
+tab), `seal.mjs` (the sender's seal and key lookup by hash), `keys.mjs` and
+`keys.html` (our public keys, from `make-keys.py`), `notices.mjs` (from
+`make-notices.py`), `setup.mjs`, `width.mjs`, `publish.sh` (both sites, with
+`make-styles.py` and `make-pins.py`), and
 OpenPGP.js 6.3.2, unmodified (`openpgp.min.mjs`, LGPL-3.0,
 https://openpgpjs.org).
