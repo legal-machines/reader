@@ -239,35 +239,58 @@ def check_certificates(host):
 
 
 # ---- Files: the reader as served against its repository.
-def changed_lately(repo):
+def recent_commits(repo):
+    """The newest commits on main, newest first: (sha, time), or None."""
     try:
-        commit = fetch_json(f"https://api.github.com/repos/{repo}/commits/main")
-        return now() - parse_time(commit["commit"]["committer"]["date"]) < SETTLING
-    except (OSError, ValueError, KeyError, urllib.error.URLError):
-        return True  # unknown: do not cry wolf on a fresh publish
+        return [(c["sha"], parse_time(c["commit"]["committer"]["date"]))
+                for c in fetch_json(f"https://api.github.com/repos/{repo}/commits?sha=main&per_page=6")]
+    except (OSError, ValueError, KeyError, TypeError, urllib.error.URLError):
+        return None
 
 
 def check_files(host, repo):
+    commits = recent_commits(repo)
     try:
         sums = fetch(f"https://raw.githubusercontent.com/{repo}/main/SHA256SUMS")[0].decode()
     except (OSError, urllib.error.URLError) as e:
         notes.append(f"{repo}: SHA256SUMS could not be read ({type(e).__name__})")
         return []
-    differ = []
+    differ = {}
     for line in sums.splitlines():
         if not line.strip():
             continue
         digest, name = line.split(None, 1)
+        name = name.strip().lstrip("*")
         try:
-            body = fetch(f"https://{host}/{name.strip()}")[0]
+            body = fetch(f"https://{host}/{name}")[0]
         except (OSError, urllib.error.URLError):
-            notes.append(f"{host}/{name.strip()} could not be fetched")
+            notes.append(f"{host}/{name} could not be fetched")
             continue
-        if hashlib.sha256(body).hexdigest() != digest:
-            differ.append(name.strip())
-    if differ and not changed_lately(repo):
-        return [f"{host} serves files that differ from {repo}: {', '.join(differ)}"]
-    return []
+        got = hashlib.sha256(body).hexdigest()
+        if got != digest:
+            differ[name] = got
+    if not differ or not commits or now() - commits[0][1] < SETTLING:
+        return []  # nothing wrong, or a publish still on its way (unknown counts as that: no crying wolf)
+    still = sorted(differ)
+    if now() - commits[0][1] < 6 * 3600:
+        # GitHub Pages builds through Actions and can serve an earlier commit
+        # for an hour or more when Actions is slow: a file of one of the five
+        # commits before passes, for six hours. A commit made at GitHub alone
+        # is not passed by this: the host compares with this Mac's hashes too.
+        earlier = set()
+        for sha, _ in commits[1:]:
+            try:
+                text = fetch(f"https://raw.githubusercontent.com/{repo}/{sha}/SHA256SUMS")[0].decode()
+            except (OSError, urllib.error.URLError):
+                continue
+            for line in text.splitlines():
+                if line.strip():
+                    digest, name = line.split(None, 1)
+                    earlier.add((name.strip().lstrip("*"), digest))
+        still = sorted(n for n, got in differ.items() if (n, got) not in earlier)
+        if len(still) < len(differ):
+            notes.append(f"{host}: GitHub Pages still serves an earlier commit for {len(differ) - len(still)} file(s)")
+    return [f"{host} serves files that differ from {repo}: {', '.join(still)}"] if still else []
 
 
 def check_mail(expected):
