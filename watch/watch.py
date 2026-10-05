@@ -65,6 +65,7 @@ CERT_RECENT = 3 * 86400   # older issuances were weighed before
 SETTLING = 20 * 60        # GitHub Pages and raw.githubusercontent.com caches
 STATE = "/var/lib/mail-status/reader-watch.json"
 ALERT = "/var/lib/mail-status/reader-alert.json"
+PINS = "/var/lib/mail-status/reader-pins.json"  # what this Mac published last (publish.sh), sent here directly
 WATCH_RUNS = "https://api.github.com/repos/legal-machines/reader/actions/workflows/watch.yml/runs?per_page=10"
 KEYS_URL = "https://raw.githubusercontent.com/legal-machines/reader/main/watch/keys.json"
 ZBASE32 = "ybndrfg8ejkmcpqxot1uwisza345h769"
@@ -428,6 +429,51 @@ def check_keys(expected):
     return problems
 
 
+def check_webauthn(host):
+    """Nothing at /.well-known/webauthn: that file would let other sites, the
+    webmail among them, ask for this site's passkeys (WebAuthn Related Origin
+    Requests), and the browser reads it from the network, past Seal's worker."""
+    url = f"https://{host}/.well-known/webauthn"
+    try:
+        fetch(url)
+    except urllib.error.HTTPError as e:
+        if e.code != 404:
+            notes.append(f"{url} answered {e.code}")
+        return []
+    except (OSError, urllib.error.URLError) as e:
+        notes.append(f"{url} could not be asked ({type(e).__name__})")
+        return []
+    return [f"{url} exists: it would let other sites use this site's passkeys"]
+
+
+def check_pins():
+    """On the host: each Seal site's files against the hashes this Mac sent at
+    its last publish, not against the SHA256SUMS at GitHub, so that a change
+    made at GitHub alone, sums and all, shows here."""
+    try:
+        with open(PINS) as f:
+            pins = json.load(f)
+    except (OSError, ValueError):
+        notes.append("no hashes from the last publish of Seal (reader-pins.json)")
+        return []
+    if now() - parse_time(pins.get("published", "1970-01-01T00:00:00+00:00")) < SETTLING:
+        return []
+    problems = []
+    for host, files in sorted(pins.get("sites", {}).items()):
+        differ = []
+        for name, digest in sorted(files.items()):
+            try:
+                body = fetch(f"https://{host}/{name}")[0]
+            except (OSError, urllib.error.URLError):
+                notes.append(f"{host}/{name} could not be fetched")
+                continue
+            if hashlib.sha256(body).hexdigest() != digest:
+                differ.append(name)
+        if differ:
+            problems.append(f"{host} serves files other than the last publish from the owner's Mac: {', '.join(differ[:8])}")
+    return problems
+
+
 def check_all(ds_required):
     problems, ds_seen = [], {}
     for domain, (host, repo) in READERS.items():
@@ -436,6 +482,7 @@ def check_all(ds_required):
         ds_seen[domain] = seen
         problems += check_certificates(host)
         problems += check_files(host, repo)
+        problems += check_webauthn(host)
     return problems, ds_seen
 
 
@@ -489,6 +536,7 @@ def run_server():
         state = {}
     ds_ever = state.get("ds", {})
     problems, ds_seen = check_all({d: bool(ds_ever.get(d)) for d in READERS})
+    problems += check_pins()
     # Our keys against GitHub's copy, never against one kept here.
     key_problems = []
     try:
