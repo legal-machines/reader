@@ -1,18 +1,24 @@
 # From GitHub's side, every 10 minutes: that GitHub Pages alone serves the
 # Mail Reader and the Web Key Directory (DNS at the registries and deSEC,
 # certificates in the CT logs, the files) and that the webmail serves the
-# files it was deployed with (watch/expected.json). GitHub runs a schedule
-# only every few hours, so each run checks again every 10 minutes for close
-# to six hours (the longest a job may run), and the next one waits its turn
-# (concurrency), so one is always watching. A problem ends the run at once
-# as failed, and GitHub mails a failed run to the repository's owner; the
-# mail server's own watch shows it in the webmail.
+# files it was deployed with (watch/expected.json). Each run checks every 10
+# minutes for close to six hours (the longest a job may run); a problem ends
+# it at once as failed, and GitHub mails a failed run to the repository's
+# owner. Either way the run hands over to the next one before it ends (after
+# a failure, that one waits 10 minutes first), since GitHub starts a schedule
+# only every few hours: one is always watching. The schedule stays as a
+# fallback. The mail server's own watch shows a failed run in the webmail.
 name: Watch
 on:
   schedule:
     - cron: "*/15 * * * *"
   workflow_dispatch:
-permissions: {}
+    inputs:
+      delay:
+        description: Seconds to wait before the first check
+        default: "0"
+permissions:
+  actions: write
 concurrency:
   group: watch
   cancel-in-progress: false
@@ -22,9 +28,13 @@ jobs:
     timeout-minutes: 355
     steps:
       - name: Check every 10 minutes
+        env:
+          DELAY: ${{ inputs.delay || '0' }}
         run: |
           command -v dig >/dev/null || sudo apt-get install -y -qq bind9-dnsutils
-          end=$(( $(date +%s) + 340 * 60 ))
+          case "$DELAY" in ''|*[!0-9]*) DELAY=0;; esac
+          sleep "$DELAY"
+          end=$(( $(date +%s) + 330 * 60 ))
           while :; do
             rm -rf r
             git clone --quiet --depth 1 "https://github.com/${GITHUB_REPOSITORY}" r
@@ -32,3 +42,9 @@ jobs:
             [ "$(date +%s)" -lt "$end" ] || break
             sleep 600
           done
+      - name: Hand over to the next run
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FAILED: ${{ job.status != 'success' }}
+        run: gh workflow run watch.yml -R "$GITHUB_REPOSITORY" -f delay=$([ "$FAILED" = true ] && echo 600 || echo 0)
