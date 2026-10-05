@@ -95,12 +95,11 @@ body.compose-frame{height:100vh;overflow:hidden}
 .editor-box > .editor{flex:1;margin:0;padding-bottom:calc(var(--mark-size) + var(--s-3) + var(--s-2))}
 .editor-box.with-files > .editor{padding-bottom:calc(var(--mark-size) + var(--h-sm) + var(--s-2) + var(--s-3) + var(--s-2))}
 .editor-box.with-files{min-height:calc(var(--s-6) + var(--mark-size) + var(--h-sm) + var(--s-2) + var(--s-3) + var(--s-2))}
-/* A frame under 300 px (a small phone with its keyboard up): the count goes
-   beside the square instead of above it, so both stay in view over the files
-   and the bar. */
-body.short .mark-dock{flex-direction:row}
-body.short .editor-box.with-files{min-height:calc(var(--s-6) + var(--mark-size) + var(--s-3) + var(--s-2))}
-body.short .editor-box.with-files > .editor{padding-bottom:calc(var(--mark-size) + var(--s-3) + var(--s-2))}
+/* A frame under 300 px (a small phone with its keyboard up): the list of
+   files moves above the text, under the Subject line, and scrolls away with
+   it, so the count over your mark, the mark and the bar all stay in view. */
+body.short .pane.composer > .fields{order:-2}
+body.short .pane.composer > .attachments{order:-1;margin-bottom:var(--s-2)}
 .mark-dock{position:absolute;right:var(--s-3);bottom:var(--s-3);z-index:2;display:flex;flex-direction:column;align-items:center;gap:var(--s-2);
   opacity:0;transform:translateY(var(--s-2)) scale(.96);transform-origin:100% 100%;pointer-events:none;
   transition:opacity var(--d-short3) var(--ease-emphasized-accel),transform var(--d-short3) var(--ease-emphasized-accel)}
@@ -119,7 +118,7 @@ body.short .editor-box.with-files > .editor{padding-bottom:calc(var(--mark-size)
   white-space:nowrap;-webkit-user-select:none;user-select:none}
 .mark-tile > span{display:block}
 .mark-tile.empty > span{width:10px;height:10px;border-radius:var(--r-full);background:currentColor;opacity:.38}
-/* The count: a flat Material 3 assist chip (32 dp, 16 dp each side, label large) on the same tonal color, centered above the square (beside it in a short frame). */
+/* The count: a flat Material 3 assist chip (32 dp, 16 dp each side, label large) on the same tonal color, centered above the square. */
 .mark-files{flex:none;height:var(--h-sm);padding:0 var(--s-4);border-radius:var(--r-sm);background:var(--c-good-soft);color:var(--c-on-good-soft);
   font:var(--w-medium) var(--t-md)/var(--h-sm) var(--f-sans);white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent}
 /* The rich tooltip, to the left of the mark with its foot level with the

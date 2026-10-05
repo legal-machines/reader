@@ -371,7 +371,7 @@ form.addEventListener('drop', e => {
 // ---- The mark, while this frame has the keyboard: a square of four pictures
 // at the foot of the text, which a field that only looks like this one
 // cannot show (Mail can neither read it nor have it shown elsewhere), and
-// next to it the count of files this frame holds, which tells a file
+// right above it the count of files this frame holds, which tells a file
 // attached here from one Mail took. A tap on either says what they are, in a
 // Material 3 rich tooltip; the first time, it says so by itself. Before this browser knows the mark, the square is empty. Nothing
 // here takes the keyboard from the text.
@@ -399,7 +399,7 @@ function showSeal() {
   requestAnimationFrame(keepBar);  // a file in or out changes the room
   markCount.textContent = files.length === 1 ? '1 file' : files.length + ' files';
   editor.parentElement.classList.toggle('with-files', files.length > 0);
-  const count = files.length ? `<p>The count next to it is the files that go end to end. A file that does not raise it went to Mail.</p>` : '';
+  const count = files.length ? `<p>The count above it is the files that go end to end. A file that does not raise it went to Mail.</p>` : '';
   const check = `<a href="/setup.html#keys" target="_blank" rel="noopener">${location.host}</a>`;
   const text = m
     ? '<p>Only the Mail Reader can show these four pictures, made from your key, and only here as you type. Mail and its server cannot. ' +
