@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Watches the Mail Reader sites (seal.legalmachines.org, seal.dzyza.com)
+"""Watches Seal sites (seal.legalmachines.org, seal.dzyza.com)
 for signs that someone other than GitHub Pages serves them. Two places that
 do not depend on each other run it: this server every 10 minutes
 (mail-reader-watch.timer), and GitHub Actions in legal-machines/reader every
@@ -455,16 +455,16 @@ def tell_postmasters(problems, keys_wrong=False):
     except OSError:
         token = ""
     if problems:
-        subject = "Mail Reader check: 1 problem" if len(problems) == 1 else f"Mail Reader check: {len(problems)} problems"
-        text = ("The check of the Mail Reader found:\n\n" + "".join(f"- {p}\n" for p in problems) +
+        subject = "Seal check: 1 problem" if len(problems) == 1 else f"Seal check: {len(problems)} problems"
+        text = ("The check of Seal found:\n\n" + "".join(f"- {p}\n" for p in problems) +
                 ("\nA key problem means that people get a key other than ours, or none, from our server: until it clears, check "
                  "fingerprints only against seal.<domain>/keys.html.\n" if keys_wrong else "") +
                 "\nUntil this clears, the webmail opens no encrypted message and adds no key by itself; each message offers "
                 "Open anyway. Look at the domain's registrar (REG.RU), deSEC and the GitHub repositories legal-machines/reader "
                 "and legal-machines/reader2 before opening encrypted mail. This note repeats once a day while a problem lasts.\n")
     else:
-        subject = "Mail Reader: all clear again"
-        text = "The Mail Reader check finds nothing wrong again. The webmail opens encrypted messages as before.\n"
+        subject = "Seal: all clear again"
+        text = "The Seal check finds nothing wrong again. The webmail opens encrypted messages as before.\n"
     for domain in READERS:
         message = (f"From: Mail server <postmaster@{domain}>\r\nTo: <postmaster@{domain}>\r\nSubject: {subject}\r\n"
                    f"Date: {email_date()}\r\nAuto-Submitted: auto-generated\r\n" + (f"X-Known-Sender: {token}\r\n" if token else "") +
