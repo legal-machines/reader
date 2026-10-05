@@ -371,7 +371,7 @@ form.addEventListener('drop', e => {
 // ---- The mark, while this frame has the keyboard: a square of four pictures
 // at the foot of the text, which a field that only looks like this one
 // cannot show (Mail can neither read it nor have it shown elsewhere), and
-// right above it the count of files this frame holds, which tells a file
+// next to it the count of files this frame holds, which tells a file
 // attached here from one Mail took. A tap on either says what they are, in a
 // Material 3 rich tooltip; the first time, it says so by itself. Before this browser knows the mark, the square is empty. Nothing
 // here takes the keyboard from the text.
@@ -382,7 +382,7 @@ dock.innerHTML = '<span class="mark-files" hidden></span>' +
 const markButton = dock.querySelector('.mark-button'), markCount = dock.querySelector('.mark-files');
 const about = dock.querySelector('.mark-about'), aboutText = about.querySelector('.mark-about-text');
 const aboutActions = about.querySelector('.mark-about-actions');
-let shownMark = null;
+let shownMark = null, shownText = '';
 function setAbout(open) {
   if (open === !about.hidden) return;
   about.hidden = !open;
@@ -396,15 +396,18 @@ function showSeal() {
   dock.dataset.shown = String(shown);
   if (!shown) { setAbout(false); return; }
   markCount.hidden = !files.length;
+  requestAnimationFrame(keepBar);  // a file in or out changes the room
   markCount.textContent = files.length === 1 ? '1 file' : files.length + ' files';
   editor.parentElement.classList.toggle('with-files', files.length > 0);
-  const count = files.length ? `<p>The count above it is the files that go end to end. A file that does not raise it went to Mail.</p>` : '';
+  const count = files.length ? `<p>The count next to it is the files that go end to end. A file that does not raise it went to Mail.</p>` : '';
   const check = `<a href="/setup.html#keys" target="_blank" rel="noopener">${location.host}</a>`;
-  aboutText.innerHTML = m
+  const text = m
     ? '<p>Only the Mail Reader can show these four pictures, made from your key, and only here as you type. Mail and its server cannot. ' +
       'They are not part of the message, and nobody you write to sees them.</p>' + count +
       `<p>Your mark is next to your key at ${check}. If a composer like this one shows none or other pictures, stop typing there and report it.</p>`
     : '<p>Your four pictures appear in this square once you unlock encrypted mail in this browser. They are not part of the message.</p>' + count;
+  // Drawn again only when it changes: a link pressed in it must still be there for the click.
+  if (text !== shownText) aboutText.innerHTML = shownText = text;
   const state = m ? m.keyId + m.mark : '';
   if (state !== shownMark) {
     shownMark = state;
@@ -415,9 +418,10 @@ function showSeal() {
     if (m && !explained(m.keyId)) setAbout(true);
   }
 }
-dock.addEventListener('mousedown', e => { if (!e.target.closest('a')) e.preventDefault(); });  // the caret stays in the text
+dock.addEventListener('mousedown', e => e.preventDefault());  // the caret stays in the text; a link still opens on the click
 markButton.addEventListener('click', () => setAbout(about.hidden));
 markCount.addEventListener('click', () => setAbout(about.hidden));
+about.addEventListener('click', e => { if (e.target.closest('a')) setAbout(false); });  // the link opens in a tab of its own; the tooltip has done its work
 about.querySelector('[data-got-it]').addEventListener('click', () => {
   const m = own && markFor(own.subkeys);
   if (m) setExplained(m.keyId);
@@ -455,7 +459,19 @@ addEventListener('resize', () => {
   }
   hold = rest = editor.scrollTop;
   until = performance.now() + 700;
+  keepBar();
 });
+// When the frame is shorter than the composer, the For and Subject lines
+// scroll up while you write, so the bar rests on the frame's foot (on the
+// keyboard) with the text and your mark above it; in a frame tall enough,
+// nothing moves.
+function keepBar() {
+  document.body.classList.toggle('short', innerHeight < 300);
+  const over = form.scrollHeight - form.clientHeight;
+  if (over <= 0) form.scrollTop = 0;
+  else if (document.activeElement === editor) form.scrollTop = over;
+}
+editor.addEventListener('focus', () => requestAnimationFrame(keepBar));
 // The line the caret is on. In an empty line a browser gives the caret no box:
 // then the node beside it, never the whole field.
 function caretLine(s, field) {
