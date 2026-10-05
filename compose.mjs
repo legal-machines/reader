@@ -399,10 +399,12 @@ function showSeal() {
   markCount.textContent = files.length === 1 ? '1 file' : files.length + ' files';
   editor.parentElement.classList.toggle('with-files', files.length > 0);
   const count = files.length ? `<p>The count above it is the files that go end to end. A file that does not raise it went to Mail.</p>` : '';
+  const check = `<a href="/setup.html#keys" target="_blank" rel="noopener">${location.host}</a>`;
   aboutText.innerHTML = m
-    ? '<p>Only the Mail Reader can show these four pictures, made from your key, and only here as you type. Mail and its server cannot.</p>' + count +
-      '<p>If a composer like this one shows no mark or other pictures, stop typing there and report it.</p>'
-    : '<p>Your four pictures appear in this square once you unlock encrypted mail in this browser.</p>' + count;
+    ? '<p>Only the Mail Reader can show these four pictures, made from your key, and only here as you type. Mail and its server cannot. ' +
+      'They are not part of the message, and nobody you write to sees them.</p>' + count +
+      `<p>Your mark is next to your key at ${check}. If a composer like this one shows none or other pictures, stop typing there and report it.</p>`
+    : '<p>Your four pictures appear in this square once you unlock encrypted mail in this browser. They are not part of the message.</p>' + count;
   const state = m ? m.keyId + m.mark : '';
   if (state !== shownMark) {
     shownMark = state;

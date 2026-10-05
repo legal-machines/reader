@@ -125,6 +125,7 @@ body.compose-frame{height:100vh;overflow:hidden}
 /* On a short frame only the text scrolls: the subhead and the buttons stay in view. */
 .mark-about-text{flex:0 1 auto;min-height:0;overflow:auto}
 .mark-about-text p{margin:0 0 var(--s-2)}
+.mark-about-text a{color:var(--c-primary);font-weight:var(--w-medium);text-decoration:none}@media (hover:hover){.mark-about-text a:hover{text-decoration:underline}}
 .mark-about-title,.mark-about-actions{flex:none}
 .mark-about-actions{display:flex;flex-wrap:wrap;gap:0 var(--s-2);margin:0 0 0 calc(-1 * var(--s-3))}
 .mark-about-actions .text{display:inline-flex;align-items:center;height:var(--h-md);margin:0;padding:0 var(--s-3);border-radius:var(--r-full);

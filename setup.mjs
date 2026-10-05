@@ -5,7 +5,7 @@
 import * as openpgp from './openpgp.min.mjs';
 import {extract, pkcs8Of} from './sealed-core.mjs';
 import {all, keep, newPasskey, remove} from './store.mjs';
-import {known, markOf, remember, setExplained, text as markText, tile} from './mark.mjs';
+import {known, markOf, remember, setExplained, tile} from './mark.mjs';
 import {hold, lock} from './vault.mjs';
 import {clear as clearAlarm, raise, raised} from './alarm.mjs';
 import {escape} from './mime.mjs';
@@ -43,7 +43,7 @@ async function list() {
   box.hidden = !records.length;
   box.querySelector('.key-list').innerHTML = records.map(r =>
     `<li><div><b>${escape(r.addresses.join(', '))}</b><small>Added ${escape(r.created.slice(0, 10))}${r.pinSalt ? ', with a PIN' : ''}` +
-    `${known()[r.keyId] ? `. Your mark: ${markText(known()[r.keyId])}` : ''}</small></div>` +
+    `${known()[r.keyId] ? '. Your mark, as the composer shows it:' : ''}</small>${known()[r.keyId] ? tile(known()[r.keyId], ' data-list') : ''}</div>` +
     `<button class="text" type="button" data-remove="${escape(r.credentialId)}">Remove</button></li>`).join('');
   showAlarm(records);
   box.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', async () => {

@@ -76,6 +76,8 @@ iframe.html{display:block;width:100%;min-height:80px;border:0}
 .mark-tile{display:grid;flex:none;grid-template-columns:repeat(2,32px);grid-auto-rows:32px;gap:4px;place-content:center;place-items:center;width:96px;height:96px;
   border-radius:28px;background:var(--c-good-soft);font-size:30px;line-height:32px;white-space:nowrap;-webkit-user-select:none;user-select:none}
 .mark-tile > span{display:block}
+/* In the list of keys, the size the composer shows it, to compare one with the other. */
+.mark-tile[data-list]{grid-template-columns:repeat(2,26px);grid-auto-rows:26px;width:80px;height:80px;margin:var(--s-2) 0 0;border-radius:20px;font-size:24px;line-height:26px}
 /* The mark over its words, at every width: a fixed-size thing beside text squeezes the text into a column on a phone. */
 .mark-line{display:flex;flex-direction:column;align-items:flex-start;gap:var(--s-3);margin:var(--s-4) 0;padding:var(--s-4);border-radius:var(--r-md);background:var(--c-surface-2)}
 .fingerprint{margin:var(--s-2) 0 var(--s-1);font:500 16px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;word-spacing:.2em;overflow-wrap:anywhere}.fingerprint span{display:block}
