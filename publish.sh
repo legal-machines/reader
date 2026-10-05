@@ -21,5 +21,26 @@ printf seal.dzyza.com > "$out/CNAME"  # as GitHub writes it, no line end: its ow
 (cd "$out" && python3 make-keys.py --keys-page dzyza.com > /dev/null && python3 make-pins.py > /dev/null && shasum -a 256 *.html *.mjs *.js *.css CNAME > SHA256SUMS && git init -q && git add -A &&
  git -c user.name="Alexander Dzyza" -c user.email="61204471+Koshkej@users.noreply.github.com" commit -q -m "${1:-Update the reader}" &&
  git push -q --force https://github.com/legal-machines/reader2.git HEAD:main)
+# The hashes of both sites as published from here go straight to the mail
+# server, whose watch checks the served files against them rather than
+# against the SHA256SUMS at GitHub (reader-watch.py, check_pins): a change
+# made at GitHub alone shows there.
+python3 - "$out/SHA256SUMS" "$(cat "$out/CNAME")" > "$out/pins.json" <<'PY'
+import datetime, json, sys
+def sums(path):
+    out = {}
+    for line in open(path):
+        if line.strip():
+            digest, name = line.split(None, 1)
+            out[name.strip().lstrip('*')] = digest
+    return out
+print(json.dumps({"published": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                  "sites": {open("CNAME").read().strip(): sums("SHA256SUMS"), sys.argv[2]: sums(sys.argv[1])}}))
+PY
+if ssh "${MAIL_HOST:-legalmachines-prod}" 'sudo tee /var/lib/mail-status/reader-pins.json >/dev/null && sudo chmod 0644 /var/lib/mail-status/reader-pins.json' < "$out/pins.json"; then
+  echo "pins: sent to the mail server"
+else
+  echo "pins: NOT sent; the mail server's watch will report the sites as changed until they are"
+fi
 rm -rf "$out"
 echo "published: seal.legalmachines.org and seal.dzyza.com"

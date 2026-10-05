@@ -1,4 +1,4 @@
-/* Mail Reader, in the Mail app's Material 3 look: the same tokens, light and dark. */
+/* Seal, in the Mail app's Material 3 look: the same tokens, light and dark. */
 :root{color-scheme:light dark;
 --c-bg:#f6f8fc;--c-surface:#fff;--c-surface-2:#f0f4f9;--c-surface-3:#e9eef6;--c-text:#1f1f1f;--c-text-2:#444746;--c-text-3:#5f6368;
 --c-primary:#0b57d0;--c-on-primary:#fff;--c-selected:#d3e3fd;--c-on-selected:#041e49;--c-outline:#747775;--c-hover:rgba(68,71,70,.08);
@@ -21,7 +21,7 @@ h2{margin:0 0 var(--s-3);font-size:16px;font-weight:500}
 p{margin:0 0 var(--s-3)}
 .hint{color:var(--c-text-2);font-size:12px}.small{font-size:12px}
 .error{margin:var(--s-2) 0 0;color:var(--c-danger);font-weight:500}
-.check{display:flex;align-items:center;gap:var(--s-3);min-height:var(--h-md);margin:0 0 var(--s-2);cursor:pointer}.check input{appearance:none;flex:none;display:grid;place-items:center;width:18px;height:18px;margin:0;border:2px solid var(--c-text-2);border-radius:2px;cursor:pointer}.check input:checked{border-color:var(--c-primary);background:var(--c-primary)}.check input:checked::after{content:"";width:5px;height:10px;margin-top:-2px;border:solid var(--c-on-primary);border-width:0 2px 2px 0;transform:rotate(45deg)}.check input:focus-visible{outline:3px solid var(--c-primary);outline-offset:2px}.field input[type=file]::file-selector-button{height:32px;margin-right:var(--s-3);padding:0 var(--s-4);border:0;border-radius:var(--r-full);background:var(--c-selected);color:var(--c-on-selected);font:500 14px var(--f-sans);cursor:pointer}
+.check{display:flex;align-items:center;gap:var(--s-3);min-height:var(--h-md);margin:0 0 var(--s-2);cursor:pointer}.check input{appearance:none;flex:none;display:grid;place-items:center;width:18px;height:18px;margin:0;border:2px solid var(--c-text-2);border-radius:2px;cursor:pointer}.check input:checked{border-color:var(--c-primary);background:var(--c-primary)}.check input:checked::after{content:"";width:5px;height:10px;margin-top:-2px;border:solid var(--c-on-primary);border-width:0 2px 2px 0;transform:rotate(45deg)}.check input:focus-visible{outline:3px solid var(--c-primary);outline-offset:2px}.field input[type=file]::file-selector-button{height:40px;margin-right:var(--s-4);padding:0 var(--s-6);border:0;border-radius:var(--r-full);background:var(--c-selected);color:var(--c-on-selected);font:500 14px var(--f-sans);cursor:pointer}
 body.page #view{max-width:760px;margin:0 auto;padding:var(--s-6) var(--s-4)}
 
 /* Buttons */
@@ -37,9 +37,11 @@ button:disabled{opacity:.38;cursor:default}
 
 /* Outlined fields */
 .field{display:flex;flex-direction:column;gap:var(--s-1);margin:0 0 var(--s-3)}
-.field > span{color:var(--c-text-2);font-size:12px}
+.field > span{color:var(--c-text-2);font-size:12px;text-wrap:pretty}
+.field > small{color:var(--c-text-2);font-size:12px;line-height:16px;text-wrap:pretty}
 .field input{height:48px;padding:0 var(--s-4);border:1px solid var(--c-outline);border-radius:var(--r-sm);background:var(--c-surface);color:var(--c-text);font:16px var(--f-sans)}
-.field input[type=file]{height:auto;padding:var(--s-3) var(--s-4)}
+/* The file field: 56 dp like the others, its tonal button 40 dp with the same room on every side. */
+.field input[type=file]{height:56px;padding:7px}
 .field input:focus{outline:2px solid var(--c-primary);outline-offset:-1px;border-color:transparent}
 
 /* The locked message, as the Mail app draws it */
@@ -68,16 +70,51 @@ iframe.html{display:block;width:100%;min-height:80px;border:0}
 @media (hover:hover){.filled.danger:hover{background:color-mix(in srgb,var(--c-danger) 86%,var(--c-on-danger))}}
 .alarm-on b{color:var(--c-danger)}
 .card{margin:0 0 var(--s-3);padding:var(--s-5) var(--s-6);border-radius:var(--r-md);background:var(--c-surface)}.card > p:last-child{margin-bottom:0}
-.key-list{margin:0;padding:0;list-style:none}
-.key-list li{display:flex;align-items:center;justify-content:space-between;gap:var(--s-3);padding:var(--s-2) 0}
-.key-list small{display:block;color:var(--c-text-2);font-size:12px}
+.key-list{display:grid;gap:var(--s-2);margin:0;padding:0}
+/* Each key on a panel of its own (a Material 3 filled card): the mark
+   leading, the words, a remove icon button trailing; on a phone the mark sits
+   above the words, never beside them in a squeezed column. */
+.key-panel{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"mark text remove";align-items:start;gap:var(--s-4);
+  padding:var(--s-4);border-radius:var(--r-md);background:var(--c-surface-2)}
+.key-mark{grid-area:mark;display:flex;flex-direction:column;align-items:center;gap:var(--s-1);margin:0}
+.key-mark figcaption{color:var(--c-text-2);font-size:12px;line-height:16px}
+/* The mark behind a press: four question marks on the surface until then. */
+.mark-reveal{display:block;padding:0;border:0;border-radius:20px;background:none;cursor:pointer}
+.mark-reveal:focus-visible{outline:3px solid var(--c-primary);outline-offset:2px}
+.mark-tile[data-hidden]{background:var(--c-surface-3);color:var(--c-text-3);font:500 20px/26px var(--f-sans)}
+.key-text{grid-area:text;align-self:center}
+.key-name{margin:0 0 var(--s-1);font-size:16px;font-weight:500;line-height:24px;overflow-wrap:anywhere}
+.key-meta,.key-note{margin:0;color:var(--c-text-2);font-size:14px;line-height:20px}
+.key-note{margin-top:var(--s-2);text-wrap:pretty}
+.key-panel > .icon-button{grid-area:remove}
+@media (max-width:560px){.key-panel{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"mark remove" "text text"}.key-mark{align-items:flex-start}}
+/* A Material 3 standard icon button (40 dp, its 24 dp icon, a state layer);
+   one that removes something is in the error color. */
+.icon-button{position:relative;display:inline-grid;place-items:center;flex:none;width:40px;height:40px;padding:0;border:0;border-radius:var(--r-full);
+  background:transparent;color:var(--c-text-2);cursor:pointer;overflow:hidden}
+.icon-button svg{width:24px;height:24px;fill:currentColor}
+.icon-button::after{content:"";position:absolute;inset:0;background:currentColor;opacity:0;transition:opacity .1s linear}
+@media (hover:hover){.icon-button:hover::after{opacity:.08}}
+.icon-button:active::after,.icon-button:focus-visible::after{opacity:.1}
+.icon-button:focus-visible{outline:3px solid var(--c-primary);outline-offset:2px}
+.icon-button.danger,.text.danger{color:var(--c-danger)}
+/* A Material 3 basic dialog: corner 28 dp, surface container high, the
+   headline in headline small, the supporting text in body medium, text
+   buttons at the end. */
+dialog.confirm{position:fixed;inset:0;max-height:calc(100dvh - 48px);margin:auto;width:min(560px,calc(100vw - 48px));min-width:min(280px,calc(100vw - 48px));padding:var(--s-6);border:0;border-radius:28px;
+  background:var(--c-surface-3);color:var(--c-text);box-shadow:var(--e-3,0 4px 8px 3px rgba(0,0,0,.15))}
+dialog.confirm::backdrop{background:rgba(0,0,0,.32)}
+dialog.confirm h2{margin:0 0 var(--s-4);font-size:24px;font-weight:400;line-height:32px}
+dialog.confirm h2:focus{outline:none}  /* the dialog opens on its headline, so no button shows a focus ring before a key is pressed */
+dialog.confirm .confirm-text{margin:0 0 var(--s-6);color:var(--c-text-2);font-size:14px;line-height:20px;text-wrap:pretty}
+dialog.confirm .actions{display:flex;justify-content:flex-end;gap:var(--s-2);margin:0}
 .done{line-height:1.5}.done > b{color:var(--c-good)}
 /* The mark: its four pictures in two rows on a Material 3 large square tonal icon button (96 dp, corner 28 dp), as in the composer. */
 .mark-tile{display:grid;flex:none;grid-template-columns:repeat(2,32px);grid-auto-rows:32px;gap:4px;place-content:center;place-items:center;width:96px;height:96px;
   border-radius:28px;background:var(--c-good-soft);font-size:30px;line-height:32px;white-space:nowrap;-webkit-user-select:none;user-select:none}
 .mark-tile > span{display:block}
 /* In the list of keys, the size the composer shows it, to compare one with the other. */
-.mark-tile[data-list]{grid-template-columns:repeat(2,26px);grid-auto-rows:26px;width:80px;height:80px;margin:var(--s-2) 0 0;border-radius:20px;font-size:24px;line-height:26px}
+.mark-tile[data-list]{grid-template-columns:repeat(2,26px);grid-auto-rows:26px;width:80px;height:80px;border-radius:20px;font-size:24px;line-height:26px}
 /* The mark over its words, at every width: a fixed-size thing beside text squeezes the text into a column on a phone. */
 .mark-line{display:flex;flex-direction:column;align-items:flex-start;gap:var(--s-3);margin:var(--s-4) 0;padding:var(--s-4);border-radius:var(--r-md);background:var(--c-surface-2)}
 .fingerprint{margin:var(--s-2) 0 var(--s-1);font:500 16px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;word-spacing:.2em;overflow-wrap:anywhere}.fingerprint span{display:block}

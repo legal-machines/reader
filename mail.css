@@ -428,8 +428,11 @@ border-radius:var(--r-md);background:var(--c-surface-2)}
 
 .table-grid{touch-action:none}
 
-.editor.show-marks :is(div,p,li,blockquote,h1,h2,h3,h4,td,th):not(:has(> :is(div,p,ul,ol,li,blockquote,table,h1,h2,h3,h4)))::after{content:"¶";margin-left:2px;color:var(--c-text-3);font-weight:var(--w-regular);font-style:normal;text-decoration:none;user-select:none;pointer-events:none}
-::highlight(marks-space){background-color:color-mix(in srgb,var(--c-primary) 24%,transparent)}
+.marks-layer{position:absolute;z-index:1;overflow:hidden;pointer-events:none;-webkit-user-select:none;user-select:none}
+.marks-layer .mark{position:absolute;display:flex;align-items:center;justify-content:center;color:var(--c-primary);opacity:.75;
+  font-family:var(--f-sans);font-weight:var(--w-regular);font-style:normal;line-height:1;white-space:pre}
+.marks-layer .mark.end{justify-content:flex-start;width:auto!important;padding-left:2px}
+.marks-layer .mark.at{justify-content:center;width:auto!important;translate:-50% 0}
 @media (pointer:coarse){.table-grid{grid-template-columns:repeat(8,28px);gap:6px}.table-grid button{width:28px;height:28px}}
 .editor table{border-collapse:collapse}.editor td,.editor th{min-width:40px}
 .editor img{max-width:100%;height:auto;border-radius:var(--r-xs);vertical-align:bottom;cursor:pointer}

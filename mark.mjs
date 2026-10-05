@@ -14,7 +14,7 @@ export const PICTURES = [
   '🍎', '🍋', '🍉', '🍇', '🍓', '🍒', '🍌', '🥕', '🌽', '🍕', '🍩', '🍪', '⚓', '🎈', '🎸', '🎻',
   '🥁', '⏰', '🚲', '🚀', '⛵', '🏠', '🎩', '👑', '💎', '🔔', '📚', '🎲', '🌙', '⭐', '🌈', '⚡'];
 
-const TEXT = 'Mail Reader mark, version 1';
+const TEXT = 'Mail Reader mark, version 1';  // a protocol label, kept from the old name: the marks come from it
 const STORE = 'mail-reader-marks', SEEN = 'mail-reader-mark-explained';
 
 const load = name => { try { return JSON.parse(localStorage.getItem(name) || '{}') || {}; } catch (e) { return {}; } };
@@ -48,6 +48,15 @@ export function markFor(keyIds) {
 export const explained = keyId => !!load(SEEN)[keyId];
 export const setExplained = keyId => { const all = load(SEEN); all[keyId] = 1; save(SEEN, all); };
 
+// X25519 of a key held in this page with the mark's point: the secret the
+// mark comes from, which no derive may hand out (vault.mjs; sw.js the same).
+export async function markSecret(privateKey) {
+  const point = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(TEXT)));
+  point[31] &= 0x7f;
+  const peer = await crypto.subtle.importKey('raw', point, {name: 'X25519'}, false, []);
+  return new Uint8Array(await crypto.subtle.deriveBits({name: 'X25519', public: peer}, privateKey, 256));
+}
+
 // The mark of a key held in this page (see sw.js for the same in the vault).
 export async function markOf(privateKey) {
   const enc = new TextEncoder();
@@ -62,4 +71,4 @@ export async function markOf(privateKey) {
 
 // The square that shows it: the four pictures in two rows.
 export const tile = (indices, extra = '') => valid(indices)
-  ? `<span class="mark-tile"${extra} role="img" aria-label="Your Mail Reader mark: ${text(indices)}">${pictures(indices)}</span>` : '';
+  ? `<span class="mark-tile"${extra} role="img" aria-label="Your Seal mark: ${text(indices)}">${pictures(indices)}</span>` : '';

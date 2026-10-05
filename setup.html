@@ -7,7 +7,7 @@
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; worker-src 'self'; style-src 'self'; img-src 'self' data:; form-action 'none'; base-uri 'none'">
-<title>Set up Mail Reader</title>
+<title>Set up Seal</title>
 <link rel="stylesheet" href="reader.css">
 <link rel="icon" href="data:,">
 <script type="module" src="setup.mjs"></script>
@@ -16,11 +16,11 @@
 <main class="setup">
   <h1>Read encrypted mail in this browser</h1>
   <p>Your key file is opened here, in this browser, and nothing leaves it: this page cannot send anything anywhere. The key is then locked to this device with a passkey (Touch ID, a fingerprint or the screen lock) and a PIN you choose, and kept only in this browser.</p>
-  <section class="card" id="keys" hidden><h2>Keys in this browser</h2><ul class="key-list"></ul></section>
+  <section class="card" id="keys" hidden><h2>Keys in this browser</h2><div class="key-list" role="list"></div></section>
   <section class="card" id="alarm" hidden>
     <h2>Something looks wrong?</h2>
     <div class="alarm-off">
-      <p>Your mark, a square of four pictures, shows only while you type in the reader's own composer, and its pictures are always the ones next to your key above. If a message you were writing showed none, or other ones, the page around it was not the reader: stop typing there.</p>
+      <p>Your mark, a square of four pictures, shows only while you type in Seal's own composer, and its pictures are always the ones that Show my mark brings up next to your key above. If a message you were writing showed none, or other ones, the page around it was not Seal: stop typing there.</p>
       <p>Report it here. Encrypted mail locks in this browser at once and stays locked until you clear the report on this page, and a private note opens on GitHub for the team.</p>
       <div class="actions"><button class="filled danger" type="button" id="raise">Lock and report</button></div>
     </div>
@@ -32,7 +32,8 @@
   <form class="card" id="setup" autocomplete="off">
     <h2>Add a key</h2>
     <p class="handed" id="handed" hidden>Your key came from your mailbox, locked with its passphrase. Enter the passphrase to add it to this browser.</p>
-    <label class="field" id="file-field"><span>Your secret key file (.asc), or open the message "Your encryption key" in Mail and click Add to this browser</span><input type="file" id="file" accept=".asc,.gpg,.key,.txt,application/pgp-keys" required></label>
+    <label class="field" id="file-field"><span>Your secret key file (.asc)</span><input type="file" id="file" accept=".asc,.gpg,.key,.txt,application/pgp-keys" required>
+      <small>Or open the message "Your encryption key" in Mail and click Add to this browser.</small></label>
     <label class="field"><span>The key's passphrase</span><input type="password" id="passphrase" required></label>
     <label class="check"><input type="checkbox" id="use-pin"><span>Also ask a PIN with every message</span></label>
     <div id="pin-fields" hidden>
@@ -45,5 +46,9 @@
   </form>
   <div class="done card" role="status" hidden></div>
 </main>
+  <dialog class="confirm" id="remove-dialog" aria-labelledby="remove-title">
+    <form method="dialog"><h2 id="remove-title" tabindex="-1" autofocus>Remove this key?</h2><p class="confirm-text"></p>
+      <div class="actions"><button class="text" value="cancel">Cancel</button><button class="text danger" value="remove">Remove</button></div></form>
+  </dialog>
 </body>
 </html>

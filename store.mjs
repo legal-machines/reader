@@ -87,7 +87,7 @@ async function sealingKey(prfOut, pin, pinSalt) {
 export async function newPasskey(label) {
   const salt = random(32);
   const made = await navigator.credentials.create({publicKey: {
-    challenge: random(32), rp: {id: location.hostname, name: 'Mail Reader'},
+    challenge: random(32), rp: {id: location.hostname, name: 'Seal'},
     user: {id: random(16), name: label, displayName: label},
     pubKeyCredParams: [{type: 'public-key', alg: -7}, {type: 'public-key', alg: -257}],
     authenticatorSelection: {residentKey: 'preferred', userVerification: 'required'}, timeout: 120000,

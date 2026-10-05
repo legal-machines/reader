@@ -9,7 +9,9 @@ import {known, markOf, remember, setExplained, tile} from './mark.mjs';
 import {hold, lock} from './vault.mjs';
 import {clear as clearAlarm, raise, raised} from './alarm.mjs';
 import {escape} from './mime.mjs';
+import {icon} from './icons.mjs';
 import {MAIL_SITES} from './sites.mjs';
+import {KEYS} from './keys.mjs';
 
 if (window.top !== window) {
   // Never inside another page: the key file and the PIN are typed only here,
@@ -38,16 +40,54 @@ if (window.opener) {
 }
 document.getElementById('use-pin').addEventListener('change', e => { document.getElementById('pin-fields').hidden = !e.target.checked; });
 
+// Each key on a panel of its own: its mark as the composer shows it, the
+// address, when it was added (a key added twice has two passkeys, told apart
+// by the time) and its key ID; Remove asks first, in a dialog.
+const two = n => String(n).padStart(2, '0');
+const when = iso => { const d = new Date(iso); return isNaN(d) ? '' : `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())} at ${two(d.getHours())}:${two(d.getMinutes())}`; };
+const hideMarks = () => {
+  for (const b of document.querySelectorAll('.mark-reveal[data-shown]')) {
+    b.innerHTML = `<span class="mark-tile" data-list data-hidden aria-hidden="true">${'<span>?</span>'.repeat(4)}</span>`;
+    b.setAttribute('aria-label', 'Show my mark');
+    b.nextElementSibling.textContent = 'Show my mark';
+    delete b.dataset.shown;
+  }
+};
+addEventListener('blur', hideMarks);
+document.addEventListener('visibilitychange', hideMarks);
 async function list() {
   const records = await all(), box = document.getElementById('keys');
   box.hidden = !records.length;
-  box.querySelector('.key-list').innerHTML = records.map(r =>
-    `<li><div><b>${escape(r.addresses.join(', '))}</b><small>Added ${escape(r.created.slice(0, 10))}${r.pinSalt ? ', with a PIN' : ''}` +
-    `${known()[r.keyId] ? '. Your mark, as the composer shows it:' : ''}</small>${known()[r.keyId] ? tile(known()[r.keyId], ' data-list') : ''}</div>` +
-    `<button class="text" type="button" data-remove="${escape(r.credentialId)}">Remove</button></li>`).join('');
+  const times = {};
+  for (const r of records) times[r.keyId] = (times[r.keyId] || 0) + 1;
+  box.querySelector('.key-list').innerHTML = records.map(r => {
+    const mark = known()[r.keyId], who = escape(r.addresses.join(', '));
+    return `<div class="key-panel" role="listitem">` +
+      (mark ? `<figure class="key-mark"><button class="mark-reveal" type="button" data-key="${escape(r.keyId)}" aria-label="Show my mark">` +
+              `<span class="mark-tile" data-list data-hidden aria-hidden="true">${'<span>?</span>'.repeat(4)}</span></button><figcaption>Show my mark</figcaption></figure>` : '') +
+      `<div class="key-text"><p class="key-name">${who}</p>` +
+      `<p class="key-meta">Added ${escape(when(r.created))}${r.pinSalt ? ', with a PIN' : ''}</p>` +
+      `<p class="key-meta">Key ${escape(String(r.keyId).toUpperCase().replace(/(.{4})(?=.)/g, '$1 '))}</p>` +
+      (times[r.keyId] > 1 ? `<p class="key-note">This key is here ${times[r.keyId]} times, each time with a passkey of its own. One is enough: remove the ones you do not use.</p>` : '') +
+      `</div><button class="icon-button danger" type="button" data-remove="${escape(r.credentialId)}" data-who="${who}" title="Remove from this browser" aria-label="Remove ${who} from this browser">${icon('delete')}</button></div>`;
+  }).join('');
   showAlarm(records);
-  box.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', async () => {
-    if (confirm('Remove this key from this browser? Encrypted messages will no longer open here until you add it again.')) { await remove(b.dataset.remove); list(); }
+  // The mark shows only on a press of yours, in a tab of its own with this
+  // site's address in view, and goes when the tab loses the keyboard or
+  // leaves the screen: a page cannot open this one in a small window beside
+  // a fake composer to borrow your mark.
+  box.querySelectorAll('.mark-reveal').forEach(b => b.addEventListener('click', e => {
+    if (!e.isTrusted || !window.locationbar?.visible || !window.toolbar?.visible || !document.hasFocus()) return;
+    const mark = known()[b.dataset.key];
+    if (mark) b.innerHTML = tile(mark, ' data-list');
+    b.setAttribute('aria-label', 'Your mark');
+    b.nextElementSibling.textContent = 'Your mark';
+    b.dataset.shown = '';
+  }));
+  box.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', e => {
+    if (!e.isTrusted) return;
+    ask('Remove this key?', `Encrypted messages to ${b.dataset.who} will not open in this browser until you add the key again. The key itself stays in your mailbox.`,
+        'Remove', async () => { await remove(b.dataset.remove); list(); });
   }));
 }
 
@@ -69,7 +109,7 @@ function openReport() {
   const body = `Reported at ${location.host} on ${new Date().toISOString()}.\n\nWhat I saw (where, which mark, what I had typed there):\n\n\n` +
                `Encrypted mail is locked in the browser I reported from until the report is cleared at ${location.host}/setup.html.`;
   const url = 'https://github.com/legal-machines/mail/issues/new?' +
-              new URLSearchParams({title: `Mail Reader alarm: a composer without my mark (${location.host})`, body, labels: 'alarm'});
+              new URLSearchParams({title: `Seal alarm: a composer without my mark (${location.host})`, body, labels: 'alarm'});
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 document.getElementById('raise').addEventListener('click', async e => {
@@ -80,14 +120,28 @@ document.getElementById('raise').addEventListener('click', async e => {
   list();
 });
 document.getElementById('report-again').addEventListener('click', e => { if (e.isTrusted) openReport(); });
-document.getElementById('clear-alarm').addEventListener('click', async e => {
-  if (!e.isTrusted || !confirm('Clear the report? Encrypted mail can be unlocked in this browser again.')) return;
-  await clearAlarm();
-  list();
+// A question before something is undone, in a Material 3 dialog of this
+// page: it works where a browser's own confirm() may not (a page that opens
+// this one sandboxed can switch those off).
+function ask(title, text, action, run) {
+  const dialog = document.getElementById('remove-dialog');
+  dialog.querySelector('h2').textContent = title;
+  dialog.querySelector('.confirm-text').textContent = text;
+  dialog.querySelector('button[value=remove]').textContent = action;
+  dialog.returnValue = '';
+  dialog.onclose = () => { if (dialog.returnValue === 'remove') run(); };
+  dialog.showModal();
+}
+document.getElementById('clear-alarm').addEventListener('click', e => {
+  if (!e.isTrusted) return;
+  ask('Clear the report?', 'Encrypted mail can be unlocked in this browser again.', 'Clear', async () => { await clearAlarm(); list(); });
 });
 
-form.addEventListener('submit', async e => {
-  e.preventDefault();
+// The button does the work itself, as Enter in a field does: a sandbox that
+// stops forms from submitting does not stop it.
+form.addEventListener('submit', e => { e.preventDefault(); setUp(); });
+form.querySelector('.actions button').addEventListener('click', e => { e.preventDefault(); if (e.isTrusted && form.reportValidity()) setUp(); });
+async function setUp() {
   error.hidden = true;
   const usePin = document.getElementById('use-pin').checked, pin = usePin ? document.getElementById('pin').value : '';
   if (usePin && (pin.length < 6 || pin !== document.getElementById('pin2').value)) {
@@ -105,6 +159,9 @@ form.addEventListener('submit', async e => {
     } catch (err) {
       throw new Error(/passphrase|decrypt/i.test(err.message) ? 'Wrong passphrase.' : err.message.includes('Curve25519') ? err.message : 'This is not a secret key file.');
     }
+    // Only a key of one of our mailboxes (keys.mjs, published with this
+    // site): a page cannot hand this one a key of its own making.
+    if (!KEYS.some(k => (k.subkeys || []).includes(String(found.info.keyId).toLowerCase()))) throw new Error('This is not the key of one of our mailboxes.');
     const addresses = found.userIds.map(u => (/<([^>]+)>/.exec(u) || [, u])[1].toLowerCase());
     const passkey = await newPasskey(addresses[0]);
     const record = await keep(passkey, pin, pkcs8Of(found.scalar), found.info, addresses);
@@ -136,6 +193,6 @@ form.addEventListener('submit', async e => {
   } finally {
     button.disabled = false;
   }
-});
+}
 
 list();

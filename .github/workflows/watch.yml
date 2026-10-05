@@ -1,4 +1,4 @@
-# From GitHub's side: that GitHub Pages alone serves the Mail Reader and the
+# From GitHub's side: that GitHub Pages alone serves Seal and the
 # Web Key Directory (DNS at the registries and deSEC, certificates in the CT
 # logs, the files) and that the webmail serves the files it was deployed with
 # (watch/expected.json). cron-job.org starts a run every 10 minutes through

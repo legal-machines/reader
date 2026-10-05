@@ -108,7 +108,7 @@ async function openAll() {
     try {
       const model = await openWith(w.armored, s.infos[keyId]);
       model.sentFrom = w.from;
-      opened.set(slot, {model, keyId, mark: s.marks?.[keyId] || markFor([keyId])?.mark});
+      opened.set(slot, {model, keyId});
       send(slot);
     } catch (err) {
       if (err.message === 'locked') { unlocked = false; break; }
@@ -122,7 +122,7 @@ function send(slot) {
   const o = opened.get(slot);
   if (!o) return;
   const kinds = wants.get(slot) || new Set();
-  if (kinds.has('view')) post({type: 'open', slot, model: o.model, keyId: o.keyId, mark: o.mark});
+  if (kinds.has('view')) post({type: 'open', slot, model: o.model, keyId: o.keyId});
   if (kinds.has('line') || kinds.has('title')) post({type: 'line', slot, ...glance(o.model)});
 }
 

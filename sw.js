@@ -20,39 +20,40 @@
 // PINS-BEGIN (make-pins.py)
 const PINS = {
  "alarm.mjs": "2e924e862b89c8961ddac0dca7fd7522097a5c1a93b259cf816adb0212756854",
- "compose.html": "75fa0d025ba3a705e93df7222fe67ad2f8e9b199c745cc89a7dc0ed95cf54b12",
- "compose.mjs": "fa7a76e9d987f4bb7212db576c35ca537c5d10dd79cdc87f2dc8b62c95578e50",
+ "compose.html": "af86e0834cee3319214b6c2bafd530da6e2ee243b0f4b98f7a4f68aba993661c",
+ "compose.mjs": "2f76a8baf700a30d49e6c02308861f80087bea187f31e5a2dd544c4234b72687",
  "decrypt.mjs": "7b280f474ebbd0bb017123020767d7dc14e906c890a1a054862379db3409ac6d",
- "embed.mjs": "c26d0e40f42d53a51c116c9047d960e82da6fe6beb5eeb566711364972154d83",
- "frame.css": "bc95351fe6ec720bb3417c8ccd683ebba8cfe407b45942ec89bde4e7c0229553",
- "hub.html": "c70d16f0b7c3f93df8bf681560a0448eba840bb408c5ee2a5f5220d772ee4186",
- "hub.mjs": "03a1450de11d2528b5652215d90863037745c77be4218c2f37f0193218d7d102",
+ "embed.mjs": "83197a4a5f38d55949cadba9f3dd1d6ee404c91b99d9ac25826c17c7d1197a4b",
+ "frame.css": "55c7b8801a84836b7ea698b9cc87292df8328d576e0502bfff350e49e0f96bed",
+ "hub.html": "d6e9cd1070e2a919cf0a9be7b0fe51f7744b74bf1d337f9312ae736e72dda93e",
+ "hub.mjs": "4585033f961a45409791644000cbed99adb543912d44f1d3543a6070c87ac2bd",
  "icons.mjs": "58b17ff7905e30859040cc0b77b6c2fa02eb7a9a1c4e7ae5882cf44865428961",
- "index.html": "782470d3a270ca082e703c6e9846b9fab88a13866b53615b7d4ce3296c229d1a",
+ "index.html": "6cfb467846788fa2ed5ed61f64a6cd05f25fa3aacb707b9faa70b9ebc2c528d7",
  "keys.html": "1939c572fc96989f0d85dab9495ab58e03e1f7d4279bf2b8b8329a10ccd33cb8",
  "keys.mjs": "70c3801c51e67427dbea852f7686d6b9e074e9fb3c0054135934ec9c6564fdd7",
  "letter.mjs": "269f3868371ec27c485bff8a389b0e9d42b5e8aef59b7d8a5c89bc1fe3622f9c",
- "mail.css": "207eb458e2a464e16d714c3e8df64986979b61afdcf8284ce70e0d830b21785e",
- "mark.mjs": "d1678bb4acf53ed23d5b1af719cc3462c070932ed197c02f19bad566353e23c1",
+ "mail.css": "6c9f9b63d80307a1cc9c471e462c96a6a660fdd38efc82d7553cafff4e4aa181",
+ "mark.mjs": "4ba98ea35bc9eb30f2e1a75a2f93c7fba305d77ceec42bcf3ec150efba719151",
+ "marks.mjs": "54fc92d4e354f04ea0b3f406141d6a0d28cec93626d3e65aafc90069db6624ca",
  "mime.mjs": "2669eb9343775add28dda1101cc4ec2d7e6c238bae33c9ea8ef87fd53b7f5835",
  "notices.mjs": "f65d87fe45605a7d16710964003f36cd571f5686b0c9149054aa672b57ce0783",
  "openpgp.min.mjs": "7d3285efa6dfedbb34a136d8b5ad21c28fb973269df0b2818dcb74dfb40b59d9",
- "reader.css": "2381ca2e5941a29c8c94e89a934e3e8f416f103ab6550ee48b7773cc02c3225f",
+ "reader.css": "f31e896a04b08f5a961130ea1e3050ff62003f4bb1cc793ad4340ba7bb2e284f",
  "row.css": "f372764933bb9c7d8f7ac92a624ee2849397429d4c4b1eab07b94a12ef70b2a2",
  "row.html": "1c20365a92f3e856c687e50b661088b1dcde1ff6d4662bed28c5a6b6938e4865",
  "row.mjs": "c51ace7c4a897a7a950ade899ed491f073c678c9ddcc69f8c9725a50caab9439",
- "seal.mjs": "e4a07ce6c23006c791cd55b4626e117df06683a963eab1239dfd475645b983bf",
+ "seal.mjs": "0bb9af11c36e33d8cf9a8689e32e1c974629b770d0a85c569bc39ce8613cf3c1",
  "sealed-core.mjs": "751cda0c898ab62b88e8d907c6e8431222084656a3ec1e7c474f0a8092a92c52",
  "send.html": "7f91f2cae14487f1a45c23c38d868f57766682f719312952c0992f96e428f5ce",
- "send.mjs": "12fc6789cfcd7fa782ab642ab7acc7658454252c96e75342d50965dfff205087",
- "setup.html": "9668662bf647545fcfa2cd9f9e5de2cb88628490c3cd28256c1f6670ef27dca1",
- "setup.mjs": "cf1202231d1c5aa918b49226673633600c24415ee0db9a09d179fad008cc34e5",
+ "send.mjs": "82a483d44ad35eb4f944be6cc5fe4a39b7368f54b42bfd3c9b4d49b2f9e0d2c9",
+ "setup.html": "b1b0d286b7daf383ac7670e6e4a791a5d895637d11faf2a560908875bf29089d",
+ "setup.mjs": "bc533eba856c0cc882fe62d122ea10e9b37b064b672ae9103ab2de95842dba96",
  "sites.mjs": "da735072fc0ca68478199a4a477358f6283792952d8d435f91e33b268d91c7ce",
- "store.mjs": "b8f920eb2e07abf8ed706d50ab8e8955cc6a23eae60e2d8bf19a8378b7e837c4",
+ "store.mjs": "e0a92fa31f985df8f6d2bdcef017a4fbcc1344e05146db6820c9127cb7a9e940",
  "tab.mjs": "6cb9413d6a36c53e8a50cb2332fb484fb8c84e2e66b79743510b4c8a253a4757",
  "title.html": "d86d47b2f8c4e4265fd4bc42354e542e6b65b914653cc1c851255385c31412c8",
  "title.mjs": "f1fa9f8cdefa820c69d69461e0f8d5594fd81de03d02b2d452641e1d23243556",
- "vault.mjs": "ada2cbf0d75d12c7caead15d6785c948ab3b38d65f5393814316458dbca74aed",
+ "vault.mjs": "d1bb5d1a8edc4fc1955623fd225d16ce70fca30ee62a527ef7f805a0eedeabe2",
  "width.mjs": "3f46932569c028cb5815c12c59abf01858e10817dce65d384d4ce43ce29aede8"
 };
 // PINS-END
@@ -68,7 +69,7 @@ const CHOICES = [5, 15, 30, 60]; // minutes without use; anything else is 15
 // The point a key's mark is made with (mark.mjs): SHA-256 of a fixed text,
 // so nobody knows its discrete logarithm and only the key's owner can compute
 // X25519(key, point). The mark shows that the reader on screen holds the key.
-const MARK_TEXT = 'Mail Reader mark, version 1';
+const MARK_TEXT = 'Mail Reader mark, version 1';  // a protocol label, kept from the old name (mark.mjs)
 
 let vault = null;  // {keys: Map(keyId -> {key, mark, info}), since, used, inner, seen, idle}
 let timer = 0, epoch = 0;  // epoch: a lock while a key is being put in wins
@@ -113,10 +114,14 @@ async function markPoint() {
   }
   return fixedPoint;
 }
+// X25519 of a key with the mark's point: the secret the mark comes from,
+// which derive never hands out, whatever point a page sends to reach it.
+async function markSecret(key) {
+  const peer = await crypto.subtle.importKey('raw', await markPoint(), {name: 'X25519'}, false, []);
+  return new Uint8Array(await crypto.subtle.deriveBits({name: 'X25519', public: peer}, key, 256));
+}
 async function markOf(key) {
-  const point = await markPoint();
-  const peer = await crypto.subtle.importKey('raw', point, {name: 'X25519'}, false, []);
-  const shared = await crypto.subtle.deriveBits({name: 'X25519', public: peer}, key, 256);
+  const shared = await markSecret(key);
   const base = await crypto.subtle.importKey('raw', shared, 'HKDF', false, ['deriveBits']);
   const bits = new Uint8Array(await crypto.subtle.deriveBits({name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info: new TextEncoder().encode(MARK_TEXT)}, base, 32));
   return [bits[0] >> 2, ((bits[0] & 3) << 4) | (bits[1] >> 4), ((bits[1] & 15) << 2) | (bits[2] >> 6), bits[2] & 63];
@@ -143,7 +148,7 @@ async function handle(d, from) {
             !Number.isInteger(info.hash) || !Number.isInteger(info.cipher)) continue;
         try {
           const key = await crypto.subtle.importKey('pkcs8', k.pkcs8, {name: 'X25519'}, false, ['deriveBits']);
-          keys.set(k.keyId, {key, mark: await markOf(key), info: {fingerprint: info.fingerprint, keyId: info.keyId, hash: info.hash, cipher: info.cipher}});
+          keys.set(k.keyId, {key, mark: await markOf(key), markSecret: await markSecret(key), info: {fingerprint: info.fingerprint, keyId: info.keyId, hash: info.hash, cipher: info.cipher}});
         } finally {
           new Uint8Array(k.pkcs8).fill(0);
         }
@@ -162,7 +167,9 @@ async function handle(d, from) {
       const p = await markPoint();
       if (d.ephemeral.every((b, i) => (i === 31 ? b & 0x7f : b) === p[i])) return {};  // that secret is the mark's (X25519 ignores the top bit)
       const peer = await crypto.subtle.importKey('raw', d.ephemeral, {name: 'X25519'}, false, []);
-      return {bits: await crypto.subtle.deriveBits({name: 'X25519', public: peer}, held.key, 256)};
+      const bits = await crypto.subtle.deriveBits({name: 'X25519', public: peer}, held.key, 256), out = new Uint8Array(bits);
+      if (held.markSecret && out.every((b, i) => b === held.markSecret[i])) return {};  // another point to the same secret
+      return {bits};
     }
     case 'use':  // someone used Mail (a click, a key, a scroll); inner: in the reader's own frames
       if (vault && await served(from)) { vault.used = Date.now(); if (d.inner === true) vault.inner = vault.used; plan(); }

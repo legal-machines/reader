@@ -83,11 +83,11 @@ body.compose-frame{height:100vh;overflow:hidden}
 .sealed-list{flex:1;min-width:0;padding:0 0 0 2px;color:var(--c-text-2);font-size:var(--t-md);line-height:20px;overflow-wrap:anywhere}
 .sealed-list.empty{color:var(--c-text-3)}
 .sealed-list .bcc{color:var(--c-text-3);font-weight:var(--w-medium)}
+.sealed-list .sealed-from{display:block;color:var(--c-text-3);font-size:var(--t-xs);line-height:16px;overflow-wrap:anywhere}
 /* The text and, at its foot while you type, your mark: its four pictures in
    two rows on a tonal square the size of a Material 3 medium FAB (80 dp,
    corner 20 dp, no shadow), wider than the count, the count of the files the reader holds right above it, and on a
-   tap on either a Material 3 rich tooltip that says what they are. In with the emphasized
-   decelerate curve, out with the emphasized accelerate one. The text keeps
+   tap on either a Material 3 rich tooltip that says what they are. The text keeps
    room under its last line; however short the frame gets, the mark has room,
    and the text shows beside it. */
 :root{--mark-size:80px}
@@ -101,9 +101,10 @@ body.compose-frame{height:100vh;overflow:hidden}
 body.short .pane.composer > .fields{order:-2}
 body.short .pane.composer > .attachments{order:-1;margin-bottom:var(--s-2)}
 .mark-dock{position:absolute;right:var(--s-3);bottom:var(--s-3);z-index:2;display:flex;flex-direction:column;align-items:center;gap:var(--s-2);
-  opacity:0;transform:translateY(var(--s-2)) scale(.96);transform-origin:100% 100%;pointer-events:none;
-  transition:opacity var(--d-short3) var(--ease-emphasized-accel),transform var(--d-short3) var(--ease-emphasized-accel)}
-.mark-dock[data-shown=true]{opacity:1;transform:none;transition-duration:var(--d-medium2);transition-timing-function:var(--ease-emphasized-decel)}
+  opacity:0;transform:translateY(var(--s-2)) scale(.96);transform-origin:100% 100%;pointer-events:none;transition:none}
+/* In with the emphasized decelerate curve; out at once, so no page can keep
+   the mark lit by moving the keyboard here and away. */
+.mark-dock[data-shown=true]{opacity:1;transform:none;transition:opacity var(--d-medium2) var(--ease-emphasized-decel),transform var(--d-medium2) var(--ease-emphasized-decel)}
 /* Only the square, the count and the tooltip take taps; the rest go to the text under them. */
 .mark-dock[data-shown=true] :is(.mark-button,.mark-files,.mark-about){pointer-events:auto}
 .mark-button{position:relative;display:grid;place-items:center;flex:none;width:var(--mark-size);height:var(--mark-size);padding:0;border:0;

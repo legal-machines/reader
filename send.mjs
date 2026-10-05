@@ -17,6 +17,7 @@ import {alarmText, raised} from './alarm.mjs';
 
 const button = document.getElementById('send'), pinField = document.querySelector('.send-pin'), pin = document.getElementById('pin');
 let parentOrigin = null, ready = false, records = [], minutes = 15, from = '', people = {to: [], cc: [], bcc: []}, busy = false;
+let changedAt = 0;  // when Mail last changed who it goes to
 // An address as it may stand in a header: nothing that could end the line
 // and start a header of Mail's choosing inside the sealed message.
 const ADDRESS = /^[a-z0-9._%+-]{1,64}@[a-z0-9-]{1,63}(\.[a-z0-9-]{1,63})+$/;
@@ -52,7 +53,7 @@ const ask = (to, cc) => new Promise((resolve, reject) => {
 // The composer shows whom the message will be encrypted to, from the very
 // list this button uses, inside the reader where Mail cannot change it.
 const share = () => {
-  for (const w of readerFrames('compose.html')) w.postMessage({type: 'send-shows', ...people}, location.origin);
+  for (const w of readerFrames('compose.html')) w.postMessage({type: 'send-shows', ...people, from}, location.origin);
 };
 addEventListener('message', e => { if (e.data?.type === 'compose-hello' && fromOurFrame(e, 'compose.html')) share(); });
 
@@ -67,6 +68,9 @@ if (!inView) {
 button.addEventListener('click', async e => {
   if (busy || !ready || !e.isTrusted) return;
   if (!inView) { tell({type: 'reader-error', message: 'Send is covered by something on the page: nothing was sent.'}); return; }
+  // Who it goes to may not change under your finger: a list changed just
+  // before the press waits for a second look at the For line.
+  if (Date.now() - changedAt < 2000) { tell({type: 'reader-error', message: 'Who it goes to just changed. Check the For line, then press Send again.'}); return; }
   busy = true;
   button.disabled = true;
   const to = [...people.to], cc = [...people.cc], bcc = [...people.bcc];  // as they stood at the press
@@ -130,7 +134,9 @@ addEventListener('message', e => {
     share();
   } else if (d.type === 'send-people') {
     const s = v => Array.isArray(v) ? v.filter(a => typeof a === 'string').map(a => a.toLowerCase()).slice(0, 100) : [];
-    people = {to: s(d.to), cc: s(d.cc), bcc: s(d.bcc)};
+    const next = {to: s(d.to), cc: s(d.cc), bcc: s(d.bcc)};
+    if (JSON.stringify(next) !== JSON.stringify(people)) changedAt = Date.now();
+    people = next;
     share();
   } else if (d.type === 'send-label' && typeof d.label === 'string') {
     // Send now, or Schedule send once a time is picked in Mail's menu.

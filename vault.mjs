@@ -5,7 +5,7 @@
 // another page asks for the passkey again.
 
 import {unseal} from './store.mjs';
-import {markOf, remember} from './mark.mjs';
+import {markOf, markSecret, remember} from './mark.mjs';
 import {alarmText, raised} from './alarm.mjs';
 
 let worker = null, ready = null;
@@ -84,7 +84,7 @@ export async function hold(record, pkcs8, minutes) {
     // Kept in this page as well where the worker did not serve it.
     if (!keep?.keyIds?.includes(record.keyId) || keep.served === false || !navigator.serviceWorker?.controller) {
       const key = await crypto.subtle.importKey('pkcs8', pkcs8, {name: 'X25519'}, false, ['deriveBits']);
-      page.set(record.keyId, {key, info: record.info});
+      page.set(record.keyId, {key, info: record.info, markSecret: await markSecret(key)});
       remember({[record.keyId]: await markOf(key)});
     } else remember(keep.marks);
   } finally {
@@ -100,7 +100,8 @@ export function deriver(keyId) {
     const here = page.get(keyId);
     if (here) {
       const peer = await crypto.subtle.importKey('raw', ephemeral, {name: 'X25519'}, false, []);
-      return new Uint8Array(await crypto.subtle.deriveBits({name: 'X25519', public: peer}, here.key, 256));
+      const out = new Uint8Array(await crypto.subtle.deriveBits({name: 'X25519', public: peer}, here.key, 256));
+      return out.every((b, i) => b === here.markSecret[i]) ? null : out;  // never the mark's secret
     }
     const r = await ask({type: 'derive', keyId, ephemeral});
     return r?.bits ? new Uint8Array(r.bits) : null;

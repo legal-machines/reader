@@ -11,10 +11,11 @@
 
 import {MAIL_SITES} from './sites.mjs';
 import {widths} from './width.mjs';
-import {escape, linkify} from './mime.mjs';
+import {addressOf, escape, linkify} from './mime.mjs';
 import {icon} from './icons.mjs';
 import {keyOf} from './seal.mjs';
 import {explained, markFor, setExplained, tile} from './mark.mjs';
+import {formattingMarks} from './marks.mjs';
 import * as vault from './vault.mjs';
 import {openWith, recipientsOf} from './decrypt.mjs';
 import {fromOurFrame, readerFrames} from './tab.mjs';
@@ -26,7 +27,7 @@ const tools = document.getElementById('tools'), filesBox = document.getElementBy
 document.getElementById('e2e-label').innerHTML = icon('lock') + '<span>End to end</span>';
 const pictureInput = document.getElementById('pictures'), filesInput = document.getElementById('attach'), dropHint = form.querySelector('.drop-hint');
 const LIMIT = 15 * 1024 * 1024;  // the files of one message, as the mail server takes them encrypted
-let parentOrigin = null, from = '', own = null, started = false, typed = false;
+let parentOrigin = null, from = '', own = null, started = false, typed = false, wrote = false, lastTrusted = 0, engaged = false;
 // An address as it may stand in a header (as send.mjs checks it): nothing
 // that could end the line and start a header of Mail's choosing.
 const ADDRESS = /^[a-z0-9._%+-]{1,64}@[a-z0-9-]{1,63}(\.[a-z0-9-]{1,63})+$/;
@@ -34,7 +35,39 @@ const ADDRESS = /^[a-z0-9._%+-]{1,64}@[a-z0-9-]{1,63}(\.[a-z0-9-]{1,63})+$/;
 // overrides and isolates, zero-width ones, invisible tags, the soft hyphen.
 const HIDDEN = /[\u00ad\u061c\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]|\udb40[\udc00-\udc7f]/g;
 // Typed here by a person (the browser marks such events as trusted).
-for (const type of ['keydown', 'pointerdown', 'paste', 'drop']) addEventListener(type, e => { if (e.isTrusted) typed = true; }, true);
+for (const type of ['keydown', 'pointerdown', 'paste', 'drop']) addEventListener(type, e => {
+  if (!e.isTrusted) return;
+  typed = true; lastTrusted = Date.now();
+  if (!engaged) { engaged = true; showSeal(); }
+}, true);
+// Text typed, pasted or dropped into the message or its subject, or a file
+// picked with the clip: only then may Send take this composer. A click alone,
+// which a page can trick you into, does not make it yours.
+addEventListener('beforeinput', e => { if (e.isTrusted) wrote = true; }, true);
+// The mark shows only after something of yours in this frame since it last
+// got the keyboard: a page that only moves the focus here does not light it.
+addEventListener('blur', () => { engaged = false; });
+// In Chrome the browser can tell whether this composer is truly seen (not
+// covered, faded, shrunk or moved off: IntersectionObserver v2). Where it
+// can, the mark shows and Send takes the message only while it is, Send only
+// after a second of it.
+// In every browser it can tell how much of the composer is on the screen:
+// the mark shows only while all of it is, so a page cannot cut the frame
+// down to the corner with the mark and set that beside a field of its own.
+let seeing = null, seenSince = 0, whole = true;
+try {
+  new IntersectionObserver(entries => {
+    for (const en of entries) {
+      whole = en.intersectionRatio >= 0.98;
+      if (typeof en.isVisible === 'boolean') {
+        if (en.isVisible && !seeing) seenSince = Date.now();
+        seeing = en.isVisible;
+      }
+      showSeal();
+    }
+  }, {trackVisibility: true, delay: 100, threshold: [0, 0.5, 0.9, 0.98, 1]}).observe(form);
+} catch (e) {}
+const seen = (ms = 0) => seeing === null || (seeing && Date.now() - seenSince >= ms);
 const files = [];                 // {file, id}
 const pictures = new Map();       // number -> File, for <img data-pic>
 let pictureCount = 0;
@@ -44,7 +77,9 @@ const tell = m => { if (parentOrigin) parent.postMessage(m, parentOrigin); };
 let lastUse = 0, dirty = false;
 const touched = () => {
   if (!dirty) { dirty = true; tell({type: 'reader-dirty'}); }
-  if (Date.now() - lastUse > 30000) { lastUse = Date.now(); vault.used(true); }
+  // The key stays open for a writer at work: only after an action of yours,
+  // never for a change Mail made happen (a message put back to edit).
+  if (Date.now() - lastTrusted < 3000 && Date.now() - lastUse > 30000) { lastUse = Date.now(); vault.used(true); }
 };
 
 // ---- The formatting bar, as Mail draws it (webmail/src/RoutesCompose.cpp, editor_tools).
@@ -239,29 +274,13 @@ const liftQuote = () => {
 };
 editor.addEventListener('keydown', e => { if (e.key === 'Backspace' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && liftQuote()) e.preventDefault(); });
 editor.addEventListener('beforeinput', e => { if (e.inputType === 'deleteContentBackward' && liftQuote()) e.preventDefault(); });
-// Formatting marks (the bar's ¶), as in Word: the end of each paragraph and
-// each empty line, and spaces where there is more than one (doubled, non-
-// breaking, tabs, at a line's end). Drawn only on the screen, with CSS and
-// the Custom Highlight API: nothing is added to the text that is saved or sent.
+// Formatting marks (the bar's ¶), as Word shows them: marks.mjs.
 const marksKey = 'reader-show-marks';
-const paintMarks = () => {
-  if (!window.CSS?.highlights) return;
-  if (!editor.classList.contains('show-marks')) { CSS.highlights.delete('marks-space'); return; }
-  const ranges = [], walk = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
-  for (let n = walk.nextNode(); n && ranges.length < 3000; n = walk.nextNode()) {
-    const re = /[ \u00a0\t]{2,}|[\u00a0\t]/g;
-    for (let m; (m = re.exec(n.data)) && ranges.length < 3000;) { const r = new Range(); r.setStart(n, m.index); r.setEnd(n, m.index + m[0].length); ranges.push(r); }
-  }
-  CSS.highlights.set('marks-space', new Highlight(...ranges));
-};
-let marksFrame = 0;
-editor.addEventListener('input', () => { if (editor.classList.contains('show-marks') && !marksFrame) marksFrame = requestAnimationFrame(() => { marksFrame = 0; paintMarks(); }); });
-const showMarks = on => {
-  editor.classList.toggle('show-marks', on);
+const marks = formattingMarks(editor, on => {
   tools.querySelector('[data-cmd="toggleMarks"]')?.setAttribute('aria-pressed', String(on));
   try { localStorage.setItem(marksKey, on ? '1' : ''); } catch (e) {}
-  paintMarks();
-};
+});
+const showMarks = on => marks.show(on);
 try { if (localStorage.getItem(marksKey) === '1') showMarks(true); else tools.querySelector('[data-cmd="toggleMarks"]')?.setAttribute('aria-pressed', 'false'); } catch (e) {}
 const plainKeys = {KeyB: 'bold', KeyI: 'italic', KeyU: 'underline', KeyK: 'createLink', Backslash: 'removeFormat', BracketLeft: 'outdent', BracketRight: 'indent'};
 const shiftKeys = {KeyX: 'strikeThrough', Digit7: 'insertOrderedList', Digit8: 'insertUnorderedList', Digit9: 'blockquote',
@@ -308,11 +327,11 @@ function placePictures(list) {
   document.execCommand('insertHTML', false, markup);
   touched();
 }
-pictureInput.addEventListener('change', () => { placePictures([...pictureInput.files].filter(isPicture)); pictureInput.value = ''; });
+pictureInput.addEventListener('change', e => { if (e.isTrusted) wrote = true; placePictures([...pictureInput.files].filter(isPicture)); pictureInput.value = ''; });
 // Files are picked here, in the reader, with its clip: Mail's own clip is
 // not shown while writing end to end, and the keyboard stays in the reader,
 // so your mark stays in view as you attach.
-filesInput.addEventListener('change', () => { attach([...filesInput.files]); filesInput.value = ''; });
+filesInput.addEventListener('change', e => { if (e.isTrusted) wrote = true; attach([...filesInput.files]); filesInput.value = ''; });
 editor.addEventListener('paste', e => {
   const list = [...(e.clipboardData?.files || [])];
   if (!list.length) return;
@@ -392,7 +411,7 @@ function setAbout(open) {
 }
 function showSeal() {
   const m = own && markFor(own.subkeys);
-  const shown = document.hasFocus() && !!from;
+  const shown = document.hasFocus() && !!from && engaged && whole && seen();
   dock.dataset.shown = String(shown);
   if (!shown) { setAbout(false); return; }
   markCount.hidden = !files.length;
@@ -402,7 +421,7 @@ function showSeal() {
   const count = files.length ? `<p>The count above it is the files that go end to end. A file that does not raise it went to Mail.</p>` : '';
   const check = `<a href="/setup.html#keys" target="_blank" rel="noopener">${location.host}</a>`;
   const text = m
-    ? '<p>Only the Mail Reader can show these four pictures, made from your key, and only here as you type. Mail and its server cannot. ' +
+    ? '<p>Only Seal can show these four pictures, made from your key, and only here as you type. Mail and its server cannot. ' +
       'They are not part of the message, and nobody you write to sees them.</p>' + count +
       `<p>Your mark is next to your key at ${check}. If a composer like this one shows none or other pictures, stop typing there and report it.</p>`
     : '<p>Your four pictures appear in this square once you unlock encrypted mail in this browser. They are not part of the message.</p>' + count;
@@ -587,7 +606,12 @@ async function answer(armored, mode) {
     const keyId = ids.find(id => s.keyIds.includes(id));
     if (!keyId) return;
     const m = await openWith(armored, s.infos[keyId]);
-    if (mode === 'edit') { if (editor.innerHTML === untouched && !subject.value) restoreMessage(m); return; }
+    // Only a message you sealed comes back to edit: anyone can encrypt one
+    // to your key, with any words and files in it.
+    if (mode === 'edit') {
+      if (m.seal?.state === 'ok' && m.seal.inside && addressOf(m.from) === from && editor.innerHTML === untouched && !subject.value) restoreMessage(m);
+      return;
+    }
     if (typed) return;
     const base = (m.subject || '').replace(/^\s*((re|fwd?|aw|wg)\s*:\s*)+/i, '');
     if (!subject.value && base) subject.value = (forward ? 'Fwd: ' : 'Re: ') + base;
@@ -620,7 +644,7 @@ function restoreMessage(m) {
     pictures.set(n, new File([f.data], f.name || 'picture', {type: f.type}));
     return `\ue000${n}\ue001`;  // a mark that cleaning keeps, for the picture to come back
   });
-  editor.innerHTML = clean(html).replace(/\ue000(\d+)\ue001/g, (all, n) =>
+  editor.innerHTML = clean(html, true).replace(/\ue000(\d+)\ue001/g, (all, n) =>
     `<img src="${URL.createObjectURL(pictures.get(Number(n)))}" data-pic="${n}" alt="${escape(pictures.get(Number(n)).name)}">`);
   attach(m.files.filter(f => !isInline(f)).map(f => new File([f.data], f.name || 'attachment', {type: f.type || 'application/octet-stream'})));
   placeNotices();
@@ -628,12 +652,14 @@ function restoreMessage(m) {
   showSeal();
 }
 
-// What Mail hands over at the start (the signature and its notice, and the
-// quote of a reply) is made plain markup: text, line breaks, links, bold,
-// small gray type and quotes, nothing that runs or loads.
-function clean(html) {
+// What Mail hands over at the start (the signature) is made plain markup:
+// text, line breaks, links, bold and the signature's gray, nothing that runs
+// or loads, no quote (only this composer quotes, from a message it opened
+// itself), no runs of empty lines, and no more than a signature's length. A
+// message of your own put back to edit keeps its quotes (ownWords).
+function clean(html, ownWords = false) {
   const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
-  const keep = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'BR', 'P', 'DIV', 'SPAN', 'A', 'FONT', 'BLOCKQUOTE', 'UL', 'OL', 'LI']);
+  const keep = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'BR', 'P', 'DIV', 'SPAN', 'A', 'FONT', 'UL', 'OL', 'LI', ...(ownWords ? ['BLOCKQUOTE'] : [])]);
   const walk = node => {
     for (const child of [...node.childNodes]) {
       if (child.nodeType === 3) { child.data = child.data.replace(HIDDEN, ''); continue; }
@@ -647,7 +673,7 @@ function clean(html) {
                    // reader's own notices (placeNotices), so Mail cannot dress a text of
                    // its own as one.
                    (child.tagName === 'FONT' && a.name === 'color' && /^#5f6368$/i.test(a.value)) ||
-                   (a.name === 'class' && /^(signature|quoted)$/.test(a.value));
+                   (a.name === 'class' && (a.value === 'signature' || (ownWords && a.value === 'quoted')));
         if (!ok) child.removeAttribute(a.name);
       }
       // A link that reads as one address and goes to another shows where it goes.
@@ -659,6 +685,24 @@ function clean(html) {
     }
   };
   walk(doc.body);
+  if (!ownWords) {
+    // At most two empty lines in a row, and a signature's length of text.
+    let blank = 0;
+    for (const el of [...doc.body.querySelectorAll('br, div, p')]) {
+      const empty = el.tagName === 'BR' || !el.textContent.trim();
+      blank = empty ? blank + 1 : 0;
+      if (empty && blank > 2) el.remove();
+    }
+    let left = 2000;
+    const cut = node => {
+      for (const child of [...node.childNodes]) {
+        if (left <= 0) { child.remove(); continue; }
+        if (child.nodeType === 3) { if (child.data.length > left) child.data = child.data.slice(0, left); left -= child.data.length; }
+        else cut(child);
+      }
+    };
+    cut(doc.body);
+  }
   return doc.body.innerHTML;
 }
 
@@ -688,10 +732,13 @@ function placeNotices() {
     const quote = editor.querySelector(':scope > .quoted, :scope > blockquote');
     if (quote) quote.before(sig); else { editor.append(document.createElement('br'), document.createElement('br'), sig); }
   }
+  // The notices come after everything Mail handed over, so nothing of its
+  // own can sit under them; only a quote this composer made follows them.
+  const quote = editor.querySelector(':scope > .quoted, :scope > blockquote');
   for (const t of [n.sealed, n.notice].filter(Boolean)) {
     const p = document.createElement('p');
     p.innerHTML = `<font size="2" color="#5f6368">${linkify(t)}</font>`;
-    sig.append(p);
+    if (quote) quote.before(p); else editor.append(p);
   }
 }
 
@@ -718,22 +765,26 @@ addEventListener('message', async e => {
 // asks for the message once you press it; Mail cannot have it encrypted at
 // any other time, nor have Send ask another composer. Only a composer you
 // have typed into answers: one Mail filled with its own words does not.
-const listShown = (to, cc, bcc) => {
+// The For line also names who it is from, as Send will seal it: the address
+// Send itself holds, not Mail's word for it.
+const listShown = (to, cc, bcc, sender) => {
   const line = document.getElementById('sealed-for'), who = document.getElementById('sealed-who');
   const all = [...to, ...cc];
   who.classList.toggle('empty', !all.length && !bcc.length);
-  who.innerHTML = !all.length && !bcc.length ? 'Add who it is for above' :
-    escape(all.join(', ')) + (bcc.length ? `${all.length ? ' ' : ''}<span class="bcc">Bcc</span> ${escape(bcc.join(', '))}` : '');
+  who.innerHTML = (!all.length && !bcc.length ? 'Add who it is for above' :
+    escape(all.join(', ')) + (bcc.length ? `${all.length ? ' ' : ''}<span class="bcc">Bcc</span> ${escape(bcc.join(', '))}` : '')) +
+    (sender ? `<span class="sealed-from">from ${escape(sender)}</span>` : '');
   line.title = 'Only these addresses and yours can open this message';
 };
 addEventListener('message', async e => {
   if (!fromOurFrame(e, 'send.html')) return;
   const x = e.data || {};
   const s = v => Array.isArray(v) ? v.filter(a => typeof a === 'string').map(a => a.toLowerCase()).slice(0, 100) : [];
-  if (x.type === 'send-shows') { listShown(s(x.to), s(x.cc), s(x.bcc)); return; }
+  if (x.type === 'send-shows') { listShown(s(x.to), s(x.cc), s(x.bcc), typeof x.from === 'string' && ADDRESS.test(x.from) ? x.from.toLowerCase() : ''); return; }
   if (x.type !== 'compose-message' || typeof x.id !== 'string') return;
   const reply = m => e.source.postMessage({type: 'message', id: x.id, ...m}, location.origin);
-  if (!typed) { reply({error: 'Click into the message first, then press Send.'}); return; }
+  if (!(wrote || (typed && seeing !== null))) { reply({error: 'Type into the message first, then press Send.'}); return; }
+  if (!seen(1000)) { reply({error: 'The message is not fully in view: nothing was sent.'}); return; }
   try {
     reply({text: await message({to: s(x.to), cc: s(x.cc), from: typeof x.from === 'string' ? x.from : ''})});
     dirty = false;

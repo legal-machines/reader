@@ -309,7 +309,7 @@ addEventListener('message', e => {
 });
 
 if (!host) {
-  show(card('Mail Reader', 'This page opens end-to-end encrypted messages inside the Mail app. Open a message there.', `<div class="actions">${setupLink}</div>`));
+  show(card('Seal', 'This page opens end-to-end encrypted messages inside the Mail app. Open a message there.', `<div class="actions">${setupLink}</div>`));
 } else {
   if (!framed) {
     document.body.classList.replace('embed', 'page');

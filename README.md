@@ -1,4 +1,4 @@
-# Mail Reader
+# Seal
 
 Opens and writes end-to-end encrypted (OpenPGP) messages inside the Mail app
 of legalmachines.org and dzyza.com, so that neither the mail server nor its
@@ -32,11 +32,11 @@ opens for the sender too.
 
 Because anyone can encrypt to a public key, an encrypted message does not
 prove who wrote it. Messages written here carry the sender's seal (see
-Writing), which does; the reader says "Sealed by" for one whose seal holds,
+Writing), which does; Seal says "Sealed by" for one whose seal holds,
 "Not sealed" for one without (written elsewhere, or encrypted by the mail
 server on delivery), and warns when the sender written inside differs from
 the one the mail server received it from. The Mail app's header says
-"Encrypted", and "End-to-end encrypted" only once the reader reports that
+"Encrypted", and "End-to-end encrypted" only once Seal reports that
 the seal holds.
 
 ## Reading
@@ -59,30 +59,35 @@ the seal holds.
   about half a minute later), by restarting the browser, after the chosen
   time without use (5, 15 (the default), 30 or 60 minutes, or every
   message), after 5 minutes with no Mail page in view, and after 12 hours
-  in any case. Pages of the reader never get the key back: they ask the
+  in any case. Pages of Seal never get the key back: they ask the
   worker for the one X25519 secret a message needs.
-* **One frame does the work.** Each page of Mail has one frame of the
-  reader, the hub (`hub.mjs`): it shows Unlock, opens every message the
+* **One frame does the work.** Each page of Mail has one frame of
+  Seal, the hub (`hub.mjs`): it shows Unlock, opens every message the
   page hands it (OpenPGP.js loads once per page) and passes the content to
-  the reader's other frames on the page (the letters, the lines of a list,
+  Seal's other frames on the page (the letters, the lines of a list,
   the subject) on a BroadcastChannel of this site, which Mail cannot join.
   Until then each message shows its own encrypted text.
 * **Your mark.** Four pictures made from the key (X25519 of the key with a
   fixed point, `mark.mjs`): the same on every device that holds the key,
   and out of reach of Mail and its server, which have only the public key.
-  The reader shows them in one place only: at the foot of the text of an
-  end-to-end message, while the keyboard is in the reader's composer (and
-  once, on `setup.html`, in a tab of its own). Shown anywhere without that
-  condition, Mail could cut them out of a frame of the reader and set them
-  beside a field of its own; shown only while you type or attach in the
-  reader, every key you press and every file you pick goes to the reader.
-  The pictures sit two by two on a square; above it, the count of files the
-  reader holds for the message, so a file that went to Mail instead shows
+  Seal shows them in one place only: at the foot of the text of an
+  end-to-end message, while the keyboard is in Seal's composer, after a key,
+  a touch or a paste of yours there (a page that only moves the focus into
+  the frame does not light it), and while the whole composer is on the
+  screen (so a page cannot cut the frame down to the mark); it goes at once
+  when the keyboard leaves. In Chrome the composer must also not be covered,
+  faded or shrunk (IntersectionObserver v2). On `setup.html`, in a tab of its
+  own with the address bar in view, it shows behind Show my mark, and goes
+  when the tab loses the keyboard. Shown anywhere without these conditions,
+  Mail could cut it out of a frame of Seal and set it beside a field of its
+  own; shown only while you type or attach in Seal, every key you press and
+  every file you pick goes to Seal.
+  The pictures sit two by two on a square; above it, the count of files
+  Seal holds for the message, so a file that went to Mail instead shows
   by not raising it. A tap on either says what they are.
-* **The reader keeps its own code.** `sw.js` carries the SHA-256 of every
-  file of the reader (written by `make-pins.py` at publishing), installs
-  only when the site serves exactly those, keeps them, and serves the
-  reader's pages from that copy; only a page it served may use the key.
+* **Seal keeps its own code.** `sw.js` carries the SHA-256 of every
+  file of Seal (written by `make-pins.py` at publishing), installs
+  only when the site serves exactly those, keeps them, and serves Seal's pages from that copy; only a page it served may use the key.
   Code served later by someone else would need a new `sw.js`, and a new
   worker starts with an empty vault: nothing opens without a new touch.
 * **Mail learns sizes, coarsely.** A letter is laid out at one of a few
@@ -90,7 +95,7 @@ the seal holds.
   subject's room in steps of 48. Otherwise Mail could narrow a frame step
   by step and learn from its height where the lines break. The hub opens a
   message only when a frame on the screen asks for it.
-* **The message looks like any other.** Inside a conversation the reader
+* **The message looks like any other.** Inside a conversation Seal
   draws the text, pictures and attachments with the Mail app's own
   stylesheet and icons (`mail.css`, `icons.mjs`, `letter.mjs`, copied from
   its source by `make-styles.py`, never from the mail server). The subject
@@ -108,11 +113,11 @@ to end is on, in its own look: a For line with the addresses Send will
 encrypt to (Bcc too), the formatting bar with its own clip for files, the
 signature, pictures in the text. The subject, the text and the files stay
 there. The Mail app hands over the signature alone; the notices under it
-(the end-to-end one and the domain's own) the reader writes itself, from
+(the end-to-end one and the domain's own) Seal writes itself, from
 `notices.mjs` (made by `make-notices.py` from the mail repository), so the
 mail server has no say in what they tell the recipient.
 
-`send.html` is Send: the reader's own button where Mail's stands. Only a
+`send.html` is Send: Seal's own button where Mail's stands. Only a
 press there has the message sealed with your key (`seal.mjs`; Touch ID first
 if encrypted mail is locked) and encrypted, as one PGP/MIME message padded
 to steps of 4 KB, to the public keys in `keys.mjs` (made by `make-keys.py`
@@ -129,14 +134,14 @@ holds, and says "not sealed" otherwise.
 
 `keys.mjs` lists no addresses: it has one entry a key, with the SHA-256 of
 each address the key serves (lower case, hex) and the key itself with one
-user ID, an address our sites show anyway (inbox@ the domain). The reader
+user ID, an address our sites show anyway (inbox@ the domain). Seal
 hashes an address to find its key. A short address can still be found by
 trying names against the hashes; they keep the list out of sight, not
 secret.
 
 * **The sender's seal.** Encryption alone proves nothing about who wrote a
-  message: anyone can encrypt to a public key, the mail server too. The
-  reader adds, for each recipient, an HMAC over the whole message under the
+  message: anyone can encrypt to a public key, the mail server too.
+  Seal adds, for each recipient, an HMAC over the whole message under the
   X25519 secret of the sender's key and the recipient's: only those two keys
   can make or check it. A letter whose seal holds says "Sealed by" and the
   sender written inside, when the sealing key is that address's key (by its
@@ -160,8 +165,14 @@ secret.
   through the API, since GitHub starts a schedule only every few hours),
   which also checks the Mail app's own files against what was deployed. The
   mail server's watch reports a problem when the one here has finished no
-  check for three hours. The mail server's DNS token can change only its _dmarc and
-  _mta-sts records, so the server cannot repoint these names itself. While either reports a
+  check for three hours. The mail server's watch also checks every served
+  file against the hashes `publish.sh` sends it from the owner's Mac at each
+  publish, not against GitHub's own SHA256SUMS, so a change made at GitHub
+  alone, sums and all, shows there; and both watches require that nothing
+  is served at /.well-known/webauthn, which would let other sites, the Mail
+  app among them, use this site's passkeys. The mail server's DNS token can
+  change only its _dmarc and _mta-sts records, so the server cannot repoint
+  these names itself. While either reports a
   problem, the Mail app opens no encrypted message, adds no key and offers
   no End to end by itself.
 * Both watches also check our public keys as the mail server hands them out
@@ -188,14 +199,13 @@ service worker on that device. Exactly what that allows:
   not use the key, and a new `sw.js` means a new worker with an empty
   vault. Such code could still ask for a new touch; the watches see a
   change within 10 minutes.
-* **The mail page** (its server, its hosting company) can hand the reader
+* **The mail page** (its server, its hosting company) can hand Seal
   stored encrypted messages and have them shown in frames on the screen,
   without a touch. It cannot read what is shown; it learns each frame's
   height at a few fixed widths, in steps of 32 pixels: about the length of
   the text, which the size of the encrypted message tells anyway. It
   chooses the time without use and reports use, so a page that lies can
-  keep the window open, but not past an hour without anything done in the
-  reader's own frames, nor past 5 minutes out of sight (the reader's own
+  keep the window open, but not past an hour without anything done in Seal's own frames, nor past 5 minutes out of sight (Seal's own
   pages tell that), and without reading anything.
 * **Someone at the unlocked device** reads encrypted mail without a touch
   until the window ends, as they would read the rest of the open mailbox.
@@ -216,14 +226,23 @@ service worker on that device. Exactly what that allows:
   the mark would go); a person who does not look for it can still be
   fooled. Before the key has been opened once in a browser, that browser
   knows no mark yet. A fake letter can be laid over a real one, leaving the
-  mark in view; Safari and Firefox give a frame no way to tell.
+  mark in view; Safari and Firefox give a frame no way to tell, and frames
+  of letters cannot tell whether they are seen there either.
+* Stop Mail from showing what it likes in the composer: it hands over the
+  signature (cut to a signature's length, without quotes; Seal's notices
+  come after it) and who the message is from and for (the For line shows
+  both as Send will use them, and Send refuses a list changed in the two
+  seconds before the press). Read the For line and the text before Send.
+* Stop a page from asking for screen sharing: a person who allows it shows
+  that page everything, the mark included. Never share the screen with the
+  Mail app.
 * Hide who writes to whom and when, or mail that arrives unencrypted: the
   mail server encrypts that on delivery, but has read it by then.
 * Stop a mail page that ignores all of the above from drawing a whole
   composer of its own, clip and Send included, with no reader in it. It
   cannot show your mark; a person who does not look for it can be fooled.
 * Prove the sender of mail written elsewhere: Thunderbird and other apps
-  do not add the reader's seal, so their messages say "Not sealed".
+  do not add Seal's seal, so their messages say "Not sealed".
 * Keep the mail server from changing what it writes in ordinary mail: the
   Autocrypt key in its headers, the footer and the /encryption page. The
   Web Key Directory and keys.html, which GitHub serves, are where to check.
@@ -233,7 +252,7 @@ Files: `sealed-core.mjs` (ECDH session key, RFC 6637), `store.mjs` (sealing
 and passkeys), `vault.mjs` and `sw.js` (the key while unlocked), `hub.mjs`
 (Unlock and opening), `decrypt.mjs`, `mime.mjs`, `mark.mjs`, `embed.mjs`
 (a letter), `row.mjs` (a line of a list), `title.mjs` (the subject),
-`compose.mjs` and `send.mjs` (writing), `tab.mjs` (the reader's frames in a
+`compose.mjs` and `send.mjs` (writing), `tab.mjs` (Seal's frames in a
 tab), `seal.mjs` (the sender's seal and key lookup by hash), `keys.mjs` and
 `keys.html` (our public keys, from `make-keys.py`), `notices.mjs` (from
 `make-notices.py`), `setup.mjs`, `width.mjs`, `publish.sh` (both sites, with

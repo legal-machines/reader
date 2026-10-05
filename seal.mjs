@@ -12,7 +12,7 @@
 
 import {KEYS} from './keys.mjs';
 
-const TEXT = 'Mail Reader seal, version 1', enc = new TextEncoder();
+const TEXT = 'Mail Reader seal, version 1', enc = new TextEncoder();  // a protocol label, kept from the old name: every seal is made with it
 
 // keys.mjs knows our addresses only by their SHA-256 (lower case, hex): an
 // address is hashed and looked up, never listed.
