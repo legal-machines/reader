@@ -65,7 +65,7 @@ CERT_RECENT = 3 * 86400   # older issuances were weighed before
 SETTLING = 20 * 60        # GitHub Pages and raw.githubusercontent.com caches
 STATE = "/var/lib/mail-status/reader-watch.json"
 ALERT = "/var/lib/mail-status/reader-alert.json"
-WATCH_RUNS = "https://api.github.com/repos/legal-machines/reader/actions/workflows/watch.yml/runs?per_page=5"
+WATCH_RUNS = "https://api.github.com/repos/legal-machines/reader/actions/workflows/watch.yml/runs?per_page=10"
 KEYS_URL = "https://raw.githubusercontent.com/legal-machines/reader/main/watch/keys.json"
 ZBASE32 = "ybndrfg8ejkmcpqxot1uwisza345h769"
 
@@ -500,15 +500,17 @@ def run_server():
         if seen:
             ds_ever[domain] = sorted(set(ds_ever.get(domain, [])) | set(seen))
     # The watcher at GitHub, which sees this server from outside.
-    # Each run checks every 10 minutes for hours and ends at once, failed, on a
-    # problem: a run going for a quarter of an hour has passed its checks, and
-    # answers for the watch even when the last one to end had failed.
+    # A run checks once, every 10 minutes (cron-job.org starts it), and fails
+    # on a problem. A run cancelled while waiting its turn says nothing; three
+    # hours without a finished check means the watch itself was stopped.
     try:
         runs = fetch_json(WATCH_RUNS).get("workflow_runs", [])
-        going = [r for r in runs if r.get("status") == "in_progress" and now() - parse_time(r.get("run_started_at") or r.get("created_at")) >= 15 * 60]
-        done = [r for r in runs if r.get("status") == "completed"]
-        if not going and done and done[0].get("conclusion") == "failure":
+        done = [r for r in runs if r.get("status") == "completed" and r.get("conclusion") in ("success", "failure")]
+        if done and done[0].get("conclusion") == "failure":
             problems.append(f"the watcher at GitHub reports a problem: {done[0].get('html_url', '')}")
+        last = max((parse_time(r.get("updated_at") or r.get("created_at")) for r in done), default=None)
+        if last is None or now() - last >= 3 * 3600:
+            problems.append("the watcher at GitHub has finished no check for three hours: https://github.com/legal-machines/reader/actions/workflows/watch.yml")
     except (OSError, ValueError, KeyError, urllib.error.URLError):
         pass
     old = state.get("problems", [])
