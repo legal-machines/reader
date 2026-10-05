@@ -87,6 +87,10 @@ iframe.html{display:block;width:100%;min-height:80px;border:0}
 .key-meta,.key-note{margin:0;color:var(--c-text-2);font-size:14px;line-height:20px}
 .key-note{margin-top:var(--s-2);text-wrap:pretty}
 .key-panel > .icon-button{grid-area:remove}
+.key-panel.person{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"text remove"}
+.key-panel .fingerprint{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.02em}
+.key-panel .key-note.bad{color:var(--c-danger)}
+.key-panel .actions{margin-top:var(--s-2)}
 @media (max-width:560px){.key-panel{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"mark remove" "text text"}.key-mark{align-items:flex-start}}
 /* A Material 3 standard icon button (40 dp, its 24 dp icon, a state layer);
    one that removes something is in the error color. */

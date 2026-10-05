@@ -767,12 +767,15 @@ addEventListener('message', async e => {
 // have typed into answers: one Mail filled with its own words does not.
 // The For line also names who it is from, as Send will seal it: the address
 // Send itself holds, not Mail's word for it.
-const listShown = (to, cc, bcc, sender) => {
+// Beside an address outside our mailboxes, what Seal has for it (send.mjs).
+const KEY_NOTE = {known: 'key from their mail', checked: 'key checked', changed: 'new key: accept it first', none: 'no key'};
+const listShown = (to, cc, bcc, sender, keys = {}) => {
   const line = document.getElementById('sealed-for'), who = document.getElementById('sealed-who');
   const all = [...to, ...cc];
+  const named = list => list.map(a => escape(a) + (KEY_NOTE[keys[a]] ? ` <span class="key-note${['none', 'changed'].includes(keys[a]) ? ' bad' : ''}">(${KEY_NOTE[keys[a]]})</span>` : '')).join(', ');
   who.classList.toggle('empty', !all.length && !bcc.length);
   who.innerHTML = (!all.length && !bcc.length ? 'Add who it is for above' :
-    escape(all.join(', ')) + (bcc.length ? `${all.length ? ' ' : ''}<span class="bcc">Bcc</span> ${escape(bcc.join(', '))}` : '')) +
+    named(all) + (bcc.length ? `${all.length ? ' ' : ''}<span class="bcc">Bcc</span> ${named(bcc)}` : '')) +
     (sender ? `<span class="sealed-from">from ${escape(sender)}</span>` : '');
   line.title = 'Only these addresses and yours can open this message';
 };
@@ -780,7 +783,11 @@ addEventListener('message', async e => {
   if (!fromOurFrame(e, 'send.html')) return;
   const x = e.data || {};
   const s = v => Array.isArray(v) ? v.filter(a => typeof a === 'string').map(a => a.toLowerCase()).slice(0, 100) : [];
-  if (x.type === 'send-shows') { listShown(s(x.to), s(x.cc), s(x.bcc), typeof x.from === 'string' && ADDRESS.test(x.from) ? x.from.toLowerCase() : ''); return; }
+  if (x.type === 'send-shows') {
+    const keys = x.keys && typeof x.keys === 'object' ? Object.fromEntries(Object.entries(x.keys).filter(([, v]) => typeof v === 'string')) : {};
+    listShown(s(x.to), s(x.cc), s(x.bcc), typeof x.from === 'string' && ADDRESS.test(x.from) ? x.from.toLowerCase() : '', keys);
+    return;
+  }
   if (x.type !== 'compose-message' || typeof x.id !== 'string') return;
   const reply = m => e.source.postMessage({type: 'message', id: x.id, ...m}, location.origin);
   if (!(wrote || (typed && seeing !== null))) { reply({error: 'Type into the message first, then press Send.'}); return; }

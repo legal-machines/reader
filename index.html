@@ -6,8 +6,9 @@
 <meta name="color-scheme" content="light dark">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
-<!-- No network at all beyond this site's own files: connect-src falls back to 'none'. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; frame-src 'self'; form-action 'none'; base-uri 'none'">
+<!-- No network beyond this site's own files, except the two public DNS resolvers that give the
+     signing keys of senders' domains (dkim.mjs): nothing of a message goes to them but that domain. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src https://cloudflare-dns.com https://dns.google; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; frame-src 'self'; form-action 'none'; base-uri 'none'">
 <title>Seal</title>
 <link rel="stylesheet" href="mail.css">
 <link rel="stylesheet" href="frame.css">

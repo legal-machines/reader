@@ -84,6 +84,8 @@ body.compose-frame{height:100vh;overflow:hidden}
 .sealed-list.empty{color:var(--c-text-3)}
 .sealed-list .bcc{color:var(--c-text-3);font-weight:var(--w-medium)}
 .sealed-list .sealed-from{display:block;color:var(--c-text-3);font-size:var(--t-xs);line-height:16px;overflow-wrap:anywhere}
+.sealed-list .key-note{color:var(--c-text-3);font-size:var(--t-xs);white-space:nowrap}
+.sealed-list .key-note.bad{color:var(--c-danger)}
 /* The text and, at its foot while you type, your mark: its four pictures in
    two rows on a tonal square the size of a Material 3 medium FAB (80 dp,
    corner 20 dp, no shadow), wider than the count, the count of the files the reader holds right above it, and on a
@@ -161,4 +163,9 @@ body.send-frame{overflow:hidden}
 .seal-line span{min-width:0;text-wrap:balance;overflow-wrap:anywhere}
 .seal-line svg.i{flex:none;width:var(--icon-sm);height:var(--icon-sm);fill:var(--c-good)}
 .seal-line.none svg.i{fill:var(--c-text-2)}
+.seal-line .mark-check{flex:none;margin-left:auto;min-height:32px;padding:0 var(--s-3);border:0;border-radius:var(--r-full);background:transparent;color:var(--c-primary);font:var(--w-medium) var(--t-xs) var(--f-sans);cursor:pointer}
+.seal-line .mark-check[hidden]{display:none}
+@media (hover:hover){.seal-line .mark-check:hover{background:var(--c-hover)}}
+.seal-line .mark-check[data-shown]{padding:var(--s-1);cursor:default}
+.mark-tile[data-small]{grid-template-columns:repeat(2,18px);grid-auto-rows:18px;gap:2px;font-size:16px;line-height:18px}
 .badge.plain{background:var(--c-surface-3);color:var(--c-text-2)}

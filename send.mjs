@@ -2,13 +2,15 @@
 // Mail's row of buttons. Only a press here has the message encrypted: it
 // finds the composer (compose.mjs) among this tab's frames itself, asks it
 // for the text, seals it with your key (seal.mjs; Touch ID first if encrypted mail is
-// locked), encrypts it to the recipients' keys (keys.mjs) and hands Mail the
+// locked), encrypts it to the recipients' keys (keys.mjs for our mailboxes,
+// contacts.mjs for people outside, learned from their signed mail) and hands Mail the
 // encrypted message to send. Mail cannot have a draft encrypted behind your
 // back, nor learn from it how much you have written.
 
 import {MAIL_SITES} from './sites.mjs';
 import {widths} from './width.mjs';
-import {keyOf, seal} from './seal.mjs';
+import {seal} from './seal.mjs';
+import {keyFor} from './contacts.mjs';
 import * as vault from './vault.mjs';
 import {all, valid} from './store.mjs';
 import {openpgpLib} from './decrypt.mjs';
@@ -52,8 +54,16 @@ const ask = (to, cc) => new Promise((resolve, reject) => {
 
 // The composer shows whom the message will be encrypted to, from the very
 // list this button uses, inside the reader where Mail cannot change it.
-const share = () => {
-  for (const w of readerFrames('compose.html')) w.postMessage({type: 'send-shows', ...people, from}, location.origin);
+// With each address, what Seal has for it: 'ours' (a mailbox here), 'known'
+// or 'checked' (someone outside whose key it learned; checked with them),
+// 'changed' (a new key waits for you to accept it) or 'none'.
+const keysShown = async list => Object.fromEntries(await Promise.all([...new Set(list)].map(async a => {
+  const k = await keyFor(a).catch(() => null);
+  return [a, !k ? 'none' : k.internal ? 'ours' : k.changed ? 'changed' : k.contact?.checked ? 'checked' : 'known'];
+})));
+const share = async () => {
+  const keys = await keysShown([...people.to, ...people.cc, ...people.bcc]);
+  for (const w of readerFrames('compose.html')) w.postMessage({type: 'send-shows', ...people, from, keys}, location.origin);
 };
 addEventListener('message', e => { if (e.data?.type === 'compose-hello' && fromOurFrame(e, 'compose.html')) share(); });
 
@@ -79,11 +89,15 @@ button.addEventListener('click', async e => {
     const everyone = [...to, ...cc, ...bcc].map(a => a.toLowerCase());
     if (!everyone.length) throw new Error('Add a recipient.');
     if (!ADDRESS.test(from) || everyone.some(a => !ADDRESS.test(a))) throw new Error('An address here is not a plain email address: nothing was sent.');
-    // Our keys only (keys.mjs, by the hash of each address).
-    const known = new Map(await Promise.all([...new Set([...everyone, from])].map(async a => [a, await keyOf(a)])));
+    // Our keys (keys.mjs, by the hash of each address), and the keys of
+    // people outside that Seal learned from their signed mail (contacts.mjs).
+    const known = new Map(await Promise.all([...new Set([...everyone, from])].map(async a => [a, await keyFor(a)])));
     const own = known.get(from);
-    const missing = [...everyone, from].filter(a => !known.get(a));
-    if (missing.length) throw new Error(`End to end goes only to mailboxes here with keys; not to ${missing.join(', ')}.`);
+    if (!own?.internal) throw new Error('End to end goes only from a mailbox here with a key.');
+    const changed = everyone.filter(a => known.get(a)?.changed);
+    if (changed.length) throw new Error(`New key for ${changed.join(', ')}: accept it on the Seal page, or remove it there, then press Send. Nothing was sent.`);
+    const missing = everyone.filter(a => !known.get(a));
+    if (missing.length) throw new Error(`Seal has no key for ${missing.join(', ')}. It learns one from a message of theirs that carries it, signed by their domain.`);
     // Your key, for the seal: open already, or opened now with this press.
     // Every message written here is sealed: one that is not could have come
     // from anyone who has your public key, the mail server included, so
@@ -107,7 +121,8 @@ button.addEventListener('click', async e => {
     const openpgp = await openpgpLib();
     let text = await ask(to, cc);
     const keys = [...new Set([...everyone, from])].map(a => known.get(a));
-    text = await seal(openpgp, text, fromId, derive, keys.map(k => k.subkeys[0]));
+    // The seal goes to our mailboxes only: Seal elsewhere has no key of theirs to check it with.
+    text = await seal(openpgp, text, fromId, derive, keys.filter(k => k.internal).map(k => k.subkeys[0]));
     const encryptionKeys = await Promise.all(keys.map(k => openpgp.readKey({armoredKey: k.armored})));
     const armored = await openpgp.encrypt({message: await openpgp.createMessage({binary: new TextEncoder().encode(text)}), encryptionKeys, format: 'armored'});
     tell({type: 'reader-encrypted', armored});

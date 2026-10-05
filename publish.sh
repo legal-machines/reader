@@ -15,12 +15,17 @@ shasum -a 256 *.html *.mjs *.js *.css CNAME > SHA256SUMS
 git add -A
 git diff --cached --quiet || git commit -q -m "${1:-Update the reader}"
 git push -q origin main
+# reader2 gets a commit on top of its own history, never a rewrite of it:
+# while GitHub Pages is slow to build, the watch passes files of the commits
+# before (reader-watch.py, check_files), and it finds them only in that history.
 out="$(mktemp -d)"
+git clone -q --depth 6 https://github.com/legal-machines/reader2.git "$out"
+(cd "$out" && git rm -rq --cached . && find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +)
 git archive HEAD | tar -x -C "$out"
 printf seal.dzyza.com > "$out/CNAME"  # as GitHub writes it, no line end: its own commits then change nothing
-(cd "$out" && python3 make-keys.py --keys-page dzyza.com > /dev/null && python3 make-pins.py > /dev/null && shasum -a 256 *.html *.mjs *.js *.css CNAME > SHA256SUMS && git init -q && git add -A &&
- git -c user.name="Alexander Dzyza" -c user.email="61204471+Koshkej@users.noreply.github.com" commit -q -m "${1:-Update the reader}" &&
- git push -q --force https://github.com/legal-machines/reader2.git HEAD:main)
+(cd "$out" && python3 make-keys.py --keys-page dzyza.com > /dev/null && python3 make-pins.py > /dev/null && shasum -a 256 *.html *.mjs *.js *.css CNAME > SHA256SUMS && git add -A &&
+ { git diff --cached --quiet || git -c user.name="Alexander Dzyza" -c user.email="61204471+Koshkej@users.noreply.github.com" commit -q -m "${1:-Update the reader}"; } &&
+ git push -q origin HEAD:main)
 # The hashes of both sites as published from here go straight to the mail
 # server, whose watch checks the served files against them rather than
 # against the SHA256SUMS at GitHub (reader-watch.py, check_pins): a change

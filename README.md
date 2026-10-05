@@ -123,6 +123,31 @@ the seal holds.
 * **Inert content.** HTML messages are stripped of scripts, frames, forms and
   remote addresses and shown in a sandboxed frame without scripts.
   Attachments are only downloaded or shown in the browser's own viewer.
+* **Senders outside our mailboxes** (`dkim.mjs`, `contacts.mjs`). Mail hands
+  Seal the whole message as the server holds it, and Seal reads the
+  encrypted text out of it itself. It checks the DKIM signature of the
+  sender's domain in the browser: the key comes from public DNS through
+  Cloudflare and Google, and counts only when both give the same, so the mail
+  server, which holds no such key, cannot make up or change a message that
+  passes. A message that passes, and was first opened so, stays passed (by
+  the SHA-256 of the whole message) after the domain withdraws its key.
+  Seal learns the sender's OpenPGP key only from what the domain signed (the
+  Autocrypt header when the signature covers it, a key attached to or inside
+  the message), keeps the first one for that address and encrypts to it; a
+  different key later waits on `setup.html` until you accept it, and never
+  replaces the first by itself. The sender's own signature in the message is
+  checked with the key Seal knows. The letter then says "Signed with the key
+  of", "Sent by the mail of" the domain, or warns: changed on the way, signed
+  by another domain, a new key, or a message from someone whose key Seal
+  knows that carries neither their signature nor their domain's.
+  `setup.html` lists these keys with their fingerprints, to read with the
+  person by phone and mark as checked.
+* **Show my mark** ends every line that vouches for a letter ("Sealed by",
+  "Signed with the key of"): Mail could draw such a line beside a message of
+  its own, but not your mark. It shows for ten seconds on a press of yours,
+  while the frame has the keyboard and the whole line is on the screen (so the
+  frame cannot be cut down to the mark), and in Chrome only while nothing
+  covers or fades it.
 
 ## Writing
 
@@ -142,9 +167,14 @@ to steps of 4 KB, to the public keys in `keys.mjs` (made by `make-keys.py`
 from the mail repository's published keys, never taken from the mail page).
 Send finds the composer itself, by walking the frames of its own tab
 (`tab.mjs`), and refuses if there is more than one: the Mail app cannot
-point it at a composer of its own. The sender and every recipient must be
-plain addresses with keys here; a message goes sealed or not at all (no key
-of yours in this browser, no sending), with its own Message-ID inside. The
+point it at a composer of its own. The sender must be a mailbox here with
+its key, and every recipient a plain address with a key: ours from
+`keys.mjs`, someone outside with the key Seal learned from their signed mail
+(`contacts.mjs`; a new key waiting for you stops the message, and the For
+line names each recipient's key: from their mail, checked, new, none). A
+message goes sealed or not at all (no key of yours in this browser, no
+sending), with its own Message-ID inside; the seal goes to our mailboxes
+only. The
 Mail app gets the encrypted message and sends it; it cannot have a draft
 encrypted at any other time. A time picked in Schedule send waits for that
 press. A reply quotes an encrypted message as "X wrote" only when its seal
@@ -172,7 +202,10 @@ secret.
 
 * Every page carries a Content-Security-Policy that allows no requests
   beyond this site's own files: nothing decrypted, and nothing about the
-  key, can be sent anywhere.
+  key, can be sent anywhere. The two pages that open letters (`hub.html`,
+  `index.html`) may also ask cloudflare-dns.com and dns.google for the DKIM
+  key of a sender's domain, by the selector and domain the message shows in
+  the open; nothing else of a message goes there.
 * `SHA256SUMS` lists every file's hash. Two watches compare what is served at
   both addresses with it, and look for signs that someone else serves these
   names: the domains' delegation and DNSSEC at their registries, the CNAMEs
@@ -259,8 +292,15 @@ service worker on that device. Exactly what that allows:
 * Stop a mail page that ignores all of the above from drawing a whole
   composer of its own, clip and Send included, with no reader in it. It
   cannot show your mark; a person who does not look for it can be fooled.
-* Prove the sender of mail written elsewhere: Thunderbird and other apps
-  do not add Seal's seal, so their messages say "Not sealed".
+* Prove the sender of mail written elsewhere that neither its writer nor its
+  domain signed: it says "Not signed". Nor tell which person at a domain sent
+  a message only the domain signed.
+* Prove to people outside that a message came from us: Seal does not yet
+  sign with your key in their apps' terms (OpenPGP), so a message the mail
+  server encrypted to them in your name looks like yours there.
+* Prove that a message was delivered, or that one sent to you was not held
+  back. A reply signed by the other side's domain that answers yours shows it
+  arrived.
 * Keep the mail server from changing what it writes in ordinary mail: the
   Autocrypt key in its headers, the footer and the /encryption page. The
   Web Key Directory and keys.html, which GitHub serves, are where to check.
@@ -271,7 +311,8 @@ and passkeys), `vault.mjs` and `sw.js` (the key while unlocked), `hub.mjs`
 (Unlock and opening), `decrypt.mjs`, `mime.mjs`, `mark.mjs`, `embed.mjs`
 (a letter), `row.mjs` (a line of a list), `title.mjs` (the subject),
 `compose.mjs` and `send.mjs` (writing), `tab.mjs` (Seal's frames in a
-tab), `seal.mjs` (the sender's seal and key lookup by hash), `keys.mjs` and
+tab), `seal.mjs` (the sender's seal and key lookup by hash), `dkim.mjs`
+(the signature of a sender's domain), `contacts.mjs` (keys of people outside), `keys.mjs` and
 `keys.html` (our public keys, from `make-keys.py`), `notices.mjs` (from
 `make-notices.py`), `setup.mjs`, `width.mjs`, `publish.sh` (both sites, with
 `make-styles.py` and `make-pins.py`), and

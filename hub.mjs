@@ -15,6 +15,7 @@ import {icon} from './icons.mjs';
 import * as vault from './vault.mjs';
 import {alarmText, raised} from './alarm.mjs';
 import {canOpen, glance, openWith, openpgpLib, recipientsOf} from './decrypt.mjs';
+import {keyFor} from './contacts.mjs';
 
 const view = document.getElementById('hub');
 const opened = new Map();     // slot -> {model, keyId}, while the key is open
@@ -106,8 +107,8 @@ async function openAll() {
     const keyId = w.ids.find(id => s.keyIds.includes(id)) || (w.ids.includes('0000000000000000') ? s.keyIds[0] : null);
     if (!keyId) { post({type: 'failed', slot}); continue; }
     try {
-      const model = await openWith(w.armored, s.infos[keyId]);
-      model.sentFrom = w.from;
+      const model = await openWith(w.armored, s.infos[keyId], {raw: w.raw, sentFrom: w.from});
+      model.sentFrom ||= w.from;
       opened.set(slot, {model, keyId});
       send(slot);
     } catch (err) {
@@ -178,10 +179,21 @@ addEventListener('message', async e => {
   } else if (d.type === 'hub-items' && Array.isArray(d.items)) {
     for (const it of d.items.slice(0, 200)) {
       if (typeof it.slot !== 'string' || it.slot.length > 64 || typeof it.armored !== 'string' || it.armored.length > 30e6 || waiting.has(it.slot)) continue;
-      waiting.set(it.slot, {armored: it.armored, from: typeof it.from === 'string' ? it.from.slice(0, 320).toLowerCase() : ''});
+      // The whole message, where Mail hands it over too: for the signature of
+      // the sender's domain (decrypt.mjs, dkim.mjs).
+      const raw = it.raw instanceof Uint8Array && it.raw.length <= 40e6 ? it.raw : undefined;
+      waiting.set(it.slot, {armored: it.armored, raw, from: typeof it.from === 'string' ? it.from.slice(0, 320).toLowerCase() : ''});
     }
     if (unlocked) await openAll();
     draw();
+  } else if (d.type === 'hub-keys-for' && Array.isArray(d.addresses)) {
+    // Which of these addresses outside our mailboxes have a key here (one
+    // learned from their signed mail, with no new key waiting): yes or no
+    // for each, never a key. Mail knows whom you wrote to anyway.
+    const asked = d.addresses.filter(a => typeof a === 'string' && a.length <= 254).slice(0, 100).map(a => a.toLowerCase());
+    const have = [];
+    for (const a of asked) { const k = await keyFor(a).catch(() => null); if (k?.contact) have.push(a); }
+    tell({type: 'hub-keys', have});
   } else if (d.type === 'hub-lock') {
     await vault.lock();
     unlocked = false;

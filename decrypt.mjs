@@ -6,6 +6,8 @@ import {open} from './sealed-core.mjs';
 import {addressOf, read} from './mime.mjs';
 import {deriver} from './vault.mjs';
 import {addressHash, check} from './seal.mjs';
+import {dkim, fieldsOf, values} from './dkim.mjs';
+import * as contacts from './contacts.mjs';
 
 // OpenPGP.js (about 400 KB) loads only when there is something to open.
 let library = null;
@@ -62,17 +64,102 @@ export async function recipientsOf(armored) {
 let capable = null;
 export const canOpen = () => (capable ||= crypto.subtle.importKey('raw', new Uint8Array(32).fill(9), {name: 'X25519'}, false, []).then(() => true, () => false));
 
+const OURS = /@(legalmachines\.org|dzyza\.com)$/;
+const KEY_BLOCK = '-----BEGIN PGP PUBLIC KEY BLOCK-----';
+const ascii = bytes => new TextDecoder().decode(bytes.subarray(0, 4e6));
+const isKey = f => f.type === 'application/pgp-keys' || ascii(f.data.subarray(0, 4096)).includes(KEY_BLOCK);
+const keyData = f => ascii(f.data).includes(KEY_BLOCK) ? ascii(f.data) : f.data;
+
+// The message as the mail server holds it: its sender (From), its encrypted
+// text, the keys attached to it and its Autocrypt header.
+function outer(raw) {
+  const m = read(raw), {fields} = fieldsOf(raw);
+  const armored = m.text?.includes('-----BEGIN PGP MESSAGE-----') ? m.text
+    : m.files.map(f => ascii(f.data)).find(t => t.includes('-----BEGIN PGP MESSAGE-----')) || '';
+  return {from: addressOf(m.from || ''), armored, keys: m.files.filter(isKey).map(keyData), autocrypt: values(fields, 'autocrypt')};
+}
+
+// The keys of a sender outside, learned only from what its domain signed
+// (dkim.mjs): the Autocrypt header when the signature covers it, a key
+// attached to the message, or one inside it (the encrypted text is part of
+// the signed body). 'new', 'same', 'changed' or ''.
+async function learn(openpgp, from, wrapper, content) {
+  const found = [];
+  if (wrapper.signedAutocrypt && wrapper.autocrypt.length === 1) {
+    const t = Object.fromEntries(wrapper.autocrypt[0].split(';').map(p => p.split('=')).filter(p => p.length >= 2).map(([k, ...v]) => [k.trim().toLowerCase(), v.join('=')]));
+    if ((t.addr || '').trim().toLowerCase() === from && t.keydata) {
+      try { found.push(Uint8Array.from(atob(t.keydata.replace(/\s/g, '')), c => c.charCodeAt(0))); } catch (e) {}
+    }
+  }
+  found.push(...wrapper.keys);
+  try { found.push(...read(content).files.filter(isKey).map(keyData)); } catch (e) {}
+  let result = '';
+  for (const data of found.slice(0, 6)) {
+    const r = await contacts.learn(openpgp, from, data);
+    if (r === 'changed' || (r === 'new' && result !== 'changed') || (r && !result)) result = r;
+  }
+  return result;
+}
+
+async function domainSigned(raw, from) {
+  const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', raw))].map(b => b.toString(16).padStart(2, '0')).join('');
+  const kept = await contacts.checkedOf(hash);
+  if (kept?.state === 'pass' && kept.from === from) return kept;
+  const d = await dkim(raw, from).catch(() => ({state: 'unknown', why: 'error'}));
+  if (d.state === 'pass') contacts.keepChecked(hash, {...d, from});
+  return d;
+}
+
 // The message read with the open key keyId ({fingerprint, keyId, hash,
-// cipher}: info), or an error.
-export async function openWith(armored, info) {
+// cipher}: info), or an error. extra.raw: the whole message as the mail
+// server holds it, for the signature of the sender's domain (DKIM); its
+// encrypted text is then read from it, not taken as handed over.
+export async function openWith(armored, info, extra = {}) {
   const openpgp = await openpgpLib(), derive = deriver(info.keyId);
-  const bytes = await open(openpgp, armored, derive, info);
+  const wrapper = extra.raw instanceof Uint8Array ? outer(extra.raw) : null;
+  if (wrapper) {
+    if (!wrapper.armored) throw new Error('This message holds no encrypted text.');
+    armored = wrapper.armored;
+  }
+  const from = wrapper?.from || String(extra.sentFrom || '').toLowerCase();
+  const outside = !!from && !OURS.test(from);
+  // The domain's signature, checked while the message opens: for a sender
+  // outside only (our own mail server signs ours, so it would prove nothing).
+  const checking = outside && wrapper ? domainSigned(extra.raw, from) : Promise.resolve({state: 'none', why: wrapper ? '' : 'not handed'});
+  let learned = null;
+  const learnOnce = async content => {
+    if (learned !== null) return;
+    const d = await checking;
+    learned = '';
+    if (d.state === 'pass' && d.aligned) learned = await learn(openpgp, from, {...wrapper, signedAutocrypt: d.covers.includes('autocrypt')}, content);
+  };
+  // The sender's own signature, checked with the key known for that address.
+  const verifier = outside ? async (content, ids) => {
+    await learnOnce(content);
+    const c = await contacts.recordOf(from);
+    const keys = [];
+    for (const armoredKey of [c?.armored, c?.change?.armored].filter(Boolean)) keys.push(await openpgp.readKey({armoredKey}));
+    return keys.filter(k => k.getKeyIDs().some(id => ids.includes(id.toHex())));
+  } : null;
+  const {data: bytes, signed} = await open(openpgp, armored, derive, info, verifier);
+  if (outside) await learnOnce(bytes);
   const sealed = await check(openpgp, bytes, info.keyId, derive).catch(() => ({state: 'none', rest: bytes}));
   const message = read(sealed.rest);
   // Whether the key that sealed it is the key of the sender named inside
   // (by the hash of that address), and the key's domain.
   const inside = addressOf(message.from || '');
   message.seal = {state: sealed.state, domain: sealed.domain || '', inside: !!inside && (sealed.hashes || []).includes(await addressHash(inside))};
+  if (wrapper) message.sentFrom = from;
+  if (outside) {
+    const c = await contacts.recordOf(from);
+    let by = null;
+    if (signed?.by && c) {
+      const known = await openpgp.readKey({armoredKey: c.armored});
+      by = known.getKeyIDs().some(id => id.toHex() === signed.by) ? 'known' : 'new';
+    }
+    message.sender = {from, dkim: await checking, signed: signed ? {state: signed.state, by} : null, learned,
+                      fingerprint: c?.fingerprint || '', checked: c?.checked || '', change: c?.change?.fingerprint || ''};
+  }
   bytes.fill(0);
   return message;
 }

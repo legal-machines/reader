@@ -4,7 +4,8 @@
 // letter in its place; Mail learns only the height to give the frame. In a
 // tab of its own (opened by Mail where a browser keeps passkeys out of
 // frames) it is handed the message and opens it itself.
-// This page may make no network requests at all (index.html, its policy).
+// This page makes no network requests but to two public DNS resolvers, for
+// the signing key of a sender's domain (dkim.mjs; index.html, its policy).
 
 import {all, valid} from './store.mjs';
 import {addressOf, escape, linkify} from './mime.mjs';
@@ -12,6 +13,7 @@ import {MAIL_SITES} from './sites.mjs';
 import {widths} from './width.mjs';
 import {icon} from './icons.mjs';
 import {LETTER_CSS} from './letter.mjs';
+import {markFor, tile} from './mark.mjs';
 import * as vault from './vault.mjs';
 import {canOpen, openWith, openpgpLib, recipientsOf} from './decrypt.mjs';
 
@@ -97,8 +99,58 @@ const shownFiles = m => m.files.filter(f => !(m.html !== undefined && f.id && f.
 // Whether the letter is sealed by the mailbox it says it is from.
 const sealHolds = m => {
   const sealed = m.seal || {state: 'none'}, inside = addressOf(m.from);
+  if (sealed.state === 'none' && m.sender) return sentBy(m) && (!inside || inside === m.sender.from);
   return sealed.state === 'ok' && (!inside || sealed.inside);
 };
+// A sender outside: signed with the key Seal knows for them, or sent, as it
+// stands, by their domain's mail service (DKIM).
+const sentBy = m => m.sender.signed?.state === 'ok' && m.sender.signed.by === 'known' || (m.sender.dkim.state === 'pass' && m.sender.dkim.aligned);
+
+const alertBox = (title, text) => `<div class="reader-alert" role="alert">${icon('warning')}<div><b>${title}</b><p>${text}</p></div></div>`;
+// A line that vouches for a message ends with Show my mark: Mail could draw
+// a line like it beside a message of its own, but not your mark.
+const sealLine = (text, weak) => `<p class="seal-line${weak ? ' none' : ''}">${icon(weak ? 'warning' : 'verified_user')}<span>${text}</span>` +
+  (weak ? '' : '<button class="mark-check" type="button" hidden title="Only Seal can show your mark: Mail cannot">Show my mark</button>') + '</p>';
+const peopleLink = '<a href="setup.html#people" target="_blank" rel="noopener">Seal page</a>';
+const reportLink = '<a href="setup.html#alarm" target="_blank" rel="noopener">Seal page</a>';
+
+// What Seal could check of a message from outside our mailboxes (decrypt.mjs):
+// first what proves its writer (their own signature, with the key Seal
+// knows), then what proves its way here (their domain's signature).
+function senderLines(s, when) {
+  const d = s.dkim || {state: 'none'}, domain = s.from.split('@')[1], from = escape(s.from);
+  const signedKnown = s.signed?.state === 'ok' && s.signed.by === 'known', signedNew = s.signed?.state === 'ok' && s.signed.by === 'new';
+  const domainOk = d.state === 'pass' && d.aligned, tampered = d.state === 'fail' && ['body', 'signature', 'from', 'part'].includes(d.why);
+  if (s.signed?.state === 'bad') return alertBox('Its signature does not hold', `It says it is from ${from}, but its signature was not made with their key, or the text was changed after. Do not trust its links and requests.`);
+  let out = '';
+  if (tampered && !signedKnown)
+    return alertBox('Not as its sender sent it', `${escape(domain)} signs the mail it sends, and this message does not match the signature: it was changed on the way, or made up. Do not trust who it says it is from, nor its links and requests.`);
+  // Someone whose key Seal knows, in a message signed neither with it nor by
+  // their domain: what a mail server writing in their name would send.
+  if (!signedKnown && !signedNew && !domainOk && s.fingerprint && d.state !== 'unknown')
+    return alertBox(`Not signed by ${from}`, `Seal knows their key, and this message carries neither their signature nor their domain's. It may not be from them: do not trust its links and requests, and ask them another way.`);
+  if (signedKnown || domainOk) {
+    const parts = [];
+    if (signedKnown) parts.push(`Signed with the key of ${from}${s.checked ? ', checked with them' : ''}`);
+    if (domainOk) parts.push(`${signedKnown ? 'sent' : 'Sent'} by the mail of ${escape(d.domain)}`);
+    out += sealLine(parts.join('; ') + escape(when));
+    if (tampered) out += alertBox('Changed on the way', `The text is theirs, signed with their key, but something around it was changed after it left the mail of ${escape(domain)}: only a mail server on the way could do that. Report it on the ${reportLink}.`);
+    if (d.state === 'pass' && !d.aligned && !signedKnown) out += alertBox('Signed by another domain', `It says it is from ${from}, but ${escape(d.domain)} signed it. That says nothing about who wrote it.`);
+  } else if (d.state === 'pass') {
+    out += alertBox('Signed by another domain', `It says it is from ${from}, but ${escape(d.domain)} signed it. That says nothing about who wrote it.`);
+  } else if (d.state === 'unknown') {
+    out += sealLine(`Who sent it could not be checked now: ${d.why === 'browser' ? 'this browser cannot check its signature' : 'no answer from DNS'}. Open it again later`, true);
+  } else if (d.state === 'fail') {
+    out += sealLine(['no key', 'revoked'].includes(d.why) ? `${escape(domain)} no longer publishes the key it was signed with, so who sent it cannot be checked` : 'Not signed in a way Seal can check: anyone who has your public key, the mail server included, could have written it', true);
+  } else {
+    out += sealLine('Not signed: anyone who has your public key, the mail server included, could have written it', true);
+  }
+  if (signedNew || s.change || s.learned === 'changed')
+    out += alertBox(`${from} has a new key`, `Their mail sent a key that differs from the one Seal knows${signedNew ? ', and this message is signed with it' : ''}. Seal goes on encrypting to the old key until you accept the new one on the ${peopleLink}. Ask them first, not by email, whether they changed it.`);
+  else if (s.learned === 'new')
+    out += sealLine(`Seal now knows the key of ${from}: what you write back to them can be encrypted end to end`);
+  return out;
+}
 
 // The letter, as Mail shows any message: its text, pictures and attachments.
 function letterHtml(m) {
@@ -118,8 +170,9 @@ function letterHtml(m) {
   const time = d ? d.toLocaleTimeString(undefined, {timeStyle: 'short'}) : '';
   const sealedOn = !d ? '' : d.toDateString() === now.toDateString() ? ' at ' + time
     : ' on ' + d.toLocaleDateString(undefined, d.getFullYear() === now.getFullYear() ? {day: 'numeric', month: 'short'} : {day: 'numeric', month: 'short', year: 'numeric'}) + ' at ' + time;
-  const verified = sealed.state === 'ok' && (!inside || sealed.inside)
-    ? `<p class="seal-line">${icon('verified_user')}<span>Sealed by ${escape(inside || 'a mailbox at ' + sealed.domain)}${escape(sealedOn)}</span></p>`
+  const verified = sealed.state === 'none' && m.sender ? senderLines(m.sender, sealedOn)
+    : sealed.state === 'ok' && (!inside || sealed.inside)
+    ? sealLine(`Sealed by ${escape(inside || 'a mailbox at ' + sealed.domain)}${escape(sealedOn)}`)
     : sealed.state === 'ok' ? `<div class="reader-alert" role="alert">${icon('warning')}<div><b>Written with someone else's key</b><p>It says it is from ${escape(inside)}, ` +
                               `but it was sealed with the key of another mailbox, at ${escape(sealed.domain)}.</p></div></div>`
     : sealed.state === 'bad' ? `<div class="reader-alert" role="alert">${icon('warning')}<div><b>Its seal does not hold</b><p>Do not trust who it says it is from, ` +
@@ -139,7 +192,7 @@ function letterHtml(m) {
   const date = m.date && !isNaN(new Date(m.date)) ? new Date(m.date).toLocaleString(undefined, {dateStyle: 'medium', timeStyle: 'short'}) : m.date;
   // End to end only with a seal that holds; otherwise it was encrypted, but
   // nothing shows by whom.
-  const head = framed ? '' : `<div class="letter-head">` + (sealed.state === 'ok' && (!inside || sealed.inside)
+  const head = framed ? '' : `<div class="letter-head">` + (sealHolds(m)
       ? `<span class="badge">${icon('lock')}<span>End-to-end encrypted</span></span>` : `<span class="badge plain">${icon('lock')}<span>Encrypted</span></span>`) + '</div>' +
     (m.subject ? `<h2>${escape(m.subject)}</h2>` : '') + `<p class="meta">${escape(other || !m.from ? sentFrom : m.from)}${date ? `<br>${escape(date)}` : ''}</p>`;
   return '<article class="letter">' + head + verified + warning + body + (thumbs ? `<div class="thumbs">${thumbs}</div>` : '') +
@@ -176,6 +229,48 @@ function fill(m) {
   return loaded;
 }
 
+// Show my mark: your mark, for ten seconds, beside a line that vouches for
+// the message, on a press of yours, while this frame has the keyboard and
+// the whole line is on the screen, so a page cannot cut the frame down to
+// the mark and set it beside a line of its own; where the browser can tell
+// (Chrome), only while nothing covers or fades it.
+const lines = new Map();  // line -> {whole, visible}
+let lineWatch = null, markTimer = 0;
+function hideMarks() {
+  clearTimeout(markTimer);
+  for (const b of view.querySelectorAll('.mark-check[data-shown]')) { b.textContent = 'Show my mark'; delete b.dataset.shown; b.removeAttribute('aria-label'); }
+  report();
+}
+function markChecks() {
+  const m = shown?.keyId && markFor([shown.keyId]);
+  try {
+    lineWatch ||= new IntersectionObserver(entries => {
+      for (const en of entries) {
+        lines.set(en.target, {whole: en.intersectionRatio >= 0.98, visible: typeof en.isVisible === 'boolean' ? en.isVisible : null});
+        if (!lines.get(en.target).whole || lines.get(en.target).visible === false) hideMarks();
+      }
+    }, {trackVisibility: true, delay: 100, threshold: [0, 0.5, 0.9, 0.98, 1]});
+  } catch (e) {}
+  for (const b of view.querySelectorAll('.mark-check')) {
+    if (!m || !lineWatch) { b.remove(); continue; }
+    const line = b.closest('.seal-line');
+    lineWatch.observe(line);
+    b.hidden = false;
+    b.addEventListener('click', e => {
+      const seen = lines.get(line);
+      if (!e.isTrusted || !document.hasFocus() || !seen?.whole || seen.visible === false) return;
+      b.innerHTML = tile(m.mark, ' data-small');
+      b.dataset.shown = '';
+      b.setAttribute('aria-label', 'Your mark');
+      report();
+      clearTimeout(markTimer);
+      markTimer = setTimeout(hideMarks, 10000);
+    });
+  }
+}
+addEventListener('blur', hideMarks);
+document.addEventListener('visibilitychange', hideMarks);
+
 // The encrypted text gives way to the letter in Material 3's fade through:
 // the letter is laid out first, unseen, so the frame takes its new height
 // once; then the encrypted text fades out and the letter fades in, growing
@@ -194,6 +289,7 @@ async function reveal(m) {
     view.replaceChildren(stage, before);
   } else view.replaceChildren(stage);
   await fill(m);
+  markChecks();
   report();
   // Mail's header says "End-to-end encrypted" only for a letter whose seal
   // holds; until the reader says so, it says "Encrypted".
@@ -241,7 +337,7 @@ function join(name, mySlot) {
 }
 
 // In a tab of its own: the whole message is handed over, and it is opened here.
-let armored = null, handedRecords = [], sentFrom = '';
+let armored = null, handedRecords = [], sentFrom = '', handedRaw;
 async function prepare() {
   if (!await canOpen())
     return show(card('End-to-end encrypted', 'This browser is too old to open it safely. Update it (Safari 17, Chrome or Edge 133, Firefox 130 or later), or read it in Thunderbird.'));
@@ -283,8 +379,8 @@ async function prepare() {
   });
 }
 async function openHere(info, keyId) {
-  const m = await openWith(armored, info);
-  m.sentFrom = sentFrom;
+  const m = await openWith(armored, info, {raw: handedRaw, sentFrom});
+  m.sentFrom ||= sentFrom;
   shown = {keyId};
   view.replaceChildren();
   reveal(m);
@@ -304,6 +400,7 @@ addEventListener('message', e => {
     armored = d.armored;
     handedRecords = Array.isArray(d.records) ? d.records.filter(valid).slice(0, 20) : [];
     sentFrom = typeof d.from === 'string' && d.from.length <= 320 ? addressOf(d.from) : '';
+    handedRaw = d.raw instanceof Uint8Array && d.raw.length <= 40e6 ? d.raw : undefined;
     prepare();
   }
 });

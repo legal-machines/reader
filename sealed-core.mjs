@@ -71,14 +71,31 @@ export async function sessionKey(openpgp, message, derive, info) {
   return null;
 }
 
-// The message's content (the MIME entity inside), opened with that key.
-export async function open(openpgp, armored, derive, info) {
-  const message = await openpgp.readMessage({armoredMessage: armored});
-  const key = await sessionKey(openpgp, message, derive, info);
+// The message's content (the MIME entity inside), opened with that key, and
+// the sender's OpenPGP signature in it, if any: verifier(content, key IDs
+// that signed) gives the public keys to check it with, once the content is
+// read (a key can come in the message itself). {data, signed: null |
+// {state: 'ok' | 'bad' | 'unknown', ids, by}}
+export async function open(openpgp, armored, derive, info, verifier) {
+  const key = await sessionKey(openpgp, await openpgp.readMessage({armoredMessage: armored}), derive, info);
   if (!key) throw new Error('This message is not encrypted to the key on this device.');
-  const {data} = await openpgp.decrypt({message, sessionKeys: key, format: 'binary', expectSigned: false});
-  key.data.fill(0);
-  return data;
+  try {
+    const first = await openpgp.decrypt({message: await openpgp.readMessage({armoredMessage: armored}), sessionKeys: key, format: 'binary', expectSigned: false});
+    const ids = first.signatures.map(s => s.keyID.toHex());
+    if (!ids.length || !verifier) return {data: first.data, signed: null};
+    const keys = await verifier(first.data, ids);
+    if (!keys?.length) return {data: first.data, signed: {state: 'unknown', ids, by: null}};
+    first.data.fill(0);
+    const again = await openpgp.decrypt({message: await openpgp.readMessage({armoredMessage: armored}), sessionKeys: key, verificationKeys: keys, format: 'binary', expectSigned: false});
+    for (const s of again.signatures) {
+      if (!keys.some(k => k.getKeys(s.keyID).length)) continue;
+      try { await s.verified; return {data: again.data, signed: {state: 'ok', ids, by: s.keyID.toHex()}}; } catch (e) {}
+      return {data: again.data, signed: {state: 'bad', ids, by: s.keyID.toHex()}};
+    }
+    return {data: again.data, signed: {state: 'unknown', ids, by: null}};
+  } finally {
+    key.data.fill(0);
+  }
 }
 
 // From a secret key file and its passphrase: the decryption subkey's scalar
