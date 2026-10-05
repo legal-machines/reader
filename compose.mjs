@@ -387,8 +387,8 @@ function setAbout(open) {
   if (open === !about.hidden) return;
   about.hidden = !open;
   markButton.setAttribute('aria-expanded', String(open));
-  // Over the text and the lines above it, never past the top of the frame.
-  if (open) about.style.maxHeight = Math.max(96, (markCount.hidden ? markButton : markCount).getBoundingClientRect().top - 16) + 'px';
+  // Beside the mark, up from its foot, never past the top of the frame.
+  if (open) about.style.maxHeight = Math.max(96, markButton.getBoundingClientRect().bottom - 16) + 'px';
 }
 function showSeal() {
   const m = own && markFor(own.subkeys);
