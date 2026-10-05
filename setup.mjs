@@ -24,19 +24,51 @@ const form = document.getElementById('setup'), error = form.querySelector('.erro
 // The key can come from the Mail app instead of a file: its key message
 // (Add to this browser) opens this tab and hands over the key, still locked
 // with its passphrase. Only the Mail app's own addresses are listened to.
-let handed = null, mailOrigin = null;
+// A page that opened this tab can still change it, so nothing secret is typed
+// here: Continue opens this page again in a tab no page holds, which takes
+// the key over through this site's own storage (for minutes, still locked),
+// and this tab only hands the finished record back to the Mail app.
+const HANDOFF = 'seal-setup-handoff';
+const relay = new BroadcastChannel('seal-setup');
+const showHanded = () => {
+  document.getElementById('file-field').hidden = true;
+  document.getElementById('file').required = false;
+  document.getElementById('handed').hidden = false;
+};
+let handed = null, mailOrigin = null, relayId = null;
 if (window.opener) {
+  form.hidden = true;
+  const card = document.getElementById('continue');
+  card.hidden = false;
   addEventListener('message', e => {
     if (e.source !== window.opener || !MAIL_SITES.includes(e.origin)) return;
     if (e.data?.type === 'reader-hello') { mailOrigin = e.origin; return; }  // opened by the Mail app, without a key
-    if (e.data?.type !== 'reader-key' || typeof e.data.armored !== 'string') return;
+    if (e.data?.type !== 'reader-key' || typeof e.data.armored !== 'string' || e.data.armored.length > 200000) return;
     mailOrigin = e.origin;
     handed = e.data.armored;
-    document.getElementById('file-field').hidden = true;
-    document.getElementById('file').required = false;
-    document.getElementById('handed').hidden = false;
   });
   window.opener.postMessage({type: 'reader-ready'}, '*');
+  document.getElementById('continue-button').addEventListener('click', e => {
+    if (!e.isTrusted) return;
+    const id = [...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, '0')).join('');
+    try { localStorage.setItem(HANDOFF, JSON.stringify({id, armored: handed, at: Date.now()})); } catch (err) {}
+    relay.onmessage = m => {
+      if (m.data?.type !== 'sealed' || m.data.id !== id) return;
+      if (mailOrigin && window.opener) window.opener.postMessage({type: 'reader-sealed', record: m.data.record}, mailOrigin);
+      window.close();
+    };
+    window.open(`${location.origin}${location.pathname}#handoff=${id}`, '_blank', 'noopener');
+    card.querySelector('p').textContent = 'Finish in the new tab. This one closes once your key is added there.';
+    e.target.hidden = true;
+  });
+} else if (/^#handoff=[0-9a-f]{32}$/.test(location.hash)) {
+  relayId = location.hash.slice(9);
+  try {
+    const h = JSON.parse(localStorage.getItem(HANDOFF) || 'null');
+    localStorage.removeItem(HANDOFF);
+    if (h && h.id === relayId && Date.now() - h.at < 10 * 60000 && typeof h.armored === 'string') { handed = h.armored; showHanded(); }
+  } catch (err) {}
+  history.replaceState(null, '', location.pathname);
 }
 document.getElementById('use-pin').addEventListener('change', e => { document.getElementById('pin-fields').hidden = !e.target.checked; });
 
@@ -177,7 +209,7 @@ async function setUp() {
     found.scalar.fill(0);
     // The Mail app keeps the sealed key with the mailbox, for frames and for
     // the owner's other devices; without the passkey it opens nothing.
-    if (mailOrigin && window.opener) window.opener.postMessage({type: 'reader-sealed', record}, mailOrigin);
+    if (relayId) relay.postMessage({type: 'sealed', id: relayId, record});  // to the tab the Mail app opened, which hands it over
     form.reset();
     if (handed) form.hidden = true;  // its work is done; what is left is the mark
     done.innerHTML = `<b>Ready.</b> Encrypted messages to ${escape(addresses.join(', '))} now open in this browser, right in the Mail app.` +

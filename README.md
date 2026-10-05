@@ -43,7 +43,13 @@ the seal holds.
 
 * **The key stays on the device.** It is set up once per browser, in a tab of
   this site (`setup.html`, its address in the address bar), from the key file
-  and its passphrase. The decryption subkey is sealed (AES-GCM) under a key
+  and its passphrase, and only a key of one of our mailboxes (`keys.mjs`). A
+  tab another page opened (the Mail app's Add to this browser) asks for
+  nothing: that page could still change it. Continue opens `setup.html` again
+  in a tab no page holds, which takes the key over through this site's
+  storage, still locked, for minutes at most; the passphrase is typed only
+  there, and the first tab only hands the finished record back to the Mail
+  app and closes. The decryption subkey is sealed (AES-GCM) under a key
   made from a passkey's PRF output (Touch ID, a fingerprint, the screen lock
   or a security key) and, if chosen, a PIN. The sealed copy is kept by the
   Mail app with the mailbox (it cannot open it) and in this site's

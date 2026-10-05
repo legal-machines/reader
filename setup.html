@@ -16,6 +16,11 @@
 <main class="setup">
   <h1>Read encrypted mail in this browser</h1>
   <p>Your key file is opened here, in this browser, and nothing leaves it: this page cannot send anything anywhere. The key is then locked to this device with a passkey (Touch ID, a fingerprint or the screen lock) and a PIN you choose, and kept only in this browser.</p>
+  <section class="card" id="continue" hidden>
+    <h2>Continue in a tab of its own</h2>
+    <p>The mail page opened this tab and could still change what it shows. Your key's passphrase goes only into a tab no page can reach: Continue opens one, at this same address.</p>
+    <div class="actions"><button class="filled" type="button" id="continue-button">Continue</button></div>
+  </section>
   <section class="card" id="keys" hidden><h2>Keys in this browser</h2><div class="key-list" role="list"></div></section>
   <section class="card" id="alarm" hidden>
     <h2>Something looks wrong?</h2>
