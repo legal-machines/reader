@@ -446,19 +446,26 @@ def check_webauthn(host):
     return [f"{url} exists: it would let other sites use this site's passkeys"]
 
 
-def check_pins():
+def check_pins(state):
     """On the host: each Seal site's files against the hashes this Mac sent at
     its last publish, not against the SHA256SUMS at GitHub, so that a change
-    made at GitHub alone, sums and all, shows here."""
+    made at GitHub alone, sums and all, shows here. Until GitHub Pages has
+    built a new publish (its builds can wait an hour when Actions is slow), a
+    file of the publish before still passes, for six hours; one in neither is
+    a problem at once."""
     try:
         with open(PINS) as f:
             pins = json.load(f)
     except (OSError, ValueError):
         notes.append("no hashes from the last publish of Seal (reader-pins.json)")
         return []
-    if now() - parse_time(pins.get("published", "1970-01-01T00:00:00+00:00")) < SETTLING:
-        return []
-    problems = []
+    published = pins.get("published", "1970-01-01T00:00:00+00:00")
+    if state.get("pins_published") != published:
+        state["pins_before"] = state.get("pins_sites") or {}
+        state["pins_sites"] = pins.get("sites", {})
+        state["pins_published"] = published
+    before = state.get("pins_before", {}) if now() - parse_time(published) < 6 * 3600 else {}
+    problems, waiting = [], []
     for host, files in sorted(pins.get("sites", {}).items()):
         differ = []
         for name, digest in sorted(files.items()):
@@ -467,10 +474,17 @@ def check_pins():
             except (OSError, urllib.error.URLError):
                 notes.append(f"{host}/{name} could not be fetched")
                 continue
-            if hashlib.sha256(body).hexdigest() != digest:
+            got = hashlib.sha256(body).hexdigest()
+            if got == digest:
+                continue
+            if got == before.get(host, {}).get(name):
+                waiting.append(f"{host}/{name}")
+            else:
                 differ.append(name)
         if differ:
-            problems.append(f"{host} serves files other than the last publish from the owner's Mac: {', '.join(differ[:8])}")
+            problems.append(f"{host} serves files other than the last publishes from the owner's Mac: {', '.join(differ[:8])}")
+    if waiting:
+        notes.append(f"GitHub Pages still serves the publish before for {len(waiting)} file(s)")
     return problems
 
 
@@ -536,7 +550,7 @@ def run_server():
         state = {}
     ds_ever = state.get("ds", {})
     problems, ds_seen = check_all({d: bool(ds_ever.get(d)) for d in READERS})
-    problems += check_pins()
+    problems += check_pins(state)
     # Our keys against GitHub's copy, never against one kept here.
     key_problems = []
     try:
@@ -571,7 +585,8 @@ def run_server():
     if due:
         told = iso(now())
     write_public(ALERT, json.dumps({"problems": problems, "since": since, "checked": iso(now())}))
-    write_public(STATE, json.dumps({"ds": ds_ever, "problems": problems, "since": since, "notes": notes, "checked": iso(now()), "told": told}))
+    write_public(STATE, json.dumps({"ds": ds_ever, "problems": problems, "since": since, "notes": notes, "checked": iso(now()), "told": told,
+                                    **{k: state[k] for k in ("pins_published", "pins_sites", "pins_before") if k in state}}))
     if due:
         tell_postmasters(problems, bool(key_problems))
     for line in problems:
