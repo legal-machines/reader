@@ -153,10 +153,11 @@ secret.
   of seal.<domain> and openpgpkey.<domain> at deSEC, and certificates for the
   names in the Certificate Transparency logs that GitHub Pages does not
   serve. One runs on the mail server every 10 minutes, one here in GitHub
-  Actions, also every 10 minutes (`watch/`; each run checks for close to six
-  hours and the next waits its turn, since GitHub starts a schedule only
-  every few hours), which also checks the Mail app's own files against what
-  was deployed. The mail server's DNS token can change only its _dmarc and
+  Actions, also every 10 minutes (`watch/`; cron-job.org starts each run
+  through the API, since GitHub starts a schedule only every few hours),
+  which also checks the Mail app's own files against what was deployed. The
+  mail server's watch reports a problem when the one here has finished no
+  check for three hours. The mail server's DNS token can change only its _dmarc and
   _mta-sts records, so the server cannot repoint these names itself. While either reports a
   problem, the Mail app opens no encrypted message, adds no key and offers
   no End to end by itself.
