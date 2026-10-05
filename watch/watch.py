@@ -65,7 +65,7 @@ CERT_RECENT = 3 * 86400   # older issuances were weighed before
 SETTLING = 20 * 60        # GitHub Pages and raw.githubusercontent.com caches
 STATE = "/var/lib/mail-status/reader-watch.json"
 ALERT = "/var/lib/mail-status/reader-alert.json"
-WATCH_RUNS = "https://api.github.com/repos/legal-machines/reader/actions/workflows/watch.yml/runs?status=completed&per_page=1"
+WATCH_RUNS = "https://api.github.com/repos/legal-machines/reader/actions/workflows/watch.yml/runs?per_page=5"
 KEYS_URL = "https://raw.githubusercontent.com/legal-machines/reader/main/watch/keys.json"
 ZBASE32 = "ybndrfg8ejkmcpqxot1uwisza345h769"
 
@@ -110,7 +110,26 @@ def records(server, name, kind):
 def registry_servers(domain):
     tld = domain.rsplit(".", 1)[1] + "."
     out = subprocess.run(["dig", "+short", tld, "NS"], capture_output=True, text=True, timeout=60).stdout.split()
-    return sorted(out)[:2]
+    return sorted(out)[:3]
+
+
+def ds_at_registry(domain, servers):
+    """The DS records the registry publishes, asked of its servers in turn, and
+    whether it said there are none: two servers must answer NOERROR without
+    one. A server that times out or fails is not taken for one that said so,
+    so a slow registry is a note, not a domain without DNSSEC."""
+    name, none = domain.rstrip(".").lower() + ".", 0
+    for server in servers:
+        out = subprocess.run(["dig", "+norec", "+noall", "+comments", "+answer", "+time=5", "+tries=2", f"@{server}", name, "DS"],
+                             capture_output=True, text=True, timeout=60).stdout
+        if "status: NOERROR" not in out:
+            continue
+        found = [l.split(None, 4)[4].strip() for l in out.splitlines()
+                 if not l.startswith(";") and len(l.split(None, 4)) == 5 and l.split()[0].lower() == name and l.split()[3] == "DS"]
+        if found:
+            return found, True
+        none += 1
+    return [], none >= 2
 
 
 def ds_from_key(domain, dnskey, digest_type):
@@ -146,7 +165,8 @@ def check_dns(domain, ds_required):
         notes.append(f"{domain}: the registry did not answer for NS")
     elif ns != NAMESERVERS:
         problems.append(f"{domain} is delegated to {', '.join(sorted(ns))} at its registry, not to deSEC")
-    ds = [ds_parts(r) for r in records(servers[0], domain, "DS")]
+    ds_list, answered = ds_at_registry(domain, servers)
+    ds = [ds_parts(r) for r in ds_list]
     seen = [" ".join(map(str, d)) for d in ds]
     if ds:
         keys = [k for k in records("ns1.desec.io", domain, "DNSKEY") if k.split()[0] == "257"]
@@ -156,8 +176,10 @@ def check_dns(domain, ds_required):
             wanted = {ds_from_key(domain, k, d[2]) for k in keys for d in ds if d[2] in (1, 2, 4)}
             if not any(d in wanted for d in ds):
                 problems.append(f"the DS of {domain} at its registry does not match deSEC's key")
-    elif ds_required:
+    elif ds_required and answered:
         problems.append(f"the DS of {domain} at its registry is gone (DNSSEC is off for it)")
+    elif ds_required:
+        notes.append(f"{domain}: the registry did not answer for DS")
     # The reader, and the Web Key Directory (other people's apps take our keys
     # from it), are GitHub Pages sites.
     for host in (READERS[domain][0], f"openpgpkey.{domain}"):
@@ -478,11 +500,16 @@ def run_server():
         if seen:
             ds_ever[domain] = sorted(set(ds_ever.get(domain, [])) | set(seen))
     # The watcher at GitHub, which sees this server from outside.
+    # Each run checks every 10 minutes for hours and ends at once, failed, on a
+    # problem: a run going for a quarter of an hour has passed its checks, and
+    # answers for the watch even when the last one to end had failed.
     try:
         runs = fetch_json(WATCH_RUNS).get("workflow_runs", [])
-        if runs and runs[0].get("conclusion") == "failure":
-            problems.append(f"the watcher at GitHub reports a problem: {runs[0].get('html_url', '')}")
-    except (OSError, ValueError, urllib.error.URLError):
+        going = [r for r in runs if r.get("status") == "in_progress" and now() - parse_time(r.get("run_started_at") or r.get("created_at")) >= 15 * 60]
+        done = [r for r in runs if r.get("status") == "completed"]
+        if not going and done and done[0].get("conclusion") == "failure":
+            problems.append(f"the watcher at GitHub reports a problem: {done[0].get('html_url', '')}")
+    except (OSError, ValueError, KeyError, urllib.error.URLError):
         pass
     old = state.get("problems", [])
     since = state.get("since") if problems and old else (iso(now()) if problems else None)
