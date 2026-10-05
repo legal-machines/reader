@@ -131,3 +131,21 @@ body.compose main{display:flex;flex-direction:column;gap:var(--s-2)}
 /* Captions: one line, or lines of even length; paragraphs without a lone last word. */
 .hint,.handed,.error,.mark-line span{text-wrap:balance}
 p,li{text-wrap:pretty}
+/* A new key: who it is for, then the sheet to print. */
+.create-for{color:var(--c-text-2)}
+.sheet-facts{display:grid;grid-template-columns:max-content 1fr;gap:var(--s-2) var(--s-4);margin:var(--s-4) 0}
+.sheet-facts dt{color:var(--c-text-2);font-size:14px}
+.sheet-facts dd{margin:0;overflow-wrap:anywhere}
+.sheet-facts .fingerprint{margin:0;font-size:15px}
+.recovery-code{font:600 22px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.06em}
+.sheet-notes{margin:0 0 var(--s-4);padding-left:1.2em;color:var(--c-text-2);font-size:14px;line-height:20px}
+.sheet-notes li{margin:0 0 var(--s-2);text-wrap:pretty}
+@media (max-width:560px){.sheet-facts{grid-template-columns:1fr}.sheet-facts dd{margin-bottom:var(--s-2)}}
+/* On paper only the sheet, in black on white. */
+@media print{
+  body{background:#fff!important;color:#000!important}
+  .setup > :not(#sheet){display:none!important}
+  #sheet{margin:0;padding:0;background:none!important;box-shadow:none!important}
+  #sheet .no-print{display:none!important}
+  .sheet-notes,.sheet-facts dt{color:#000!important}
+}

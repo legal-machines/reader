@@ -6,7 +6,7 @@
 <meta name="color-scheme" content="light dark">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; worker-src 'self'; style-src 'self'; img-src 'self' data:; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self'; img-src 'self' data: blob:; form-action 'none'; base-uri 'none'">
 <title>Set up Seal</title>
 <link rel="stylesheet" href="reader.css">
 <link rel="icon" href="data:,">
@@ -33,6 +33,37 @@
       <p><b>Reported <span class="alarm-when"></span>.</b> Encrypted mail is locked in this browser: it opens nothing and sends nothing end to end until you clear the report.</p>
       <div class="actions"><button class="text" type="button" id="report-again">Open the report again</button><button class="text" type="button" id="clear-alarm">Clear the report</button></div>
     </div>
+  </section>
+  <section class="card" id="create" hidden>
+    <h2>Create your end-to-end key</h2>
+    <p class="create-for">For <b id="create-address"></b></p>
+    <p>The key is made here, in this browser; the mail server never sees it. It is locked to this device with a passkey (Touch ID, a fingerprint or the screen lock), and you get a recovery code to print. With the code, your other devices can add the key too.</p>
+    <label class="check"><input type="checkbox" id="create-use-pin"><span>Also ask a PIN with every message</span></label>
+    <div id="create-pin-fields" hidden>
+      <label class="field"><span>A PIN for this device (at least 6 characters)</span><input type="password" id="create-pin" minlength="6" inputmode="numeric"></label>
+      <label class="field"><span>The PIN again</span><input type="password" id="create-pin2" minlength="6" inputmode="numeric"></label>
+    </div>
+    <div class="actions"><button class="filled" type="button" id="create-button">Create my key</button></div>
+    <p class="error" role="alert" hidden></p>
+  </section>
+  <section class="card sheet" id="sheet" hidden>
+    <h2>Your end-to-end key</h2>
+    <dl class="sheet-facts">
+      <dt>Address</dt><dd id="sheet-address"></dd>
+      <dt>Fingerprint</dt><dd class="fingerprint" id="sheet-fingerprint"></dd>
+      <dt>Recovery code</dt><dd class="recovery-code" id="sheet-code"></dd>
+      <dt>Made</dt><dd id="sheet-date"></dd>
+      <dt>Where it opens</dt><dd id="sheet-site"></dd>
+    </dl>
+    <ul class="sheet-notes">
+      <li>Print this page or write the code down now. It is shown only this once.</li>
+      <li>With this code and the message "Your encryption key" in your mailbox, any of your devices can add the key. Without the code nobody can open the key in that message, the people who run the mail server included.</li>
+      <li>Keep the paper where you keep your passport. Not in a photo, a cloud note or a chat.</li>
+      <li>Before anyone can write to you end to end, an administrator publishes the key. Read them the fingerprint above by phone or in person, so they publish this key and not another.</li>
+    </ul>
+    <div class="actions no-print"><button class="tonal" type="button" id="sheet-print">Print</button><button class="text" type="button" id="sheet-save">Save the locked key file</button></div>
+    <label class="check no-print"><input type="checkbox" id="sheet-kept"><span>I printed this code or wrote it down</span></label>
+    <div class="actions no-print"><button class="filled" type="button" id="sheet-done" disabled>Done</button></div>
   </section>
   <form class="card" id="setup" autocomplete="off">
     <h2>Add a key</h2>

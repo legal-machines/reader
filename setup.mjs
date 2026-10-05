@@ -35,14 +35,22 @@ const showHanded = () => {
   document.getElementById('file').required = false;
   document.getElementById('handed').hidden = false;
 };
-let handed = null, mailOrigin = null, relayId = null;
+let handed = null, mailOrigin = null, relayId = null, createFor = null;
+// An address of one of our domains, as the Mail app names its mailbox.
+const OURS = /^[a-z0-9._%+-]{1,64}@(legalmachines\.org|dzyza\.com)$/;
 if (window.opener) {
   form.hidden = true;
   const card = document.getElementById('continue');
   card.hidden = false;
   addEventListener('message', e => {
     if (e.source !== window.opener || !MAIL_SITES.includes(e.origin)) return;
-    if (e.data?.type === 'reader-hello') { mailOrigin = e.origin; return; }  // opened by the Mail app, without a key
+    if (e.data?.type === 'reader-hello') {  // opened by the Mail app, without a key; perhaps to create one for its mailbox
+      mailOrigin = e.origin;
+      const c = e.data.create;
+      if (c && typeof c.address === 'string' && OURS.test(c.address.toLowerCase()))
+        createFor = {address: c.address.toLowerCase(), name: typeof c.name === 'string' ? c.name.replace(/[\x00-\x1f<>]/g, '').slice(0, 80) : ''};
+      return;
+    }
     if (e.data?.type !== 'reader-key' || typeof e.data.armored !== 'string' || e.data.armored.length > 200000) return;
     mailOrigin = e.origin;
     handed = e.data.armored;
@@ -51,10 +59,16 @@ if (window.opener) {
   document.getElementById('continue-button').addEventListener('click', e => {
     if (!e.isTrusted) return;
     const id = [...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, '0')).join('');
-    try { localStorage.setItem(HANDOFF, JSON.stringify({id, armored: handed, at: Date.now()})); } catch (err) {}
+    try { localStorage.setItem(HANDOFF, JSON.stringify({id, armored: handed, create: createFor, at: Date.now()})); } catch (err) {}
     relay.onmessage = m => {
       if (m.data?.type !== 'sealed' || m.data.id !== id) return;
-      if (mailOrigin && window.opener) window.opener.postMessage({type: 'reader-sealed', record: m.data.record}, mailOrigin);
+      if (mailOrigin && window.opener) {
+        // A key made in the new tab: its public half and its copy locked with
+        // the recovery code, for the mailbox (only the code opens that copy).
+        const k = m.data.newKey;
+        if (k) window.opener.postMessage({type: 'reader-newkey', publicKey: k.publicKey, lockedKey: k.lockedKey, fingerprint: k.fingerprint}, mailOrigin);
+        window.opener.postMessage({type: 'reader-sealed', record: m.data.record}, mailOrigin);
+      }
       window.close();
     };
     window.open(`${location.origin}${location.pathname}#handoff=${id}`, '_blank', 'noopener');
@@ -66,7 +80,10 @@ if (window.opener) {
   try {
     const h = JSON.parse(localStorage.getItem(HANDOFF) || 'null');
     localStorage.removeItem(HANDOFF);
-    if (h && h.id === relayId && Date.now() - h.at < 10 * 60000 && typeof h.armored === 'string') { handed = h.armored; showHanded(); }
+    if (h && h.id === relayId && Date.now() - h.at < 10 * 60000) {
+      if (typeof h.armored === 'string') { handed = h.armored; showHanded(); }
+      else if (h.create && OURS.test(h.create.address)) createFor = h.create;
+    }
   } catch (err) {}
   history.replaceState(null, '', location.pathname);
 }
@@ -173,6 +190,99 @@ document.getElementById('clear-alarm').addEventListener('click', e => {
 // stops forms from submitting does not stop it.
 form.addEventListener('submit', e => { e.preventDefault(); setUp(); });
 form.querySelector('.actions button').addEventListener('click', e => { e.preventDefault(); if (e.isTrusted && form.reportValidity()) setUp(); });
+// A key opened here, sealed under a new passkey (and the PIN, if chosen),
+// kept for this browser and its mark remembered; then held open for Mail for
+// a while (vault.mjs).
+async function adopt(found, addresses, pin) {
+  const passkey = await newPasskey(addresses[0]);
+  const record = await keep(passkey, pin, pkcs8Of(found.scalar), found.info, addresses);
+  const bytes = pkcs8Of(found.scalar);
+  const key = await crypto.subtle.importKey('pkcs8', bytes, {name: 'X25519'}, false, ['deriveBits']);
+  bytes.fill(0);
+  const mark = await markOf(key);
+  remember({[record.keyId]: mark});
+  setExplained(record.keyId);
+  await hold(record, pkcs8Of(found.scalar).buffer, 15).catch(() => {});
+  found.scalar.fill(0);
+  return {record, mark};
+}
+// The key's mark, shown here once with what it is for.
+function showDone(addresses, mark, closing = !!handed || !!createFor) {
+  done.innerHTML = `<b>Ready.</b> Encrypted messages to ${escape(addresses.join(', '))} now open in this browser, right in the Mail app.` +
+    `<span class="mark-line">${tile(mark, ' data-big')}<span><b>This is your mark.</b> When you write end to end, ` +
+    `this square of four pictures appears at the foot of the message as you type, and a tap on it says what it is. Mail cannot show it: type only where it appears. ` +
+    `Your key's passphrase or recovery code goes only into this page, at ${escape(location.host)}.</span></span>` +
+    (closing ? 'You can close this tab.' : '');
+  done.hidden = false;
+  list();
+}
+
+// ---- A new key, made in this tab for the mailbox the Mail app named. Its
+// copy for the mailbox is locked with a recovery code of 20 characters (100
+// bits, Crockford's base32) under Argon2, which no server can guess; the code
+// is shown once, on a sheet to print, and never leaves this page.
+const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+const newCode = () => [...crypto.getRandomValues(new Uint8Array(20))].map(b => CROCKFORD[b & 31]).join('');
+const createCard = document.getElementById('create'), createError = createCard.querySelector('.error'), sheet = document.getElementById('sheet');
+document.getElementById('create-use-pin').addEventListener('change', e => { document.getElementById('create-pin-fields').hidden = !e.target.checked; });
+if (createFor && !window.opener) {
+  createCard.hidden = false;
+  form.hidden = true;
+  document.getElementById('create-address').textContent = createFor.address;
+}
+let lockedCopy = null, madeFor = null, madeMark = null;
+document.getElementById('create-button').addEventListener('click', async e => {
+  if (!e.isTrusted || !createFor) return;
+  createError.hidden = true;
+  const usePin = document.getElementById('create-use-pin').checked, pin = usePin ? document.getElementById('create-pin').value : '';
+  if (usePin && (pin.length < 6 || pin !== document.getElementById('create-pin2').value)) {
+    createError.textContent = pin.length < 6 ? 'Choose a PIN of at least 6 characters.' : 'The two PINs differ.';
+    createError.hidden = false;
+    return;
+  }
+  e.target.disabled = true;
+  try {
+    const code = newCode();
+    const {privateKey: locked, publicKey} = await openpgp.generateKey({type: 'ecc', curve: 'curve25519Legacy',
+      userIDs: [{name: createFor.name || undefined, email: createFor.address}], passphrase: code, keyExpirationTime: 3 * 365 * 86400,
+      format: 'armored', config: {s2kType: openpgp.enums.s2k.argon2, aeadProtect: true}});
+    const found = await extract(openpgp, locked, code);
+    const {record, mark} = await adopt(found, [createFor.address], pin);
+    const fingerprint = (await openpgp.readKey({armoredKey: publicKey})).getFingerprint().toUpperCase();
+    if (relayId) relay.postMessage({type: 'sealed', id: relayId, record, newKey: {publicKey, lockedKey: locked, fingerprint}});
+    lockedCopy = locked; madeFor = createFor.address; madeMark = mark;
+    document.getElementById('sheet-address').textContent = createFor.address;
+    document.getElementById('sheet-fingerprint').innerHTML = fingerprint.match(/.{4}/g).reduce((a, g, i) => a + (i === 5 ? '</span><span>' : i ? ' ' : '') + g, '<span>') + '</span>';
+    document.getElementById('sheet-code').textContent = code.match(/.{4}/g).join('-');
+    document.getElementById('sheet-date').textContent = new Date().toISOString().slice(0, 10);
+    document.getElementById('sheet-site').textContent = `${location.host}, in a tab of its own; and Mail, at ${createFor.address.split('@')[1]}`;
+    createCard.hidden = true;
+    sheet.hidden = false;
+    sheet.scrollIntoView({block: 'start'});
+  } catch (err) {
+    createError.textContent = err.name === 'NotAllowedError' ? 'The passkey was not made (cancelled or not allowed).' : err.message;
+    createError.hidden = false;
+    e.target.disabled = false;
+  }
+});
+document.getElementById('sheet-print').addEventListener('click', () => print());
+document.getElementById('sheet-save').addEventListener('click', () => {
+  if (!lockedCopy) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([lockedCopy], {type: 'application/pgp-keys'}));
+  a.download = `encryption-key-${madeFor}.asc`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+document.getElementById('sheet-kept').addEventListener('change', e => { document.getElementById('sheet-done').disabled = !e.target.checked; });
+document.getElementById('sheet-done').addEventListener('click', () => {
+  // The code leaves the page: the sheet goes, and with it the only copy here.
+  document.getElementById('sheet-code').textContent = '';
+  sheet.hidden = true;
+  lockedCopy = null;
+  showDone([madeFor], madeMark, true);
+});
+
 async function setUp() {
   error.hidden = true;
   const usePin = document.getElementById('use-pin').checked, pin = usePin ? document.getElementById('pin').value : '';
@@ -187,38 +297,24 @@ async function setUp() {
     const text = handed || await document.getElementById('file').files[0].text();
     let found;
     try {
-      found = await extract(openpgp, text, document.getElementById('passphrase').value);
+      const typed = document.getElementById('passphrase').value, asCode = typed.toUpperCase().replace(/[\s-]/g, '').replace(/O/g, '0').replace(/[IL]/g, '1');
+      try { found = await extract(openpgp, text, typed); }
+      catch (first) { if (asCode !== typed && /^[0-9A-Z]{20}$/.test(asCode)) found = await extract(openpgp, text, asCode); else throw first; }
     } catch (err) {
-      throw new Error(/passphrase|decrypt/i.test(err.message) ? 'Wrong passphrase.' : err.message.includes('Curve25519') ? err.message : 'This is not a secret key file.');
+      throw new Error(/passphrase|decrypt|auth/i.test(err.message) ? 'Wrong passphrase or recovery code.' : err.message.includes('Curve25519') ? err.message : 'This is not a secret key file.');
     }
     // Only a key of one of our mailboxes (keys.mjs, published with this
     // site): a page cannot hand this one a key of its own making.
-    if (!KEYS.some(k => (k.subkeys || []).includes(String(found.info.keyId).toLowerCase()))) throw new Error('This is not the key of one of our mailboxes.');
+    if (!KEYS.some(k => (k.subkeys || []).includes(String(found.info.keyId).toLowerCase())))
+      throw new Error('This key is not published yet, or is not the key of one of our mailboxes. A new key works once an administrator has published it.');
     const addresses = found.userIds.map(u => (/<([^>]+)>/.exec(u) || [, u])[1].toLowerCase());
-    const passkey = await newPasskey(addresses[0]);
-    const record = await keep(passkey, pin, pkcs8Of(found.scalar), found.info, addresses);
-    // The key's mark (mark.mjs), shown here once with what it is for; and the
-    // key, just opened, kept open for Mail for a while (vault.mjs).
-    const bytes = pkcs8Of(found.scalar);
-    const key = await crypto.subtle.importKey('pkcs8', bytes, {name: 'X25519'}, false, ['deriveBits']);
-    bytes.fill(0);
-    const mark = await markOf(key);
-    remember({[record.keyId]: mark});
-    setExplained(record.keyId);
-    await hold(record, pkcs8Of(found.scalar).buffer, 15).catch(() => {});
-    found.scalar.fill(0);
+    const {record, mark} = await adopt(found, addresses, pin);
     // The Mail app keeps the sealed key with the mailbox, for frames and for
     // the owner's other devices; without the passkey it opens nothing.
     if (relayId) relay.postMessage({type: 'sealed', id: relayId, record});  // to the tab the Mail app opened, which hands it over
     form.reset();
     if (handed) form.hidden = true;  // its work is done; what is left is the mark
-    done.innerHTML = `<b>Ready.</b> Encrypted messages to ${escape(addresses.join(', '))} now open in this browser, right in the Mail app.` +
-      `<span class="mark-line">${tile(mark, ' data-big')}<span><b>This is your mark.</b> When you write end to end, ` +
-      `this square of four pictures appears at the foot of the message as you type, and a tap on it says what it is. Mail cannot show it: type only where it appears. ` +
-      `Your key's passphrase goes only into this page, at ${escape(location.host)}.</span></span>` +
-      (handed ? 'You can close this tab.' : '');
-    done.hidden = false;
-    list();
+    showDone(addresses, mark);
   } catch (err) {
     error.textContent = err.name === 'NotAllowedError' ? 'The passkey was not made (cancelled or not allowed).' : err.message;
     error.hidden = false;

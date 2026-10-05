@@ -41,6 +41,18 @@ the seal holds.
 
 ## Reading
 
+* **A key of one's own, made here.** Someone whose mailbox has no key yet
+  gets Create my key when they first sign in to Mail (and on Security). Seal
+  makes the key in that browser (OpenPGP.js: Ed25519 with a Curve25519
+  encryption subkey), seals it under a passkey like any other, and shows a
+  sheet to print once: the address, the fingerprint and a recovery code of
+  20 characters (100 bits). Mail gets only the public half and a copy locked
+  with that code under Argon2, which it files in the inbox as "Your
+  encryption key" for the person's other devices; no server can guess the
+  code. Mail cannot publish the key: the owner of the keys reads the
+  fingerprint with the person by phone or in person and publishes it from
+  his Mac (`scripts/keys-approve.py` in the mail repository), since a key
+  the server published could be its own.
 * **The key stays on the device.** It is set up once per browser, in a tab of
   this site (`setup.html`, its address in the address bar), from the key file
   and its passphrase, and only a key of one of our mailboxes (`keys.mjs`). A
