@@ -88,13 +88,13 @@ body.compose-frame{height:100vh;overflow:hidden}
    corner 20 dp, no shadow), wider than the count, the count of the files the reader holds right above it, and on a
    tap on either a Material 3 rich tooltip that says what they are. In with the emphasized
    decelerate curve, out with the emphasized accelerate one. The text keeps
-   room under its last line, and at least a line of it shows above the mark
-   however short the frame gets. */
+   room under its last line; however short the frame gets, the mark has room,
+   and the text shows beside it. */
 :root{--mark-size:80px}
-.editor-box{position:relative;display:flex;flex:1;min-height:calc(var(--s-6) + var(--mark-size) + var(--s-3) + var(--s-2));margin:var(--s-2) 0 0}
+.editor-box{position:relative;display:flex;flex:1;min-height:calc(var(--mark-size) + var(--s-3) + var(--s-2));margin:var(--s-2) 0 0}
 .editor-box > .editor{flex:1;margin:0;padding-bottom:calc(var(--mark-size) + var(--s-3) + var(--s-2))}
 .editor-box.with-files > .editor{padding-bottom:calc(var(--mark-size) + var(--h-sm) + var(--s-2) + var(--s-3) + var(--s-2))}
-.editor-box.with-files{min-height:calc(var(--s-6) + var(--mark-size) + var(--h-sm) + var(--s-2) + var(--s-3) + var(--s-2))}
+.editor-box.with-files{min-height:calc(var(--mark-size) + var(--h-sm) + var(--s-2) + var(--s-3) + var(--s-2))}
 /* A frame under 300 px (a small phone with its keyboard up): the list of
    files moves above the text, under the Subject line, and scrolls away with
    it, so the count over your mark, the mark and the bar all stay in view. */
@@ -117,7 +117,7 @@ body.short .pane.composer > .attachments{order:-1;margin-bottom:var(--s-2)}
 .mark-tile{display:grid;grid-template-columns:repeat(2,26px);grid-auto-rows:26px;gap:4px;place-items:center;font-size:24px;line-height:26px;
   white-space:nowrap;-webkit-user-select:none;user-select:none}
 .mark-tile > span{display:block}
-.mark-tile.empty > span{width:10px;height:10px;border-radius:var(--r-full);background:currentColor;opacity:.38}
+.mark-tile[data-none] > span{width:10px;height:10px;border-radius:var(--r-full);background:currentColor;opacity:.38}
 /* The count: a flat Material 3 assist chip (32 dp, 16 dp each side, label large) on the same tonal color, centered above the square. */
 .mark-files{flex:none;height:var(--h-sm);padding:0 var(--s-4);border-radius:var(--r-sm);background:var(--c-good-soft);color:var(--c-on-good-soft);
   font:var(--w-medium) var(--t-md)/var(--h-sm) var(--f-sans);white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent}

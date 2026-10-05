@@ -411,7 +411,7 @@ function showSeal() {
   const state = m ? m.keyId + m.mark : '';
   if (state !== shownMark) {
     shownMark = state;
-    markButton.innerHTML = m ? tile(m.mark) : '<span class="mark-tile empty" role="img" aria-label="No mark yet"><span></span><span></span><span></span><span></span></span>';
+    markButton.innerHTML = m ? tile(m.mark) : '<span class="mark-tile" data-none role="img" aria-label="No mark yet"><span></span><span></span><span></span><span></span></span>';
     markButton.title = m ? 'What is this?' : 'Where is my mark?';
     aboutActions.querySelector('[data-report]')?.remove();
     if (m) aboutActions.insertAdjacentHTML('beforeend', `<a class="text" href="/setup.html#alarm" target="_blank" rel="noopener" data-report>Report</a>`);
@@ -465,12 +465,18 @@ addEventListener('resize', () => {
 // scroll up while you write, so the bar rests on the frame's foot (on the
 // keyboard) with the text and your mark above it; in a frame tall enough,
 // nothing moves.
+// The browser's own scroll toward the caret is undone, as in Mail; a scroll
+// of your own (a touch, the wheel) stays.
+let barAt = 0, ownScroll = false;
 function keepBar() {
   document.body.classList.toggle('short', innerHeight < 300);
   const over = form.scrollHeight - form.clientHeight;
-  if (over <= 0) form.scrollTop = 0;
-  else if (document.activeElement === editor) form.scrollTop = over;
+  barAt = over <= 0 ? 0 : document.activeElement === editor ? over : form.scrollTop;
+  form.scrollTop = barAt;
 }
+form.addEventListener('scroll', () => { if (!ownScroll && form.scrollTop !== barAt) form.scrollTop = barAt; });
+for (const type of ['touchstart', 'wheel']) form.addEventListener(type, () => { ownScroll = true; }, {passive: true});
+addEventListener('resize', () => { ownScroll = false; });
 editor.addEventListener('focus', () => requestAnimationFrame(keepBar));
 // The line the caret is on. In an empty line a browser gives the caret no box:
 // then the node beside it, never the whole field.
