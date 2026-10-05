@@ -5,7 +5,7 @@
 import * as openpgp from './openpgp.min.mjs';
 import {extract, pkcs8Of} from './sealed-core.mjs';
 import {all, keep, newPasskey, remove} from './store.mjs';
-import {known, markOf, pictures, remember, setExplained, text as markText} from './mark.mjs';
+import {known, markOf, remember, setExplained, text as markText, tile} from './mark.mjs';
 import {hold, lock} from './vault.mjs';
 import {clear as clearAlarm, raise, raised} from './alarm.mjs';
 import {escape} from './mime.mjs';
@@ -124,8 +124,8 @@ form.addEventListener('submit', async e => {
     form.reset();
     if (handed) form.hidden = true;  // its work is done; what is left is the mark
     done.innerHTML = `<b>Ready.</b> Encrypted messages to ${escape(addresses.join(', '))} now open in this browser, right in the Mail app.` +
-      `<span class="mark-line"><span class="reader-mark" data-big role="img" aria-label="${markText(mark)}">${pictures(mark)}</span><span><b>This is your mark.</b> When you write end to end, ` +
-      `these four pictures appear at the foot of the message as you type. Mail cannot show them: type only where they appear. ` +
+      `<span class="mark-line">${tile(mark, ' data-big')}<span><b>This is your mark.</b> When you write end to end, ` +
+      `this square of four pictures appears at the foot of the message as you type, and a tap on it says what it is. Mail cannot show it: type only where it appears. ` +
       `Your key's passphrase goes only into this page, at ${escape(location.host)}.</span></span>` +
       (handed ? 'You can close this tab.' : '');
     done.hidden = false;

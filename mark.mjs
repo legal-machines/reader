@@ -60,6 +60,6 @@ export async function markOf(privateKey) {
   return [bits[0] >> 2, ((bits[0] & 3) << 4) | (bits[1] >> 4), ((bits[1] & 15) << 2) | (bits[2] >> 6), bits[2] & 63];
 }
 
-// The chip that shows it.
-export const chip = (indices, extra = '') => valid(indices)
-  ? `<span class="reader-mark"${extra} role="img" aria-label="Your Mail Reader mark: ${text(indices)}">${pictures(indices)}</span>` : '';
+// The square that shows it: the four pictures in two rows.
+export const tile = (indices, extra = '') => valid(indices)
+  ? `<span class="mark-tile"${extra} role="img" aria-label="Your Mail Reader mark: ${text(indices)}">${pictures(indices)}</span>` : '';

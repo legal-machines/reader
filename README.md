@@ -76,6 +76,9 @@ the seal holds.
   condition, Mail could cut them out of a frame of the reader and set them
   beside a field of its own; shown only while you type or attach in the
   reader, every key you press and every file you pick goes to the reader.
+  The pictures sit two by two on a square; above it, the count of files the
+  reader holds for the message, so a file that went to Mail instead shows
+  by not raising it. A tap on either says what they are.
 * **The reader keeps its own code.** `sw.js` carries the SHA-256 of every
   file of the reader (written by `make-pins.py` at publishing), installs
   only when the site serves exactly those, keeps them, and serves the

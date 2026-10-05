@@ -14,7 +14,7 @@ import {widths} from './width.mjs';
 import {escape, linkify} from './mime.mjs';
 import {icon} from './icons.mjs';
 import {keyOf} from './seal.mjs';
-import {chip, explained, markFor, setExplained} from './mark.mjs';
+import {explained, markFor, setExplained, tile} from './mark.mjs';
 import * as vault from './vault.mjs';
 import {openWith, recipientsOf} from './decrypt.mjs';
 import {fromOurFrame, readerFrames} from './tab.mjs';
@@ -368,25 +368,61 @@ form.addEventListener('drop', e => {
   } else attach(list);
 });
 
-// ---- The mark, while this frame has the keyboard: a chip floating at the
-// foot of the text, which a field that only looks like this one cannot show
-// (Mail can neither read it nor have it shown elsewhere). The first time,
-// it says what it is; before this browser knows it, where it will come from.
+// ---- The mark, while this frame has the keyboard: a square of four pictures
+// at the foot of the text, which a field that only looks like this one
+// cannot show (Mail can neither read it nor have it shown elsewhere), and
+// right above it the count of files this frame holds, which tells a file
+// attached here from one Mail took. A tap on either says what they are, in a
+// Material 3 rich tooltip; the first time, it says so by itself. Before this browser knows the mark, the square is empty. Nothing
+// here takes the keyboard from the text.
+dock.innerHTML = '<span class="mark-files" hidden></span>' +
+  '<button class="mark-button" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="mark-about"></button>' +
+  '<div class="mark-about" id="mark-about" role="dialog" aria-labelledby="mark-about-title" hidden><p class="mark-about-title" id="mark-about-title">Your mark</p><div class="mark-about-text"></div>' +
+  '<div class="mark-about-actions"><button class="text" type="button" data-got-it>Got it</button></div></div>';
+const markButton = dock.querySelector('.mark-button'), markCount = dock.querySelector('.mark-files');
+const about = dock.querySelector('.mark-about'), aboutText = about.querySelector('.mark-about-text');
+const aboutActions = about.querySelector('.mark-about-actions');
+let shownMark = null;
+function setAbout(open) {
+  if (open === !about.hidden) return;
+  about.hidden = !open;
+  markButton.setAttribute('aria-expanded', String(open));
+  // Over the text and the lines above it, never past the top of the frame.
+  if (open) about.style.maxHeight = Math.max(96, (markCount.hidden ? markButton : markCount).getBoundingClientRect().top - 16) + 'px';
+}
 function showSeal() {
   const m = own && markFor(own.subkeys);
-  const focused = document.hasFocus();
-  dock.dataset.shown = String(focused && !!from);
-  if (!focused) return;
-  dock.classList.toggle('explains', !m || !explained(m.keyId));
-  dock.innerHTML = m
-    ? `${icon('shield')}<span class="mark-word">Your mark</span>${chip(m.mark, ' data-dock')}` +
-      (files.length ? `<span class="mark-files">${files.length === 1 ? '1 file' : files.length + ' files'}</span>` : '') +
-      (explained(m.keyId) ? '' : `<span class="mark-why">Only the Mail Reader shows it, and only here, as you type.</span><button class="text" type="button" data-got-it>Got it</button>`)
-    : `${icon('shield')}<span class="mark-why">Your mark appears here once you unlock encrypted mail in this browser.</span>`;
-  const got = dock.querySelector('[data-got-it]');
-  got?.addEventListener('mousedown', e => e.preventDefault());  // the keyboard stays where it was
-  got?.addEventListener('click', () => { setExplained(m.keyId); showSeal(); });
+  const shown = document.hasFocus() && !!from;
+  dock.dataset.shown = String(shown);
+  if (!shown) { setAbout(false); return; }
+  markCount.hidden = !files.length;
+  markCount.textContent = files.length === 1 ? '1 file' : files.length + ' files';
+  editor.parentElement.classList.toggle('with-files', files.length > 0);
+  const count = files.length ? `<p>The count above it is the files that go end to end. A file that does not raise it went to Mail.</p>` : '';
+  aboutText.innerHTML = m
+    ? '<p>Only the Mail Reader can show these four pictures, made from your key, and only here as you type. Mail and its server cannot.</p>' + count +
+      '<p>If a composer like this one shows no mark or other pictures, stop typing there and report it.</p>'
+    : '<p>Your four pictures appear in this square once you unlock encrypted mail in this browser.</p>' + count;
+  const state = m ? m.keyId + m.mark : '';
+  if (state !== shownMark) {
+    shownMark = state;
+    markButton.innerHTML = m ? tile(m.mark) : '<span class="mark-tile empty" role="img" aria-label="No mark yet"><span></span><span></span><span></span><span></span></span>';
+    markButton.title = m ? 'What is this?' : 'Where is my mark?';
+    aboutActions.querySelector('[data-report]')?.remove();
+    if (m) aboutActions.insertAdjacentHTML('beforeend', `<a class="text" href="/setup.html#alarm" target="_blank" rel="noopener" data-report>Report</a>`);
+    if (m && !explained(m.keyId)) setAbout(true);
+  }
 }
+dock.addEventListener('mousedown', e => { if (!e.target.closest('a')) e.preventDefault(); });  // the caret stays in the text
+markButton.addEventListener('click', () => setAbout(about.hidden));
+markCount.addEventListener('click', () => setAbout(about.hidden));
+about.querySelector('[data-got-it]').addEventListener('click', () => {
+  const m = own && markFor(own.subkeys);
+  if (m) setExplained(m.keyId);
+  setAbout(false);
+});
+addEventListener('keydown', e => { if (e.key === 'Escape' && !about.hidden) { e.stopPropagation(); setAbout(false); } }, true);
+addEventListener('pointerdown', e => { if (!about.hidden && !dock.contains(e.target)) setAbout(false); }, true);
 addEventListener('focus', showSeal);
 addEventListener('blur', showSeal);
 document.addEventListener('focusin', showSeal);
