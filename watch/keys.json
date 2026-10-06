@@ -1,36 +1,13 @@
 {
  "domains": {
   "dzyza.com": {
-   "keys": {
-    "7057C91138BEE8E9C0C8B69DD777C31C10377063": {
-     "subkeys": [
-      "304F5E6AA071CD7BDD3638B54C573CD61BF5011B",
-      "6877D3C5CC305AA703B8DC26D2106A9D1269DFDF"
-     ]
-    }
-   },
-   "wkd": {
-    "bn1ic1u3sxkskaz9brpkeb56uk6o3zb6": "7057C91138BEE8E9C0C8B69DD777C31C10377063"
-   }
+   "keys": {},
+   "wkd": {}
   },
   "legalmachines.org": {
-   "keys": {
-    "1FE51C6A8851595B7AA4454D907D9549699CA682": {
-     "subkeys": [
-      "32D72D9E3771C19CBDE079D548ADDF834C591048",
-      "E5EE2C6021AABE3EC9F9C110547E48A88EF6A4C5"
-     ]
-    }
-   },
-   "wkd": {
-    "3cuspu33z8zfc6zobyx499nms7gns874": "1FE51C6A8851595B7AA4454D907D9549699CA682",
-    "6p7uf88kgnmcejgwi3x5ikauof79jo41": "1FE51C6A8851595B7AA4454D907D9549699CA682",
-    "bn1ic1u3sxkskaz9brpkeb56uk6o3zb6": "1FE51C6A8851595B7AA4454D907D9549699CA682",
-    "im4cc8qhazwkfsi65a8us1bc5gzk1o4p": "1FE51C6A8851595B7AA4454D907D9549699CA682",
-    "sfekdkokccgs4jdh1qhkk49qgkxteuo5": "1FE51C6A8851595B7AA4454D907D9549699CA682",
-    "tp7o5e6sk8xbe3eq151qs3zie1rw9u38": "1FE51C6A8851595B7AA4454D907D9549699CA682"
-   }
+   "keys": {},
+   "wkd": {}
   }
  },
- "updated": "2026-10-04T19:52:02Z"
+ "updated": "2026-10-06T13:59:07Z"
 }
