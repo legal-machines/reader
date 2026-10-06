@@ -128,6 +128,7 @@ export function read(bytes) {
   out.subject = words(h.get('subject') || '');
   out.from = words(h.get('from') || '');
   out.to = words(h.get('to') || '');
+  out.bcc = words(h.get('bcc') || '');  // in a Bcc's own copy: that reader alone (send.mjs)
   out.date = h.get('date') || '';
   return out;
 }

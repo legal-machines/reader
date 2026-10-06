@@ -14,6 +14,9 @@ import {widths} from './width.mjs';
 import {addressOf, escape, linkify} from './mime.mjs';
 import {icon} from './icons.mjs';
 import {keyOf} from './seal.mjs';
+import {measure, now} from './clock.mjs';
+
+measure();  // GitHub's time, for the Date of what is written here (clock.mjs)
 import {explained, markFor, setExplained, tile} from './mark.mjs';
 import {formattingMarks} from './marks.mjs';
 import * as vault from './vault.mjs';
@@ -577,7 +580,7 @@ async function message({to, cc, from: sender}) {
   if (!subject.value.trim() && !(editor.innerText || '').trim() && !files.length) throw new Error('The message is empty.');
   if (total() > LIMIT) throw new Error('End-to-end messages take files of up to 15 MB in all.');
   const heads = `From: ${from}\r\nTo: ${list(to)}\r\n` + (cc.length ? `Cc: ${list(cc)}\r\n` : '') +
-                `Subject: ${header(subject.value.trim())}\r\nDate: ${new Date().toUTCString()}\r\n` +
+                `Subject: ${header(subject.value.trim())}\r\nDate: ${new Date(now()).toUTCString()}\r\n` +
                 `Message-ID: <${crypto.randomUUID()}@${from.split('@')[1]}>\r\nMIME-Version: 1.0\r\n`;
   let inner = await body();
   if (files.length) {

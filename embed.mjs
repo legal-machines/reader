@@ -210,7 +210,8 @@ function letterHtml(m) {
   // nothing shows by whom.
   const head = framed ? '' : `<div class="letter-head">` + (sealHolds(m)
       ? `<span class="badge">${icon('lock')}<span>End-to-end encrypted</span></span>` : `<span class="badge plain">${icon('lock')}<span>Encrypted</span></span>`) + '</div>' +
-    (m.subject ? `<h2>${escape(m.subject)}</h2>` : '') + `<p class="meta">${escape(other || !m.from ? sentFrom : m.from)}${date ? `<br>${escape(date)}` : ''}</p>`;
+    (m.subject ? `<h2>${escape(m.subject)}</h2>` : '') + `<p class="meta">${escape(other || !m.from ? sentFrom : m.from)}${date ? `<br>${escape(date)}` : ''}` +
+    (m.bcc ? `<br>${escape(`Bcc to ${addressOf(m.bcc) || m.bcc}: the other recipients do not see it`)}` : '') + '</p>';
   return '<article class="letter">' + head + verified + warning + body + (thumbs ? `<div class="thumbs">${thumbs}</div>` : '') +
          (list ? `<div class="attachments">${list}</div>` : '') + '</article>';
 }

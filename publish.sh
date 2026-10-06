@@ -7,6 +7,16 @@
 # its own domain's key, so its pins and SHA256SUMS are made again there.
 set -e
 cd "$(dirname "$0")"
+# Everything on GitHub must be here, in Seal and in the mail repository whose
+# keys go into keys.mjs: keys-approve.py publishes from copies of its own, and
+# a publish from a folder behind GitHub would take its keys out of Seal.
+mail_repo="${MAIL_REPO:-$HOME/Desktop/Projects/mail}"
+for repo in . "$mail_repo"; do
+  if ! git -C "$repo" fetch -q origin main || ! git -C "$repo" merge-base --is-ancestor origin/main HEAD; then
+    echo "$repo is behind GitHub's main (or GitHub could not be reached): git pull there first, then publish." >&2
+    exit 1
+  fi
+done
 python3 make-keys.py --keys-page legalmachines.org
 python3 make-notices.py
 python3 make-styles.py

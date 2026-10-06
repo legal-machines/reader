@@ -143,26 +143,44 @@ button.addEventListener('click', async e => {
     const signer = st.signers?.[fromId] || null;
     if (toOutside && !signer) throw new Error('Your key that signs could not be opened in this browser: nothing was sent. Add your key to this browser again (Security, Add my key to this browser).');
     const openpgp = await openpgpLib();
-    let text = await ask(to, cc);
-    const keys = [...new Set([...everyone, from])].map(a => known.get(a));
-    // The seal goes to our mailboxes only: Seal elsewhere has no key of theirs to check it with.
-    text = await seal(openpgp, text, fromId, derive, keys.filter(k => k.internal).map(k => k.subkeys[0]));
+    const text = await ask(to, cc);
     // Our keys that keys.mjs lists without the key itself come from the Web
     // Key Directory, each only as the key it names (wkd.mjs).
-    const addresses = [...new Set([...everyone, from])];
-    const encryptionKeys = await Promise.all(keys.map(async (k, i) => openpgp.readKey({armoredKey: k.armored || await armoredFor(openpgp, addresses[i], k.entry)})));
-    const data = new TextEncoder().encode(text);
+    const keyOfAddress = async a => {
+      const k = known.get(a);
+      return openpgp.readKey({armoredKey: k.armored || await armoredFor(openpgp, a, k.entry)});
+    };
     // Signed and encrypted at the right time, whatever this device's clock says.
     await measure();
     const at = now();
-    const message = signer ? await signedPackets(openpgp, data, signer, vault.signer(fromId), at) : await openpgp.createMessage({binary: data, date: new Date(at)});
-    // SEIPD version 1 always, as Thunderbird and GnuPG read it (neither opens
-    // version 2, which keys made in Seal asked for until October 2026): a
-    // session key with no AEAD algorithm makes OpenPGP.js write version 1.
-    const sessionKey = {data: crypto.getRandomValues(new Uint8Array(32)), algorithm: 'aes256'};
-    const armored = await openpgp.encrypt({message, encryptionKeys, sessionKey, format: 'armored', date: new Date(at)});
-    sessionKey.data.fill(0);
-    tell({type: 'reader-encrypted', armored});
+    // One message for the people it names (To and Cc), and one of its own
+    // for each Bcc: a copy for many would name every key it is encrypted to
+    // (in its packets, for anyone holding it, the mail server too) and carry
+    // a seal line for each, so the people in To would see who else got it.
+    // Each copy has its own seal and signature, and says inside that it is
+    // a Bcc, for its reader. An address in To or Cc as well gets the one
+    // message.
+    const named = [...new Set([...to, ...cc].map(a => a.toLowerCase()))];
+    const hidden = [...new Set(bcc.map(a => a.toLowerCase()))].filter(a => !named.includes(a));
+    const encrypt = async (body, list) => {
+      const people = [...new Set([...list, from])];
+      // The seal goes to our mailboxes only: Seal elsewhere has no key of theirs to check it with.
+      const sealed = await seal(openpgp, body, fromId, derive, people.map(a => known.get(a)).filter(k => k.internal).map(k => k.subkeys[0]));
+      const data = new TextEncoder().encode(sealed);
+      const message = signer ? await signedPackets(openpgp, data, signer, vault.signer(fromId), at) : await openpgp.createMessage({binary: data, date: new Date(at)});
+      // SEIPD version 1 always, as Thunderbird and GnuPG read it (neither
+      // opens version 2, which keys made in Seal asked for until October
+      // 2026): a session key with no AEAD algorithm makes OpenPGP.js write 1.
+      const sessionKey = {data: crypto.getRandomValues(new Uint8Array(32)), algorithm: 'aes256'};
+      try {
+        return await openpgp.encrypt({message, encryptionKeys: await Promise.all(people.map(keyOfAddress)), sessionKey, format: 'armored', date: new Date(at)});
+      } finally {
+        sessionKey.data.fill(0);
+      }
+    };
+    const armored = await encrypt(text, named), copies = {};
+    for (const a of hidden) copies[a] = await encrypt(`Bcc: ${a}\r\n` + text, [a]);
+    tell({type: 'reader-encrypted', armored, bcc: copies});
   } catch (err) {
     tell({type: 'reader-error', message: err.name === 'NotAllowedError' ? 'Sending end to end needs your key: Touch ID was cancelled.'
                                        : err.message === 'locked' ? 'Your key could not be opened here. Unlock encrypted mail, then press Send.' : err.message});
