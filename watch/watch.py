@@ -474,8 +474,8 @@ def check_pins(state):
     its last publish, not against the SHA256SUMS at GitHub, so that a change
     made at GitHub alone, sums and all, shows here. Until GitHub Pages has
     built a new publish (its builds can wait an hour when Actions is slow), a
-    file of the publish before still passes, for six hours; one in neither is
-    a problem at once."""
+    file of a recent publish before still passes, for six hours; one in none
+    of them is a problem at once."""
     try:
         with open(PINS) as f:
             pins = json.load(f)
@@ -487,7 +487,13 @@ def check_pins(state):
         state["pins_before"] = state.get("pins_sites") or {}
         state["pins_sites"] = pins.get("sites", {})
         state["pins_published"] = published
-    before = state.get("pins_before", {}) if now() - parse_time(published) < 6 * 3600 else {}
+    # The publish before as this watch saw it, and the last few publishes
+    # the Mac sent with the newest (previous), each for six hours after the
+    # newest: two publishes minutes apart leave the one between in neither
+    # place otherwise.
+    recent = now() - parse_time(published) < 6 * 3600
+    befores = ([state.get("pins_before", {})] if recent else []) + \
+              [p.get("sites", {}) for p in pins.get("previous", []) if recent and isinstance(p, dict)]
     problems, waiting = [], []
     for host, files in sorted(pins.get("sites", {}).items()):
         differ = []
@@ -500,7 +506,7 @@ def check_pins(state):
             got = hashlib.sha256(body).hexdigest()
             if got == digest:
                 continue
-            if got == before.get(host, {}).get(name):
+            if any(got == b.get(host, {}).get(name) for b in befores):
                 waiting.append(f"{host}/{name}")
             else:
                 differ.append(name)
