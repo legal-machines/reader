@@ -315,6 +315,15 @@ document.getElementById('create-button').addEventListener('click', async e => {
       format: 'armored'});
     const found = await extract(openpgp, locked, code);
     const {record, mark} = await adopt(found, [createFor.address], pin);
+    // A new key for an address replaces its older ones here: they are no
+    // longer published (Mail takes a new key only for an address without
+    // one), so their records go, and their passkeys are reported as unknown,
+    // which a browser that knows the Signal API takes out of the passkey list.
+    for (const old of await all()) {
+      if (old.credentialId === record.credentialId || !old.addresses.some(a => String(a).toLowerCase() === createFor.address.toLowerCase())) continue;
+      await remove(old.credentialId);
+      try { await PublicKeyCredential.signalUnknownCredential?.({rpId: location.hostname, credentialId: old.credentialId}); } catch (e) {}
+    }
     const fingerprint = (await openpgp.readKey({armoredKey: publicKey})).getFingerprint().toUpperCase();
     if (relayId) relay.postMessage({type: 'sealed', id: relayId, record, newKey: {publicKey, lockedKey: locked, fingerprint}});
     awaitKept(record);
