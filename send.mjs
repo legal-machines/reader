@@ -14,6 +14,8 @@ import {signedPackets} from './sign.mjs';
 import {measure, now} from './clock.mjs';
 import {armoredFor} from './wkd.mjs';
 import {keyFor} from './contacts.mjs';
+import {onKeysChanged} from './seal.mjs';
+const OURS = /@(?:[a-z0-9-]+\.)*(?:legalmachines\.org|dzyza\.com)$/;  // our domains and any name under them
 import * as vault from './vault.mjs';
 import {all, valid} from './store.mjs';
 import {openpgpLib} from './decrypt.mjs';
@@ -62,13 +64,14 @@ const ask = (to, cc) => new Promise((resolve, reject) => {
 // 'changed' (a new key waits for you to accept it) or 'none'.
 const keysShown = async list => Object.fromEntries(await Promise.all([...new Set(list)].map(async a => {
   const k = await keyFor(a).catch(() => null);
-  return [a, !k ? 'none' : k.internal ? 'ours' : k.changed ? 'changed' : k.contact?.checked ? 'checked' : 'known'];
+  return [a, !k ? (OURS.test(String(a).toLowerCase()) ? 'unpublished' : 'none') : k.internal ? 'ours' : k.changed ? 'changed' : k.contact?.checked ? 'checked' : 'known'];
 })));
 const share = async () => {
   const keys = await keysShown([...people.to, ...people.cc, ...people.bcc]);
   for (const w of readerFrames('compose.html')) w.postMessage({type: 'send-shows', ...people, from, keys}, location.origin);
 };
 addEventListener('message', e => { if (e.data?.type === 'compose-hello' && fromOurFrame(e, 'compose.html')) share(); });
+onKeysChanged(share);  // a newer Seal took over: the keys of the people shown, again
 
 // Where the browser can tell (Chrome), Send works only while it is in plain
 // view: not under something laid over it, not see-through, not moved.
@@ -100,7 +103,9 @@ button.addEventListener('click', async e => {
     const changed = everyone.filter(a => known.get(a)?.changed);
     if (changed.length) throw new Error(`New key for ${changed.join(', ')}: accept it or keep the old one under their latest message, or on the Security page, then press Send. Nothing was sent.`);
     const missing = everyone.filter(a => !known.get(a));
-    if (missing.length) throw new Error(`Seal has no key for ${missing.join(', ')}. It learns one from a message of theirs that carries it, signed by their domain.`);
+    const unpublished = missing.filter(a => OURS.test(String(a).toLowerCase())), outsiders = missing.filter(a => !unpublished.includes(a));
+    if (unpublished.length) throw new Error(`${unpublished.join(', ')} has no published key yet: its owner makes one in Mail (Security), and an administrator publishes it once checked. Nothing was sent.`);
+    if (outsiders.length) throw new Error(`Seal has no key for ${outsiders.join(', ')}. It learns one from a message of theirs that carries it, signed by their domain.`);
     // Your key, for the seal: open already, or opened now with this press.
     // Every message written here is sealed: one that is not could have come
     // from anyone who has your public key, the mail server included, so

@@ -10,7 +10,31 @@
 // Other mail programs ignore it. Both keys are among those this reader
 // carries (keys.mjs).
 
-import {KEYS} from './keys.mjs';
+import {KEYS as LOADED} from './keys.mjs';
+
+// The list of our keys this page goes by. A page runs the code it was loaded
+// with; when a newer Seal takes this browser over meanwhile (its service
+// worker, as after a key is published), keys.mjs is read again from it, so
+// a key published since counts at once, without reloading the page and
+// without losing what is typed in it. The check for a newer Seal is made
+// as this module loads.
+let KEYS = LOADED, fresh = Promise.resolve(), turn = 0;
+const keysChanged = new Set();
+export const onKeysChanged = f => { keysChanged.add(f); };
+export const currentKeys = async () => { await fresh; return KEYS; };
+const sw = typeof navigator === 'object' ? navigator.serviceWorker : undefined;
+if (sw) {
+  sw.addEventListener('controllerchange', () => {
+    const n = ++turn;
+    fresh = import(`./keys.mjs?seal=${n}`).then(m => {
+      if (n !== turn || !Array.isArray(m.KEYS)) return;
+      KEYS = m.KEYS;
+      known = null;
+      for (const f of keysChanged) try { f(); } catch (e) {}
+    }).catch(() => {});
+  });
+  sw.getRegistration?.().then(r => r?.update()).catch(() => {});
+}
 
 const TEXT = 'Mail Reader seal, version 1', enc = new TextEncoder();  // a protocol label, kept from the old name: every seal is made with it
 
@@ -25,7 +49,7 @@ export function addressHash(address) {
 // The key of one of our addresses, or undefined.
 export async function keyOf(address) {
   const hash = await addressHash(address);
-  return KEYS.find(k => k.hashes.includes(hash));
+  return (await currentKeys()).find(k => k.hashes.includes(hash));
 }
 const b64u = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const unb64u = text => Uint8Array.from(atob(text.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
@@ -36,7 +60,7 @@ let known = null;
 export async function directory(openpgp) {
   if (known) return known;
   const out = {};
-  for (const k of KEYS) {
+  for (const k of await currentKeys()) {
     if (k.x25519) {
       for (const [id, point] of Object.entries(k.x25519))
         (out[id] ||= {pub: Uint8Array.from(atob(point), c => c.charCodeAt(0)), hashes: [], domain: k.domain}).hashes.push(...k.hashes);

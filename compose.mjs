@@ -768,11 +768,11 @@ addEventListener('message', async e => {
 // The For line also names who it is from, as Send will seal it: the address
 // Send itself holds, not Mail's word for it.
 // Beside an address outside our mailboxes, what Seal has for it (send.mjs).
-const KEY_NOTE = {known: 'key from their mail', checked: 'key checked', changed: 'new key: accept it first', none: 'no key'};
+const KEY_NOTE = {known: 'key from their mail', checked: 'key checked', changed: 'new key: accept it first', none: 'no key', unpublished: 'no key published yet'};
 const listShown = (to, cc, bcc, sender, keys = {}) => {
   const line = document.getElementById('sealed-for'), who = document.getElementById('sealed-who');
   const all = [...to, ...cc];
-  const named = list => list.map(a => escape(a) + (KEY_NOTE[keys[a]] ? ` <span class="key-note${['none', 'changed'].includes(keys[a]) ? ' bad' : ''}">(${KEY_NOTE[keys[a]]})</span>` : '')).join(', ');
+  const named = list => list.map(a => escape(a) + (KEY_NOTE[keys[a]] ? ` <span class="key-note${['none', 'changed', 'unpublished'].includes(keys[a]) ? ' bad' : ''}">(${KEY_NOTE[keys[a]]})</span>` : '')).join(', ');
   who.classList.toggle('empty', !all.length && !bcc.length);
   who.innerHTML = (!all.length && !bcc.length ? 'Add who it is for above' :
     named(all) + (bcc.length ? `${all.length ? ' ' : ''}<span class="bcc">Bcc</span> ${named(bcc)}` : '')) +

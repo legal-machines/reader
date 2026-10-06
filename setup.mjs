@@ -12,7 +12,7 @@ import {clear as clearAlarm, raise, raised} from './alarm.mjs';
 import {escape} from './mime.mjs';
 import {icon} from './icons.mjs';
 import {MAIL_SITES} from './sites.mjs';
-import {KEYS} from './keys.mjs';
+import {currentKeys} from './seal.mjs';
 
 if (window.top !== window) {
   // Never inside another page: the key file and the PIN are typed only here,
@@ -462,6 +462,7 @@ async function setUp() {
     }
     // Only a key of one of our mailboxes (keys.mjs, published with this
     // site): a page cannot hand this one a key of its own making.
+    const KEYS = await currentKeys();
     if (!KEYS.some(k => (k.subkeys || []).includes(String(found.info.keyId).toLowerCase())))
       throw new Error('This key is not published yet, or is not the key of one of our mailboxes. A new key works once an administrator has published it.');
     // The key that signs, likewise, only where it is part of that published key.

@@ -42,7 +42,19 @@ def sums(path):
 print(json.dumps({"published": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                   "sites": {open("CNAME").read().strip(): sums("SHA256SUMS"), sys.argv[2]: sums(sys.argv[1])}}))
 PY
-if ssh "${MAIL_HOST:-legalmachines-prod}" 'sudo tee /var/lib/mail-status/reader-pins.json >/dev/null && sudo chmod 0644 /var/lib/mail-status/reader-pins.json' < "$out/pins.json"; then
+# The server keeps the last few publishes beside the newest (previous), so
+# that while GitHub Pages builds two publishes made minutes apart, the one
+# between still passes the watch (reader-watch.py, check_pins). One
+# connection: the host's firewall limits new ones.
+merge='import json, sys
+path = "/var/lib/mail-status/reader-pins.json"
+new = json.load(sys.stdin)
+try: old = json.load(open(path))
+except Exception: old = {}
+kept = ([{"published": old["published"], "sites": old["sites"]}] if old.get("sites") else []) + old.get("previous", [])
+new["previous"] = kept[:4]
+open(path + ".new", "w").write(json.dumps(new))'
+if ssh "${MAIL_HOST:-legalmachines-prod}" "sudo python3 -c '$merge' && sudo mv -f /var/lib/mail-status/reader-pins.json.new /var/lib/mail-status/reader-pins.json && sudo chmod 0644 /var/lib/mail-status/reader-pins.json" < "$out/pins.json"; then
   echo "pins: sent to the mail server"
 else
   echo "pins: NOT sent; the mail server's watch will report the sites as changed until they are"
