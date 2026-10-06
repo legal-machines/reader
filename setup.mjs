@@ -351,6 +351,28 @@ document.getElementById('sheet-print').addEventListener('click', () => print());
 // locked its keys until October 2026. Opened here and locked again with the
 // same code; nothing leaves this page.
 const other = document.getElementById('other-app');
+// Which key a file holds, shown once it is chosen: its address, fingerprint
+// and date, to match with a sheet (a person may hold the files of several
+// keys, and two codes called recovery code), and whether mail apps open it
+// as it is.
+const keyFacts = key => {
+  const address = (key.getUserIDs()[0] || '').match(/<([^>]+)>/)?.[1] || 'an address';
+  const f = key.getFingerprint().toUpperCase().match(/.{4}/g), made = key.getCreationTime().toISOString().slice(0, 10);
+  return `The key of ${address}, fingerprint ${f.slice(0, 5).join(' ')}  ${f.slice(5).join(' ')}, made ${made}.`;
+};
+const classic = key => [key.keyPacket, ...key.subkeys.map(s => s.keyPacket)].every(p => !p.isEncrypted || (p.s2kUsage === 254 && p.s2k?.type === 'iterated'));
+document.getElementById('other-file').addEventListener('change', async () => {
+  const info = document.getElementById('other-info'), file = document.getElementById('other-file').files[0];
+  info.hidden = true;
+  if (!file) return;
+  try {
+    const key = await openpgp.readPrivateKey({armoredKey: await file.text()});
+    info.textContent = keyFacts(key) + (classic(key) ? ' It is locked the classic way already: Thunderbird and GnuPG open it as it is, with its recovery code.' : '');
+  } catch (err) {
+    info.textContent = 'This is not a secret key file.';
+  }
+  info.hidden = false;
+});
 other.addEventListener('submit', async e => {
   e.preventDefault();
   const error = other.querySelector('.error'), done = document.getElementById('other-done'), button = other.querySelector('button');
@@ -366,7 +388,7 @@ other.addEventListener('submit', async e => {
     for (const p of [typed, asCode]) {
       try { key = await openpgp.decryptKey({privateKey: locked, passphrase: p}); passphrase = p; break; } catch (err) {}
     }
-    if (!key) throw new Error('Wrong recovery code.');
+    if (!key) throw new Error(`Wrong recovery code for this key. ${keyFacts(locked)} Its code is on the sheet with the same fingerprint; the recovery code of the mailbox, from setting it up, does not open it.`);
     const copy = await openpgp.encryptKey({privateKey: key, passphrase, config: {aeadProtect: false, s2kType: openpgp.enums.s2k.iterated}});
     const address = (key.getUserIDs()[0] || '').match(/<([^>]+)>/)?.[1] || 'key';
     const a = document.createElement('a');

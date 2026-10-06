@@ -85,7 +85,8 @@
     <h2>Your key in Thunderbird or another mail app</h2>
     <p>Thunderbird, GnuPG and most other mail apps open a key locked the classic way. Choose the file encryption-key.asc from the message "Your encryption key" in your mailbox and type the recovery code from your sheet: Seal saves a copy locked with the same code, which those apps open. Nothing leaves this browser.</p>
     <label class="field"><span>The key file (.asc)</span><input type="file" id="other-file" accept=".asc,.gpg,.key,.txt,application/pgp-keys" required></label>
-    <label class="field"><span>The recovery code</span><input type="password" id="other-code" required></label>
+    <p class="hint" id="other-info" hidden></p>
+    <label class="field"><span>The recovery code from the sheet of this key</span><input type="password" id="other-code" required></label>
     <div class="actions"><button class="tonal" type="submit">Save a copy</button></div>
     <p class="error" role="alert" hidden></p>
     <p class="hint" id="other-done" role="status" hidden>Saved. In Thunderbird: Account Settings, End-To-End Encryption, Add Key, Import an existing OpenPGP Key. Choose the copy and type the recovery code.</p>
