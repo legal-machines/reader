@@ -41,13 +41,34 @@ function headers(block) {
   return out;
 }
 
+// A parameter of a header (name, filename, charset, boundary). RFC 2231
+// first: key*=charset'lang'percent-encoded, or in pieces (key*0*=, key*1=),
+// which stands over the plain key= that mail apps add for older ones (often
+// with _ for every letter outside ASCII); else the plain one, with any
+// RFC 2047 words in it.
 function param(value, key) {
-  const m = new RegExp(`(?:^|;)\\s*${key}\\*?=\\s*("([^"]*)"|[^;\\s]*)`, 'i').exec(value || '');
-  if (!m) return '';
-  let v = m[2] !== undefined ? m[2] : m[1];
-  const ext = /^([^']*)'[^']*'(.*)$/.exec(v);  // RFC 2231: charset'lang'percent-encoded
-  if (ext) v = decoder(ext[1]).decode(Uint8Array.from(decodeURIComponent(ext[2]).split('').map(c => c.charCodeAt(0))));
-  return words(v);
+  const v = String(value || ''), value_ = m => m[4] !== undefined ? m[4] : m[3];
+  const pieces = [...v.matchAll(new RegExp(`(?:^|;)\\s*${key}\\*(\\d{1,2})?(\\*)?=\\s*("([^"]*)"|[^;\\s]*)`, 'gi'))]
+    .map(m => ({n: m[1] === undefined ? -1 : Number(m[1]), encoded: m[1] === undefined || !!m[2], text: value_(m)}))
+    .sort((a, b) => a.n - b.n);
+  if (pieces.length) {
+    let charset = 'utf-8';
+    const bytes = [];
+    pieces.forEach((p, i) => {
+      let text = p.text;
+      if (p.encoded && i === 0) {
+        const head = /^([^']*)'[^']*'(.*)$/.exec(text);
+        if (head) { charset = head[1] || 'utf-8'; text = head[2]; }
+      }
+      for (let j = 0; j < text.length; j++) {
+        if (p.encoded && text[j] === '%' && /^[0-9A-Fa-f]{2}$/.test(text.substr(j + 1, 2))) { bytes.push(parseInt(text.substr(j + 1, 2), 16)); j += 2; }
+        else bytes.push(text.charCodeAt(j) & 0xff);
+      }
+    });
+    return decoder(charset).decode(Uint8Array.from(bytes));
+  }
+  const m = new RegExp(`(?:^|;)\\s*${key}=\\s*("([^"]*)"|[^;\\s]*)`, 'i').exec(v);
+  return m ? words(m[2] !== undefined ? m[2] : m[1]) : '';
 }
 
 function body(bytes, transfer) {

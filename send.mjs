@@ -151,7 +151,12 @@ button.addEventListener('click', async e => {
     await measure();
     const at = now();
     const message = signer ? await signedPackets(openpgp, data, signer, vault.signer(fromId), at) : await openpgp.createMessage({binary: data, date: new Date(at)});
-    const armored = await openpgp.encrypt({message, encryptionKeys, format: 'armored', date: new Date(at)});
+    // SEIPD version 1 always, as Thunderbird and GnuPG read it (neither opens
+    // version 2, which keys made in Seal asked for until October 2026): a
+    // session key with no AEAD algorithm makes OpenPGP.js write version 1.
+    const sessionKey = {data: crypto.getRandomValues(new Uint8Array(32)), algorithm: 'aes256'};
+    const armored = await openpgp.encrypt({message, encryptionKeys, sessionKey, format: 'armored', date: new Date(at)});
+    sessionKey.data.fill(0);
     tell({type: 'reader-encrypted', armored});
   } catch (err) {
     tell({type: 'reader-error', message: err.name === 'NotAllowedError' ? 'Sending end to end needs your key: Touch ID was cancelled.'

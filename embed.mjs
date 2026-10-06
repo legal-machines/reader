@@ -215,6 +215,37 @@ function letterHtml(m) {
          (list ? `<div class="attachments">${list}</div>` : '') + '</article>';
 }
 
+// A file from the message in a tab of its own, to save or to open there:
+// a blank tab of this site, built here at the press (so nothing loads in
+// it, and the download starts at once); the file goes from this frame to
+// that tab, never through Mail. Opened in the browser's viewer only where it
+// shows a file without running it: a PDF, and pictures that are not SVG.
+function throughTab(f, open) {
+  if (!f) return;
+  const tab = window.open('', '_blank');
+  if (!tab) return;
+  const d = tab.document, el = (tag, props = {}) => Object.assign(d.createElement(tag), props);
+  const type = String(f.type || '').toLowerCase(), viewable = type === 'application/pdf' || /^image\/(png|jpeg|gif|webp)$/.test(type);
+  d.title = f.name || 'file';
+  d.head.append(el('meta', {name: 'viewport', content: 'width=device-width, initial-scale=1'}), el('link', {rel: 'stylesheet', href: new URL('reader.css', location.href).href}));
+  d.body.className = 'page';
+  const save = el('a', {className: 'filled', textContent: 'Save', download: f.name || 'file',
+                        href: tab.URL.createObjectURL(new tab.Blob([f.data.slice()], {type: 'application/octet-stream'}))});
+  const actions = el('div', {className: 'actions'});
+  actions.append(save);
+  const main = el('main', {className: 'setup'});
+  main.append(el('h1', {textContent: f.name || 'file'}), el('p', {className: 'hint', textContent: sizeText(f.data.length)}));
+  if (viewable) {
+    const url = tab.URL.createObjectURL(new tab.Blob([f.data.slice()], {type}));
+    actions.append(el('a', {className: 'tonal', textContent: 'Open', href: url}));
+    if (type.startsWith('image/')) main.append(el('img', {className: 'file-picture', src: url, alt: f.name || ''}));
+    if (open && type === 'application/pdf') { tab.location.href = url; return; }
+  }
+  main.append(actions, el('p', {textContent: 'Seal opened this file here, straight from the message you were reading: it did not pass through the mail server, and it stays in this browser. You can close this tab when you are done.'}));
+  d.body.append(main);
+  if (!open) save.click();  // the download starts at once; Save is there if the browser asked first
+}
+
 function fill(m) {
   // Files only as downloads (or, a PDF or a picture, in the browser's own
   // viewer): nothing from a message runs as a page of this site.
@@ -227,6 +258,15 @@ function fill(m) {
     a.href = url;
     a.querySelector('img').src = url;
   });
+  // In a frame of Mail, a file goes to a tab of Seal's own to be saved or
+  // opened (throughTab): Safari starts no download from a frame inside a
+  // page of another origin, as Mail's is.
+  if (window.top !== window)
+    for (const [attr, open] of [['data-file', false], ['data-pdf', true], ['data-view', true]])
+      view.querySelectorAll(`[${attr}]`).forEach(a => a.addEventListener('click', e => {
+        e.preventDefault();
+        throughTab(files[Number(a.getAttribute(attr))], open);
+      }));
   const frame = view.querySelector('iframe.mail-frame');
   let loaded = Promise.resolve();
   if (frame) {

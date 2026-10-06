@@ -113,6 +113,8 @@ dialog.confirm h2:focus{outline:none}  /* the dialog opens on its headline, so n
 dialog.confirm .confirm-text{margin:0 0 var(--s-6);color:var(--c-text-2);font-size:14px;line-height:20px;text-wrap:pretty}
 dialog.confirm .actions{display:flex;justify-content:flex-end;gap:var(--s-2);margin:0}
 .done{line-height:1.5}.done > b{color:var(--c-good)}
+/* A file from a message in a tab of its own (embed.mjs, throughTab): a picture shown whole. */
+.file-picture{display:block;max-width:100%;height:auto;margin:var(--s-3) 0;border-radius:var(--r-md)}
 /* check.html: the answer, in the colour of what it says. */
 .verdict{margin:0 0 var(--s-3);padding:var(--s-5) var(--s-6);border-radius:var(--r-md);background:var(--c-surface-3);color:var(--c-text)}.verdict h2{margin:0 0 var(--s-2);font-size:22px;font-weight:400;line-height:1.3}.verdict p{margin:0;line-height:1.5}
 .verdict.good{background:var(--c-good-soft);color:var(--c-on-good-soft)}.verdict.bad{background:var(--c-danger-soft);color:var(--c-on-danger-soft)}

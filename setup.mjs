@@ -309,7 +309,10 @@ document.getElementById('create-button').addEventListener('click', async e => {
     await measure();
     const {privateKey: locked, publicKey} = await openpgp.generateKey({type: 'ecc', curve: 'curve25519Legacy', date: new Date(now()),
       userIDs: [{name: createFor.name || undefined, email: createFor.address}], passphrase: code, keyExpirationTime: 3 * 365 * 86400,
-      format: 'armored', config: {s2kType: openpgp.enums.s2k.argon2, aeadProtect: true}});
+      // Locked the classic way (S2K iterated and salted, AES), which
+      // Thunderbird and GnuPG open with the recovery code; the key asks for
+      // SEIPD version 1, which they read.
+      format: 'armored'});
     const found = await extract(openpgp, locked, code);
     const {record, mark} = await adopt(found, [createFor.address], pin);
     const fingerprint = (await openpgp.readKey({armoredKey: publicKey})).getFingerprint().toUpperCase();
@@ -334,6 +337,44 @@ document.getElementById('create-button').addEventListener('click', async e => {
   }
 });
 document.getElementById('sheet-print').addEventListener('click', () => print());
+// A copy of a key for Thunderbird, GnuPG and other mail apps, which open a
+// key locked the classic way, not one locked with Argon2 and AEAD, as Seal
+// locked its keys until October 2026. Opened here and locked again with the
+// same code; nothing leaves this page.
+const other = document.getElementById('other-app');
+other.addEventListener('submit', async e => {
+  e.preventDefault();
+  const error = other.querySelector('.error'), done = document.getElementById('other-done'), button = other.querySelector('button');
+  error.hidden = true;
+  done.hidden = true;
+  button.disabled = true;
+  try {
+    const file = document.getElementById('other-file').files[0];
+    if (!file) throw new Error('Choose the key file first.');
+    const locked = await openpgp.readPrivateKey({armoredKey: await file.text()}).catch(() => { throw new Error('This is not a secret key file.'); });
+    const typed = document.getElementById('other-code').value, asCode = typed.toUpperCase().replace(/[\s-]/g, '').replace(/O/g, '0').replace(/[IL]/g, '1');
+    let key = null, passphrase = '';
+    for (const p of [typed, asCode]) {
+      try { key = await openpgp.decryptKey({privateKey: locked, passphrase: p}); passphrase = p; break; } catch (err) {}
+    }
+    if (!key) throw new Error('Wrong recovery code.');
+    const copy = await openpgp.encryptKey({privateKey: key, passphrase, config: {aeadProtect: false, s2kType: openpgp.enums.s2k.iterated}});
+    const address = (key.getUserIDs()[0] || '').match(/<([^>]+)>/)?.[1] || 'key';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([copy.armor()], {type: 'application/pgp-keys'}));
+    a.download = `encryption-key-${address}-for-mail-apps.asc`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    document.getElementById('other-code').value = '';
+    done.hidden = false;
+  } catch (err) {
+    error.textContent = err.message;
+    error.hidden = false;
+  } finally {
+    button.disabled = false;
+  }
+});
+
 document.getElementById('sheet-save').addEventListener('click', () => {
   if (!lockedCopy) return;
   const a = document.createElement('a');
