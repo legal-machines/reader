@@ -207,14 +207,18 @@ form.querySelector('.actions button').addEventListener('click', e => { e.prevent
 // a while (vault.mjs).
 async function adopt(found, addresses, pin) {
   const passkey = await newPasskey(addresses[0]);
-  const record = await keep(passkey, pin, pkcs8Of(found.scalar), found.info, addresses);
+  // The key that signs goes in too (your signature on what you send), and a
+  // copy is held open for Mail with the rest; keep() wipes its own.
+  const signCopy = found.sign ? found.sign.pkcs8.slice() : null;
+  const record = await keep(passkey, pin, pkcs8Of(found.scalar), found.info, addresses, found.sign);
   const bytes = pkcs8Of(found.scalar);
   const key = await crypto.subtle.importKey('pkcs8', bytes, {name: 'X25519'}, false, ['deriveBits']);
   bytes.fill(0);
   const mark = await markOf(key);
   remember({[record.keyId]: mark});
   setExplained(record.keyId);
-  await hold(record, pkcs8Of(found.scalar).buffer, 15).catch(() => {});
+  await hold(record, pkcs8Of(found.scalar).buffer, 15, signCopy ? signCopy.buffer : null).catch(() => {});
+  signCopy?.fill(0);
   found.scalar.fill(0);
   return {record, mark};
 }

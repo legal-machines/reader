@@ -12,6 +12,7 @@ const CURVE25519_OID = new Uint8Array([0x2b, 0x06, 0x01, 0x04, 0x01, 0x97, 0x55,
 const ANONYMOUS_SENDER = new TextEncoder().encode('Anonymous Sender    ');
 const KEY_BYTES = {7: 16, 8: 24, 9: 32};  // AES-128, AES-192, AES-256
 const PKCS8_X25519 = new Uint8Array([0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x6e, 0x04, 0x22, 0x04, 0x20]);
+const PKCS8_ED25519 = new Uint8Array([0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20]);
 
 const concat = (...parts) => {
   const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
@@ -115,9 +116,24 @@ export async function extract(openpgp, armoredSecretKey, passphrase) {
       if (hex(x) === hex(Q.slice(1))) {
         const kdf = packet.publicParams.kdfParams;
         return {scalar, info: describe(packet.getFingerprintBytes(), packet.getKeyID().toHex(), kdf.hash, kdf.cipher),
-                userIds: key.getUserIDs(), primary: key.getFingerprint()};
+                userIds: key.getUserIDs(), primary: key.getFingerprint(), sign: await signingKey(openpgp, key)};
       }
     }
   }
   throw new Error('This key has no Curve25519 encryption subkey.');
+}
+
+// The key that signs: a signing subkey, or the primary key where it signs
+// (Ed25519, as OpenPGP v4 writes it, EdDSALegacy): its seed as PKCS #8 for
+// WebCrypto, its key ID and fingerprint. null where the file holds none
+// (a key exported without its signing secret).
+async function signingKey(openpgp, key) {
+  try {
+    const p = (await key.getSigningKey()).keyPacket;
+    const seed = p.privateParams?.seed;
+    if (p.algorithm !== openpgp.enums.publicKey.eddsaLegacy || p.publicParams?.oid?.getName?.() !== 'ed25519Legacy' || seed?.length !== 32) return null;
+    return {pkcs8: concat(PKCS8_ED25519, seed), keyId: p.getKeyID().toHex(), fingerprint: hex(p.getFingerprintBytes())};
+  } catch (e) {
+    return null;
+  }
 }

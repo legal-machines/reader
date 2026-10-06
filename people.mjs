@@ -99,6 +99,9 @@ addEventListener('message', e => {
   if (Number.isFinite(d.vw)) widths(d.vw);
   if (d.type === 'people-init' && !parentOrigin) { parentOrigin = e.origin; draw(); }
 });
+// Keys learned or merged in from your other devices meanwhile: drawn again.
+let redraw = 0;
+try { new BroadcastChannel('seal-people').onmessage = () => { if (!parentOrigin) return; clearTimeout(redraw); redraw = setTimeout(draw, 300); }; } catch (e) {}
 // New keys arrive while Mail is used: drawn again whenever the page is seen again.
 document.addEventListener('visibilitychange', () => { if (parentOrigin && document.visibilityState === 'visible') draw(); });
 if (parent !== window) parent.postMessage({type: 'reader-ready'}, '*');  // carries nothing

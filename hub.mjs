@@ -16,7 +16,8 @@ import {icon} from './icons.mjs';
 import * as vault from './vault.mjs';
 import {alarmText, raised} from './alarm.mjs';
 import {canOpen, glance, openWith, openpgpLib, recipientsOf} from './decrypt.mjs';
-import {keyFor} from './contacts.mjs';
+import * as contacts from './contacts.mjs';
+const {keyFor} = contacts;
 
 const view = document.getElementById('hub');
 const opened = new Map();     // slot -> {model, keyId}, while the key is open
@@ -133,7 +134,44 @@ function forget() {
   post({type: 'locked'});
 }
 
+// ---- The list of people you write to, kept alike on your devices: Mail
+// keeps a copy sealed under a key made from yours (vault.peopleBox), which
+// it can neither read nor change; it can only hand over an older one, and
+// then the newer records here stand (contacts.merge). Merged in once your
+// key is open, and handed back whenever it changes here.
+let peopleKeyId = null, remote = null, syncing = false, again = false, pushed = '';
+const b64u = bytes => { let t = ''; for (let i = 0; i < bytes.length; i += 0x8000) t += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(t).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+const unb64u = text => Uint8Array.from(atob(text.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+const canonical = list => JSON.stringify([...list].sort((a, b) => a.address < b.address ? -1 : 1));
+async function syncPeople() {
+  if (!peopleKeyId || !remote) return;
+  if (syncing) { again = true; return; }
+  if (!(await vault.state()).keyIds.includes(peopleKeyId)) return;
+  syncing = true;
+  try {
+    const box = vault.peopleBox(peopleKeyId);
+    let theirs = [];
+    if (remote.blob) {
+      const plain = await box.open(unb64u(remote.blob)).catch(() => null);
+      const d = plain ? JSON.parse(new TextDecoder().decode(plain)) : null;
+      if (d?.v === 1 && Array.isArray(d.people)) { theirs = d.people; await contacts.merge(theirs); }
+    }
+    const mine = await contacts.snapshot(), body = canonical(mine);
+    if (body !== canonical(theirs) && body !== pushed && (mine.length || remote.blob)) {
+      const sealed = await box.seal(new TextEncoder().encode(JSON.stringify({v: 1, people: mine})));
+      if (sealed) { const blob = b64u(sealed); tell({type: 'hub-people-save', blob}); remote = {blob}; pushed = body; }
+    }
+  } catch (e) {
+  } finally {
+    syncing = false;
+    if (again) { again = false; syncPeople(); }
+  }
+}
+let peopleTimer = 0;
+try { new BroadcastChannel('seal-people').onmessage = e => { if (e.data?.type !== 'changed') return; clearTimeout(peopleTimer); peopleTimer = setTimeout(syncPeople, 1500); }; } catch (e) {}
+
 vault.watch(open => {
+  if (open) syncPeople();
   if (open && !unlocked) openAll().then(draw);
   if (!open && unlocked) { unlocked = false; forget(); draw(); }
 });
@@ -175,6 +213,7 @@ addEventListener('message', async e => {
     // have had then: the record opens only with this browser's passkey.
     if (typeof d.me === 'string' && d.me.length <= 254) {
       const ours = await keyOf(d.me.toLowerCase()).catch(() => null);
+      peopleKeyId = ours?.subkeys?.[0] || null;
       const local = ours ? (await all().catch(() => [])).filter(r => valid(r) && ours.subkeys.includes(r.keyId) && !records.some(m => m.credentialId === r.credentialId)) : [];
       if (local.length) {
         records = [...records, ...local].slice(0, 20);
@@ -189,6 +228,7 @@ addEventListener('message', async e => {
     unlocked = s.unlocked;
     if (unlocked && count) openpgpLib();
     if (unlocked) await openAll();  // messages handed over while the vault was asked
+    if (unlocked) syncPeople();
     draw();
   } else if (d.type === 'hub-items' && Array.isArray(d.items)) {
     for (const it of d.items.slice(0, 200)) {
@@ -200,6 +240,11 @@ addEventListener('message', async e => {
     }
     if (unlocked) await openAll();
     draw();
+  } else if (d.type === 'hub-people' && typeof d.blob === 'string' && d.blob.length <= 6e6) {
+    // The list of people you write to as your other devices left it with
+    // Mail, sealed under your key: merged in once the key is open.
+    remote = {blob: d.blob};
+    syncPeople();
   } else if (d.type === 'hub-keys-for' && Array.isArray(d.addresses)) {
     // Which of these addresses outside our mailboxes have a key here (one
     // learned from their signed mail, with no new key waiting): yes or no

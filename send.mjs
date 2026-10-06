@@ -10,6 +10,7 @@
 import {MAIL_SITES} from './sites.mjs';
 import {widths} from './width.mjs';
 import {seal} from './seal.mjs';
+import {signedPackets} from './sign.mjs';
 import {keyFor} from './contacts.mjs';
 import * as vault from './vault.mjs';
 import {all, valid} from './store.mjs';
@@ -106,25 +107,41 @@ button.addEventListener('click', async e => {
     const fromId = own.subkeys[0];
     const mine = records.filter(r => r.keyId === fromId);
     try { for (const r of await all()) if (valid(r) && r.keyId === fromId && !mine.some(m => m.credentialId === r.credentialId)) mine.push(r); } catch (e) {}
-    const opened = (await vault.state()).keyIds.includes(fromId);
+    let st = await vault.state();
+    const opened = st.keyIds.includes(fromId);
     if (!mine.length && !opened) throw new Error('Sending end to end needs your own key in this browser. Add it on the Security page, then press Send.');
+    // Your OpenPGP signature on it, which the recipient's app checks with
+    // your published key (sign.mjs). To people outside a message goes signed
+    // or not at all: there the seal means nothing, and an unsigned message
+    // could come from anyone with their key, the mail server included.
+    const outside = keys0 => keys0.some(k => !k.internal);
+    const toOutside = outside([...new Set(everyone)].map(a => known.get(a)));
+    const signing = mine.filter(r => r.signSealed);
+    if (toOutside && !st.signers?.[fromId] && !signing.length)
+      throw new Error('Your key in this browser does not sign yet, and to people outside a message goes signed or not at all. Add your key to this browser again, once (Security, Add my key to this browser), then press Send. Nothing was sent.');
     let derive = null;
     {
-      if (!opened) {
-        if (mine.some(r => r.pinSalt) && !pin.value) { pinField.hidden = false; report(); pin.focus(); throw new Error('Enter your PIN, then press Send.'); }
-        await vault.unlock(mine, pin.value, minutes);
+      if (!opened || (toOutside && !st.signers?.[fromId])) {
+        const use = signing.length ? signing : mine;
+        if (use.some(r => r.pinSalt) && !pin.value) { pinField.hidden = false; report(); pin.focus(); throw new Error('Enter your PIN, then press Send.'); }
+        await vault.unlock(use, pin.value, minutes);
         pin.value = '';
         pinField.hidden = true;
+        st = await vault.state();
       }
       derive = vault.deriver(fromId);
     }
+    const signer = st.signers?.[fromId] || null;
+    if (toOutside && !signer) throw new Error('Your key that signs could not be opened in this browser: nothing was sent. Add your key to this browser again (Security, Add my key to this browser).');
     const openpgp = await openpgpLib();
     let text = await ask(to, cc);
     const keys = [...new Set([...everyone, from])].map(a => known.get(a));
     // The seal goes to our mailboxes only: Seal elsewhere has no key of theirs to check it with.
     text = await seal(openpgp, text, fromId, derive, keys.filter(k => k.internal).map(k => k.subkeys[0]));
     const encryptionKeys = await Promise.all(keys.map(k => openpgp.readKey({armoredKey: k.armored})));
-    const armored = await openpgp.encrypt({message: await openpgp.createMessage({binary: new TextEncoder().encode(text)}), encryptionKeys, format: 'armored'});
+    const data = new TextEncoder().encode(text);
+    const message = signer ? await signedPackets(openpgp, data, signer, vault.signer(fromId)) : await openpgp.createMessage({binary: data});
+    const armored = await openpgp.encrypt({message, encryptionKeys, format: 'armored'});
     tell({type: 'reader-encrypted', armored});
   } catch (err) {
     tell({type: 'reader-error', message: err.name === 'NotAllowedError' ? 'Sending end to end needs your key: Touch ID was cancelled.'

@@ -206,6 +206,23 @@ hashes an address to find its key. A short address can still be found by
 trying names against the hashes; they keep the list out of sight, not
 secret.
 
+* **Your OpenPGP signature** (`sign.mjs`). Every message Send encrypts is
+  signed with your key that signs (a signing subkey, or a primary key that
+  signs: Ed25519), as OpenPGP apps write it, so a recipient's app (Thunderbird,
+  Proton, GnuPG) checks it with your published key; a message the mail server
+  encrypts to someone in your name carries none. To people outside a message
+  goes signed or not at all. The key that signs is sealed beside the key that
+  decrypts, under the same passkey, and bound to its record; while unlocked it
+  waits in the vault, and the worker signs only for Send. A browser that added
+  the key before this signs nothing until the key is added again, once.
+* **The keys of people you write to, alike on your devices.** Mail keeps the
+  list sealed under a key made from yours (X25519 with a point of its own,
+  which no message can lead the vault to, through HKDF): it can neither read
+  nor change it, only hand over an older copy or none. Every record is dated
+  by your devices, a key forgotten stays as a dated mark, and for each
+  address the newer record stands, so an older copy changes nothing where a
+  newer one is known. The hub merges it in once your key is open and hands
+  it back when it changes.
 * **The sender's seal.** Encryption alone proves nothing about who wrote a
   message: anyone can encrypt to a public key, the mail server too.
   Seal adds, for each recipient, an HMAC over the whole message under the
@@ -314,9 +331,8 @@ service worker on that device. Exactly what that allows:
 * Prove the sender of mail written elsewhere that neither its writer nor its
   domain signed: it says "Not signed". Nor tell which person at a domain sent
   a message only the domain signed.
-* Prove to people outside that a message came from us: Seal does not yet
-  sign with your key in their apps' terms (OpenPGP), so a message the mail
-  server encrypted to them in your name looks like yours there.
+* Make a recipient look at the signature: an app that shows unsigned mail
+  quietly leaves it to them to notice that a message in your name lacks it.
 * Prove that a message was delivered, or that one sent to you was not held
   back. A reply signed by the other side's domain that answers yours shows it
   arrived.
@@ -329,7 +345,7 @@ Files: `sealed-core.mjs` (ECDH session key, RFC 6637), `store.mjs` (sealing
 and passkeys), `vault.mjs` and `sw.js` (the key while unlocked), `hub.mjs`
 (Unlock and opening), `decrypt.mjs`, `mime.mjs`, `mark.mjs`, `embed.mjs`
 (a letter), `row.mjs` (a line of a list), `title.mjs` (the subject),
-`compose.mjs` and `send.mjs` (writing), `tab.mjs` (Seal's frames in a
+`compose.mjs`, `send.mjs` and `sign.mjs` (writing), `tab.mjs` (Seal's frames in a
 tab), `seal.mjs` (the sender's seal and key lookup by hash), `dkim.mjs`
 (the signature of a sender's domain), `dns.html` (its keys, the only page with network), `contacts.mjs` and
 `people.html` (keys of people outside), `keys.mjs` and

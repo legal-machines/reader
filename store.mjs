@@ -66,6 +66,9 @@ async function prf(records) {
 // What binds the sealed bytes to their record (AES-GCM associated data), so
 // a sealed key cannot be passed off under another record's name.
 const bound = r => r.v === 2 ? {additionalData: enc.encode(`${r.rp}|${r.keyId}|${r.credentialId}|v2`)} : {};
+// The same for the key that signs, with which key it is, so Mail cannot
+// hand over a record that names another signing key than the one sealed.
+const boundSign = r => ({additionalData: enc.encode(`${r.rp}|${r.keyId}|${r.credentialId}|v2|sign|${r.signer.keyId}|${r.signer.fingerprint}`)});
 
 async function sealingKey(prfOut, pin, pinSalt) {
   let pinBits = new Uint8Array(0);
@@ -101,9 +104,10 @@ export async function newPasskey(label) {
   return {credentialId, salt: b64u(salt), out};
 }
 
-// Seals the key's PKCS #8 bytes, keeps the record here and returns it; the
-// bytes are wiped.
-export async function keep(passkey, pin, pkcs8, info, addresses) {
+// Seals the key's PKCS #8 bytes, and those of the key that signs (sign:
+// {pkcs8, keyId, fingerprint}, seal.mjs extract), keeps the record here and
+// returns it; the bytes are wiped.
+export async function keep(passkey, pin, pkcs8, info, addresses, sign) {
   const pinSalt = b64u(random(16)), iv = random(12);
   const record = {v: 2, rp: location.hostname, keyId: info.keyId, info, addresses, credentialId: passkey.credentialId, salt: passkey.salt,
                   pinSalt: pin ? pinSalt : null, iv: b64u(iv), created: new Date().toISOString()};
@@ -111,21 +115,36 @@ export async function keep(passkey, pin, pkcs8, info, addresses) {
   passkey.out.fill(0);
   record.sealed = b64u(await crypto.subtle.encrypt({name: 'AES-GCM', iv, ...bound(record)}, key, pkcs8));
   pkcs8.fill(0);
+  if (sign) {
+    const signIv = random(12);
+    record.signer = {keyId: sign.keyId, fingerprint: sign.fingerprint};
+    record.signIv = b64u(signIv);
+    record.signSealed = b64u(await crypto.subtle.encrypt({name: 'AES-GCM', iv: signIv, ...boundSign(record)}, key, sign.pkcs8));
+    sign.pkcs8.fill(0);
+  }
   await put(record);
   return record;
 }
 
 // The key of whichever of these records the touched passkey opens, as its
-// PKCS #8 bytes (an ArrayBuffer the caller wipes or hands on), and the record.
+// PKCS #8 bytes (an ArrayBuffer the caller wipes or hands on), the key that
+// signs where the record holds one (signPkcs8, likewise), and the record.
 export async function unseal(records, pin) {
   const {record, out} = await prf(records);
   const key = await sealingKey(out, record.pinSalt ? pin : '', record.pinSalt);
   out.fill(0);
+  let pkcs8;
   try {
-    return {record, pkcs8: await crypto.subtle.decrypt({name: 'AES-GCM', iv: unb64u(record.iv), ...bound(record)}, key, unb64u(record.sealed))};
+    pkcs8 = await crypto.subtle.decrypt({name: 'AES-GCM', iv: unb64u(record.iv), ...bound(record)}, key, unb64u(record.sealed));
   } catch (e) {
     throw new Error(record.pinSalt ? 'Wrong PIN.' : 'This passkey does not open the key.');
   }
+  let signPkcs8 = null;
+  if (record.signSealed) {
+    try { signPkcs8 = await crypto.subtle.decrypt({name: 'AES-GCM', iv: unb64u(record.signIv), ...boundSign(record)}, key, unb64u(record.signSealed)); }
+    catch (e) { signPkcs8 = null; }  // a signing part that does not open: the key still decrypts, and nothing signs
+  }
+  return {record, pkcs8, signPkcs8};
 }
 
 // A record handed over by the Mail app, checked for shape: anything else is ignored.
@@ -134,5 +153,7 @@ export function valid(r) {
   // so Mail cannot pass one key's seal off under another record.
   return r && typeof r === 'object' && r.v === 2 && r.rp === location.hostname && /^[0-9a-f]{16}$/.test(r.keyId) && typeof r.credentialId === 'string' &&
     typeof r.salt === 'string' && typeof r.iv === 'string' && typeof r.sealed === 'string' && r.info && /^[0-9a-f]{40}$/.test(r.info.fingerprint) &&
-    r.info.keyId === r.keyId && Number.isInteger(r.info.hash) && Number.isInteger(r.info.cipher) && Array.isArray(r.addresses);
+    r.info.keyId === r.keyId && Number.isInteger(r.info.hash) && Number.isInteger(r.info.cipher) && Array.isArray(r.addresses) &&
+    (r.signSealed === undefined || (typeof r.signSealed === 'string' && typeof r.signIv === 'string' && r.signer &&
+      /^[0-9a-f]{16}$/.test(r.signer.keyId) && /^[0-9a-f]{40}$/.test(r.signer.fingerprint) && r.signer.fingerprint.endsWith(r.signer.keyId)));
 }
