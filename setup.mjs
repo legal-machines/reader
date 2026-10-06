@@ -7,6 +7,7 @@ import {extract, pkcs8Of} from './sealed-core.mjs';
 import {all, keep, newPasskey, remove} from './store.mjs';
 import {known, markOf, remember, setExplained, tile} from './mark.mjs';
 import {hold, lock} from './vault.mjs';
+import {drift, measure, now} from './clock.mjs';
 import {clear as clearAlarm, raise, raised} from './alarm.mjs';
 import {escape} from './mime.mjs';
 import {icon} from './icons.mjs';
@@ -304,7 +305,9 @@ document.getElementById('create-button').addEventListener('click', async e => {
   e.target.disabled = true;
   try {
     const code = newCode();
-    const {privateKey: locked, publicKey} = await openpgp.generateKey({type: 'ecc', curve: 'curve25519Legacy',
+    // Made at the right time, whatever this device's clock says (clock.mjs).
+    await measure();
+    const {privateKey: locked, publicKey} = await openpgp.generateKey({type: 'ecc', curve: 'curve25519Legacy', date: new Date(now()),
       userIDs: [{name: createFor.name || undefined, email: createFor.address}], passphrase: code, keyExpirationTime: 3 * 365 * 86400,
       format: 'armored', config: {s2kType: openpgp.enums.s2k.argon2, aeadProtect: true}});
     const found = await extract(openpgp, locked, code);
@@ -316,7 +319,10 @@ document.getElementById('create-button').addEventListener('click', async e => {
     document.getElementById('sheet-address').textContent = createFor.address;
     document.getElementById('sheet-fingerprint').innerHTML = fingerprint.match(/.{4}/g).reduce((a, g, i) => a + (i === 5 ? '</span><span>' : i ? ' ' : '') + g, '<span>') + '</span>';
     document.getElementById('sheet-code').textContent = code.match(/.{4}/g).join('-');
-    document.getElementById('sheet-date').textContent = new Date().toISOString().slice(0, 10);
+    document.getElementById('sheet-date').textContent = new Date(now()).toISOString().slice(0, 10);
+    const off = drift(), clock = document.getElementById('sheet-clock');
+    clock.textContent = off ? `This computer's clock is ${off}. Seal made your key with the right time all the same. Set the clock to set itself, time zone included, so your other apps and your signatures keep the right time too.` : '';
+    clock.hidden = !off;
     document.getElementById('sheet-site').textContent = `${location.host}, in a tab of its own; and Mail, at ${createFor.address.split('@')[1]}`;
     createCard.hidden = true;
     sheet.hidden = false;

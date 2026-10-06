@@ -11,6 +11,7 @@ import {MAIL_SITES} from './sites.mjs';
 import {widths} from './width.mjs';
 import {seal} from './seal.mjs';
 import {signedPackets} from './sign.mjs';
+import {measure, now} from './clock.mjs';
 import {armoredFor} from './wkd.mjs';
 import {keyFor} from './contacts.mjs';
 import * as vault from './vault.mjs';
@@ -146,8 +147,11 @@ button.addEventListener('click', async e => {
     const addresses = [...new Set([...everyone, from])];
     const encryptionKeys = await Promise.all(keys.map(async (k, i) => openpgp.readKey({armoredKey: k.armored || await armoredFor(openpgp, addresses[i], k.entry)})));
     const data = new TextEncoder().encode(text);
-    const message = signer ? await signedPackets(openpgp, data, signer, vault.signer(fromId)) : await openpgp.createMessage({binary: data});
-    const armored = await openpgp.encrypt({message, encryptionKeys, format: 'armored'});
+    // Signed and encrypted at the right time, whatever this device's clock says.
+    await measure();
+    const at = now();
+    const message = signer ? await signedPackets(openpgp, data, signer, vault.signer(fromId), at) : await openpgp.createMessage({binary: data, date: new Date(at)});
+    const armored = await openpgp.encrypt({message, encryptionKeys, format: 'armored', date: new Date(at)});
     tell({type: 'reader-encrypted', armored});
   } catch (err) {
     tell({type: 'reader-error', message: err.name === 'NotAllowedError' ? 'Sending end to end needs your key: Touch ID was cancelled.'

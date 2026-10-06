@@ -191,6 +191,8 @@ export async function lock() {
 }
 // inner: done in the reader's own frames (Mail's own word counts for less, see sw.js).
 export const used = (inner = false) => ask({type: 'use', inner});
+// How far GitHub's clock is from this device's, in ms, or null (clock.mjs).
+export const timeOffset = async () => { const r = await ask({type: 'time'}); return Number.isFinite(r?.offset) ? r.offset : null; };
 export const seen = () => ask({type: 'seen'});
 // Told when the key is locked or opened, here or in another page of the reader.
 export const watch = f => { listeners.add(f); };

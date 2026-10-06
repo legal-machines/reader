@@ -8,6 +8,9 @@ import {deriver} from './vault.mjs';
 import {addressHash, check} from './seal.mjs';
 import {dkim, fieldsOf, mailbox, values} from './dkim.mjs';
 import * as contacts from './contacts.mjs';
+import {measure, now} from './clock.mjs';
+
+measure();  // GitHub's time, for checking signatures: asked once, early
 
 // OpenPGP.js (about 400 KB) loads only when there is something to open.
 let library = null;
@@ -166,7 +169,7 @@ export async function openWith(armored, info, extra = {}) {
     for (const armoredKey of [c?.armored, c?.change?.armored].filter(Boolean)) keys.push(await openpgp.readKey({armoredKey}));
     return keys.filter(k => k.getKeyIDs().some(id => ids.includes(id.toHex())));
   } : null;
-  const {data: bytes, signed} = await open(openpgp, armored, derive, info, verifier);
+  const {data: bytes, signed} = await open(openpgp, armored, derive, info, verifier, new Date(now()));
   if (outside) await learnOnce(bytes);
   const sealed = await check(openpgp, bytes, info.keyId, derive).catch(() => ({state: 'none', rest: bytes}));
   const message = read(sealed.rest);

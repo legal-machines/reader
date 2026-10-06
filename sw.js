@@ -22,10 +22,11 @@ const PINS = {
  "alarm.mjs": "2e924e862b89c8961ddac0dca7fd7522097a5c1a93b259cf816adb0212756854",
  "check.html": "7400dac7b364ccb9af054f71aec7abdec3dc1d731eba3303db76121e3e2e4525",
  "check.mjs": "c581bdf6a7fa24adace6e7713b3c0582070be91fabf35ffbf031efab00f03adb",
+ "clock.mjs": "021d30ce152e6b64264ba59c0a126b42550c2640f2b823fecb8a9c9928644623",
  "compose.html": "af86e0834cee3319214b6c2bafd530da6e2ee243b0f4b98f7a4f68aba993661c",
  "compose.mjs": "62ebf28f51517709674a46c2ca798f7d5b26ae1fd25328542cb5fa368dfb59d7",
  "contacts.mjs": "009a50c543d8c2faa672d2d09ab10185cb116869e9ff6dfb591da2900f0b463e",
- "decrypt.mjs": "867920352586b1522f1e97e8cdc3ea587b3fa0b71fe88c997b7ba551dfc56709",
+ "decrypt.mjs": "b2cc324a4b5cc9b4a42cd5fce2f83b059d4482dd6274b3e156bf91f7a813375a",
  "dkim.mjs": "73795ba28249d7a16ff91ea8582f86260088bbd45ec43c2beabb5232a25d3296",
  "dns.html": "f27a9bd26722cf61cb005e25ae821f4084d9139a9d48f386e31e0ed945e468db",
  "dns.mjs": "76eace4737be7affc11d0fbd672090b2c78180d448887104b6accac9b07f2691",
@@ -51,18 +52,18 @@ const PINS = {
  "row.html": "1c20365a92f3e856c687e50b661088b1dcde1ff6d4662bed28c5a6b6938e4865",
  "row.mjs": "c51ace7c4a897a7a950ade899ed491f073c678c9ddcc69f8c9725a50caab9439",
  "seal.mjs": "899767c2277b4e3441bf43b54d1df97b0da4ce8ca14afe051b158144bf8e4f60",
- "sealed-core.mjs": "23393378fe743b6f02b7c8746f7bc02f118301e66128022021d8ce9a0dfe4a46",
+ "sealed-core.mjs": "bddd10608d7a2a27675c8cd527ea5e2b910adbc9e56279e7980d1f75c3c4e9d1",
  "send.html": "5855758efa4d1366293e71b8e99db05657a0465d1388a8ddb7af477a688bd740",
- "send.mjs": "af5cbdd54ad6dd82654b9283a392d10bff3ced9ed23895acd1e91f32b0673d0e",
- "setup.html": "574c50a1a72e989e536efaae00a37483a90464e9ee2e9a4bfac67c804678633c",
- "setup.mjs": "06669e4ac451d787afea2ea24586ca9c630e951f8fe5c5a65e565156010a1720",
- "sign.mjs": "df641dc32afe61dbdd20d397ba5a69cca16cfa7eb73732c8ca589953a841fdec",
+ "send.mjs": "88bd0fed07b2ffd9945bf9cdc243451e5d40346cd641453396598856dbfd0253",
+ "setup.html": "f5a3f8c959dd81eb44e5e4f73acdc33c55fd1b517aba0d8c9a37713fdcffa247",
+ "setup.mjs": "55dc8c72c08f20af9c9346fb996984b30be62a9c9433b0d50fa4a8706a7b5d49",
+ "sign.mjs": "aad05ddc4d2559811fd3e17ef34fdad3fe1f9dd5abc2d08786ed2f0b58bbf146",
  "sites.mjs": "da735072fc0ca68478199a4a477358f6283792952d8d435f91e33b268d91c7ce",
  "store.mjs": "6855c1b44e73d736ddac6753d4baf73973911adb20122292d9959342a4f90c1e",
  "tab.mjs": "6cb9413d6a36c53e8a50cb2332fb484fb8c84e2e66b79743510b4c8a253a4757",
  "title.html": "d86d47b2f8c4e4265fd4bc42354e542e6b65b914653cc1c851255385c31412c8",
  "title.mjs": "f1fa9f8cdefa820c69d69461e0f8d5594fd81de03d02b2d452641e1d23243556",
- "vault.mjs": "27da2616fe5fb0a16ea5b6524075882a46b19438522b80e7f9c784b546712452",
+ "vault.mjs": "8e43f034a77f40b643ce41af3ca7c607f3733c16e6a7e4ce97d9381f03a5add1",
  "width.mjs": "3f46932569c028cb5815c12c59abf01858e10817dce65d384d4ce43ce29aede8",
  "wkd-frame.mjs": "dc314f95d044e365c0a4b8caa1924401cbea220703963442b36db94a3cc09bee",
  "wkd.html": "7f08d88a5e1bad9907f44e8c3883e9eddc01e68b986d8cc4b0c5804e7fa7d862",
@@ -256,6 +257,18 @@ async function handle(d, from) {
     case 'lock':
       lock('asked');
       return state();
+    case 'time': {
+      // GitHub's clock (clock.mjs): the Date of a response fetched past every
+      // cache, against this device's clock halfway through the fetch.
+      try {
+        const t0 = Date.now();
+        const r = await fetch('/CNAME?time=' + Math.random().toString(36).slice(2), {cache: 'no-store', credentials: 'omit', signal: AbortSignal.timeout(3000)});
+        const t1 = Date.now(), at = Date.parse(r.headers.get('Date') || '');
+        return {offset: Number.isFinite(at) ? at + 500 - (t0 + t1) / 2 : null};
+      } catch (e) {
+        return {offset: null};
+      }
+    }
   }
   return state();
 }

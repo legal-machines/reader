@@ -76,8 +76,9 @@ export async function sessionKey(openpgp, message, derive, info) {
 // the sender's OpenPGP signature in it, if any: verifier(content, key IDs
 // that signed) gives the public keys to check it with, once the content is
 // read (a key can come in the message itself). {data, signed: null |
-// {state: 'ok' | 'bad' | 'unknown', ids, by}}
-export async function open(openpgp, armored, derive, info, verifier) {
+// {state: 'ok' | 'bad' | 'unknown', ids, by}}. date: now, by a clock to trust
+// (clock.mjs): a signature is not from the future only by this device's.
+export async function open(openpgp, armored, derive, info, verifier, date = new Date()) {
   const key = await sessionKey(openpgp, await openpgp.readMessage({armoredMessage: armored}), derive, info);
   if (!key) throw new Error('This message is not encrypted to the key on this device.');
   try {
@@ -87,7 +88,7 @@ export async function open(openpgp, armored, derive, info, verifier) {
     const keys = await verifier(first.data, ids);
     if (!keys?.length) return {data: first.data, signed: {state: 'unknown', ids, by: null}};
     first.data.fill(0);
-    const again = await openpgp.decrypt({message: await openpgp.readMessage({armoredMessage: armored}), sessionKeys: key, verificationKeys: keys, format: 'binary', expectSigned: false});
+    const again = await openpgp.decrypt({message: await openpgp.readMessage({armoredMessage: armored}), sessionKeys: key, verificationKeys: keys, format: 'binary', expectSigned: false, date});
     for (const s of again.signatures) {
       if (!keys.some(k => k.getKeys(s.keyID).length)) continue;
       try { await s.verified; return {data: again.data, signed: {state: 'ok', ids, by: s.keyID.toHex()}}; } catch (e) {}

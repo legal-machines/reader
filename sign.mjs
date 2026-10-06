@@ -41,11 +41,11 @@ function mpi(bytes) {
 // The signed message (the bytes OpenPGP.js reads with readMessage), for
 // data, signed by signer {keyId, fingerprint} through sign(data, hashed) ->
 // 64 bytes (R and S of Ed25519): the vault makes the digest itself, and only
-// for this kind of signature.
-export async function signedMessage(data, signer, sign) {
+// for this kind of signature. at: the time it is signed, in ms (clock.mjs).
+export async function signedMessage(data, signer, sign, at = Date.now()) {
   if (!/^[0-9a-f]{16}$/.test(signer?.keyId) || !/^[0-9a-f]{40}$/.test(signer?.fingerprint)) throw new Error('No key to sign with.');
   const keyId = unhex(signer.keyId), fingerprint = unhex(signer.fingerprint);
-  const now = Math.floor(Date.now() / 1000);
+  const now = Math.floor(at / 1000);
   // Hashed: when it was signed, and by which key (its fingerprint).
   const subs = [...subpacket(2, be32(now)), ...subpacket(33, [4, ...fingerprint])];
   const hashed = new Uint8Array([4, BINARY, EDDSA_LEGACY, SHA512, subs.length >> 8, subs.length & 255, ...subs]);
@@ -64,8 +64,8 @@ export async function signedMessage(data, signer, sign) {
 // The same as an OpenPGP.js message, ready for openpgp.encrypt. Built from
 // its packets: reading the bytes back would tie the signature to the
 // one-pass packet, and encrypting would then leave it out.
-export async function signedPackets(openpgp, data, signer, sign) {
-  const bytes = await signedMessage(data, signer, sign), parts = [];
+export async function signedPackets(openpgp, data, signer, sign, at = Date.now()) {
+  const bytes = await signedMessage(data, signer, sign, at), parts = [];
   for (let at = 0; at < bytes.length;) {
     at++;  // the header byte: our own, new format
     let n = bytes[at++];
