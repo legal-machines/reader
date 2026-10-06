@@ -34,7 +34,7 @@ const PINS = {
  "keys.html": "1939c572fc96989f0d85dab9495ab58e03e1f7d4279bf2b8b8329a10ccd33cb8",
  "keys.mjs": "70c3801c51e67427dbea852f7686d6b9e074e9fb3c0054135934ec9c6564fdd7",
  "letter.mjs": "269f3868371ec27c485bff8a389b0e9d42b5e8aef59b7d8a5c89bc1fe3622f9c",
- "mail.css": "6c9f9b63d80307a1cc9c471e462c96a6a660fdd38efc82d7553cafff4e4aa181",
+ "mail.css": "4ecb4ba14c8c93206d29867f325a3a74be39b1a198d51901cdb5040dd50caf5c",
  "mark.mjs": "4ba98ea35bc9eb30f2e1a75a2f93c7fba305d77ceec42bcf3ec150efba719151",
  "marks.mjs": "54fc92d4e354f04ea0b3f406141d6a0d28cec93626d3e65aafc90069db6624ca",
  "mime.mjs": "2669eb9343775add28dda1101cc4ec2d7e6c238bae33c9ea8ef87fd53b7f5835",
