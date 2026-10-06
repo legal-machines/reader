@@ -22,5 +22,25 @@ export const KEYS = [
    "2af3ef453c4a27493703a81daaf5a01e76290e8db22a7c025670db863d998736"
   ],
   "armored": "-----BEGIN PGP PUBLIC KEY BLOCK-----\n\nmDMEasU7KBYJKwYBBAHaRw8BAQdA75kpvhb7HltVRNQTjR2rIUOsb33y11Tou+gY\nNjJa7pa0IUFsZXhhbmRlciBEenl6YSA8aW5ib3hAZHp5emEuY29tPojnBBMWCgCZ\nBYJqxTsoBYkFo5qAAwsJBwkQC9j4NAUqwy1FFAAAAAAAHAAgc2FsdEBub3RhdGlv\nbnMub3BlbnBncGpzLm9yZ1HRGOY8hKgXqXfZJIdk2VGgC15bsegzWYJjvjtF+uFc\nBRUKCA4MBBYAAgECGQECmwMCHgkWIQTv29Er0nPpUOYlO0UL2Pg0BSrDLQ0nCQMH\nAwkBBwEJAgcCAAAhNgD/VyIAAGlQrdaPXC7in4AYWFDJClTfA5ksiFLL5FiRxxQA\n/09kJDrQkIKgjUQ+Dt2k0QKZ0ldNGlhH0eXrFUnn9gACuDgEasU7KBIKKwYBBAGX\nVQEFAQEHQCxL15ZcEYn9jt3OB2ZVwQBtsXLjU7bHSN9FV9q25f0nAwEIB4jEBBgW\nCgB2BYJqxTsoBYkFo5qACRAL2Pg0BSrDLUUUAAAAAAAcACBzYWx0QG5vdGF0aW9u\ncy5vcGVucGdwanMub3JnrysV7qzcjqKAnddeijikXXV9reaVdYAqNkGoMSPAOGAC\nmwwWIQTv29Er0nPpUOYlO0UL2Pg0BSrDLQAAq6kBAMgZBcS330sPQMQAOy5krHqj\nVRuD2N9KwoBd7v4CMHnBAQD6AhbdjeA9hwnqsY+pmRpqdpggIluma9pXn40EzOss\nAQ==\n=NYAb\n-----END PGP PUBLIC KEY BLOCK-----\n"
+ },
+ {
+  "domain": "legalmachines.org",
+  "fingerprint": "C8A9D1BB7D07DC621C01F6CDF16EBBC9F91C92C9",
+  "created": "2026-10-06",
+  "expires": "2029-10-05",
+  "subkeys": [
+   "650be3cebb47eda3"
+  ],
+  "x25519": {
+   "650be3cebb47eda3": "mmzEHWN13sAvycZgzOM4ez9/H5oakfmo02yJLPAXWkc="
+  },
+  "keys": [
+   "c8a9d1bb7d07dc621c01f6cdf16ebbc9f91c92c9",
+   "cdc8d5039f65d8cedbef2d14650be3cebb47eda3"
+  ],
+  "hashes": [
+   "58f4d4406decb65e62cd35bfafc5e674b05c5ec27376b189c80ff6eefb844830"
+  ],
+  "wkd": true
  }
 ];

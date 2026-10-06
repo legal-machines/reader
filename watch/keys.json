@@ -13,9 +13,17 @@
    }
   },
   "legalmachines.org": {
-   "keys": {},
-   "wkd": {}
+   "keys": {
+    "C8A9D1BB7D07DC621C01F6CDF16EBBC9F91C92C9": {
+     "subkeys": [
+      "CDC8D5039F65D8CEDBEF2D14650BE3CEBB47EDA3"
+     ]
+    }
+   },
+   "wkd": {
+    "gkf48ttaf1xptf4f1u5g3un4edwh5par": "C8A9D1BB7D07DC621C01F6CDF16EBBC9F91C92C9"
+   }
   }
  },
- "updated": "2026-10-06T18:35:51Z"
+ "updated": "2026-10-06T18:52:31Z"
 }
