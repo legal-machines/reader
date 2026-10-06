@@ -285,6 +285,17 @@ function showDone(addresses, mark, closing = !!handed || !!createFor) {
 // is shown once, on a sheet to print, and never leaves this page.
 const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 const newCode = () => [...crypto.getRandomValues(new Uint8Array(20))].map(b => CROCKFORD[b & 31]).join('');
+// A code as the sheet prints it, in groups of four with dashes: the key is
+// locked with exactly that, since Thunderbird and GnuPG take a passphrase as
+// typed. The forms a person may type it in, to try in turn: as typed, then
+// read the Crockford way (no dashes or spaces, O as 0, I and L as 1) with
+// and without the dashes (keys made before October 7, 2026 were locked
+// without them).
+const printed = code => code.match(/.{4}/g).join('-');
+const codeForms = typed => {
+  const plain = typed.toUpperCase().replace(/[\s-]/g, '').replace(/O/g, '0').replace(/[IL]/g, '1');
+  return [...new Set([typed, ...(/^[0-9A-Z]{20}$/.test(plain) ? [printed(plain), plain] : [])])];
+};
 const createCard = document.getElementById('create'), createError = createCard.querySelector('.error'), sheet = document.getElementById('sheet');
 document.getElementById('create-use-pin').addEventListener('change', e => { document.getElementById('create-pin-fields').hidden = !e.target.checked; });
 if (createFor && !window.opener) {
@@ -308,12 +319,12 @@ document.getElementById('create-button').addEventListener('click', async e => {
     // Made at the right time, whatever this device's clock says (clock.mjs).
     await measure();
     const {privateKey: locked, publicKey} = await openpgp.generateKey({type: 'ecc', curve: 'curve25519Legacy', date: new Date(now()),
-      userIDs: [{name: createFor.name || undefined, email: createFor.address}], passphrase: code, keyExpirationTime: 3 * 365 * 86400,
+      userIDs: [{name: createFor.name || undefined, email: createFor.address}], passphrase: printed(code), keyExpirationTime: 3 * 365 * 86400,
       // Locked the classic way (S2K iterated and salted, AES), which
       // Thunderbird and GnuPG open with the recovery code; the key asks for
       // SEIPD version 1, which they read.
       format: 'armored'});
-    const found = await extract(openpgp, locked, code);
+    const found = await extract(openpgp, locked, printed(code));
     const {record, mark} = await adopt(found, [createFor.address], pin);
     // A new key for an address replaces its older ones here: they are no
     // longer published (Mail takes a new key only for an address without
@@ -330,7 +341,7 @@ document.getElementById('create-button').addEventListener('click', async e => {
     lockedCopy = locked; madeFor = createFor.address; madeMark = mark;
     document.getElementById('sheet-address').textContent = createFor.address;
     document.getElementById('sheet-fingerprint').innerHTML = fingerprint.match(/.{4}/g).reduce((a, g, i) => a + (i === 5 ? '</span><span>' : i ? ' ' : '') + g, '<span>') + '</span>';
-    document.getElementById('sheet-code').textContent = code.match(/.{4}/g).join('-');
+    document.getElementById('sheet-code').textContent = printed(code);
     document.getElementById('sheet-date').textContent = new Date(now()).toISOString().slice(0, 10);
     const off = drift(), clock = document.getElementById('sheet-clock');
     clock.textContent = off ? `This computer's clock is ${off}. Seal made your key with the right time all the same. Set the clock to set itself, time zone included, so your other apps and your signatures keep the right time too.` : '';
@@ -383,13 +394,17 @@ other.addEventListener('submit', async e => {
     const file = document.getElementById('other-file').files[0];
     if (!file) throw new Error('Choose the key file first.');
     const locked = await openpgp.readPrivateKey({armoredKey: await file.text()}).catch(() => { throw new Error('This is not a secret key file.'); });
-    const typed = document.getElementById('other-code').value, asCode = typed.toUpperCase().replace(/[\s-]/g, '').replace(/O/g, '0').replace(/[IL]/g, '1');
+    const typed = document.getElementById('other-code').value;
     let key = null, passphrase = '';
-    for (const p of [typed, asCode]) {
+    for (const p of codeForms(typed)) {
       try { key = await openpgp.decryptKey({privateKey: locked, passphrase: p}); passphrase = p; break; } catch (err) {}
     }
     if (!key) throw new Error(`Wrong recovery code for this key. ${keyFacts(locked)} Its code is on the sheet with the same fingerprint; the recovery code of the mailbox, from setting it up, does not open it.`);
-    const copy = await openpgp.encryptKey({privateKey: key, passphrase, config: {aeadProtect: false, s2kType: openpgp.enums.s2k.iterated}});
+    // Locked again with the code as the sheet prints it, which is what a
+    // person types into Thunderbird.
+    const plain = passphrase.toUpperCase().replace(/[\s-]/g, '');
+    const copy = await openpgp.encryptKey({privateKey: key, passphrase: /^[0-9A-Z]{20}$/.test(plain) ? printed(plain) : passphrase,
+                                           config: {aeadProtect: false, s2kType: openpgp.enums.s2k.iterated}});
     const address = (key.getUserIDs()[0] || '').match(/<([^>]+)>/)?.[1] || 'key';
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([copy.armor()], {type: 'application/pgp-keys'}));
@@ -437,9 +452,11 @@ async function setUp() {
     const text = handed || await document.getElementById('file').files[0].text();
     let found;
     try {
-      const typed = document.getElementById('passphrase').value, asCode = typed.toUpperCase().replace(/[\s-]/g, '').replace(/O/g, '0').replace(/[IL]/g, '1');
-      try { found = await extract(openpgp, text, typed); }
-      catch (first) { if (asCode !== typed && /^[0-9A-Z]{20}$/.test(asCode)) found = await extract(openpgp, text, asCode); else throw first; }
+      let first = null;
+      for (const p of codeForms(document.getElementById('passphrase').value)) {
+        try { found = await extract(openpgp, text, p); break; } catch (err) { first ||= err; }
+      }
+      if (!found) throw first;
     } catch (err) {
       throw new Error(/passphrase|decrypt|auth/i.test(err.message) ? 'Wrong passphrase or recovery code.' : err.message.includes('Curve25519') ? err.message : 'This is not a secret key file.');
     }
