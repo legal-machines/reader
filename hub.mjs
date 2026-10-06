@@ -9,7 +9,8 @@
 
 import {MAIL_SITES} from './sites.mjs';
 import {widths} from './width.mjs';
-import {valid} from './store.mjs';
+import {all, valid} from './store.mjs';
+import {keyOf} from './seal.mjs';
 import {escape} from './mime.mjs';
 import {icon} from './icons.mjs';
 import * as vault from './vault.mjs';
@@ -167,6 +168,19 @@ addEventListener('message', async e => {
       channel.postMessage({type: 'hub-here'});  // frames that loaded first ask again
     }
     records = Array.isArray(d.records) ? d.records.filter(valid).slice(0, 20) : [];
+    // A key of this mailbox that this browser holds and Mail does not know of
+    // (added in a tab of Seal that Mail did not open, or whose answer never
+    // reached Mail): it counts here at once, and its sealed record goes to
+    // Mail, as after a setup Mail opened. Mail learns nothing it would not
+    // have had then: the record opens only with this browser's passkey.
+    if (typeof d.me === 'string' && d.me.length <= 254) {
+      const ours = await keyOf(d.me.toLowerCase()).catch(() => null);
+      const local = ours ? (await all().catch(() => [])).filter(r => valid(r) && ours.subkeys.includes(r.keyId) && !records.some(m => m.credentialId === r.credentialId)) : [];
+      if (local.length) {
+        records = [...records, ...local].slice(0, 20);
+        tell({type: 'hub-records', records: local});
+      }
+    }
     minutes = [0, 5, 15, 30, 60].includes(d.minutes) ? d.minutes : 15;
     mode = ['thread', 'list', 'panel', 'quiet'].includes(d.mode) ? d.mode : 'quiet';
     count = Number.isInteger(d.count) ? Math.min(d.count, 999) : 0;

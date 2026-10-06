@@ -63,14 +63,19 @@ if (window.opener) {
     try { localStorage.setItem(HANDOFF, JSON.stringify({id, armored: handed, create: createFor, at: Date.now()})); } catch (err) {}
     relay.onmessage = m => {
       if (m.data?.type !== 'sealed' || m.data.id !== id) return;
-      if (mailOrigin && window.opener) {
-        // A key made in the new tab: its public half and its copy locked with
-        // the recovery code, for the mailbox (only the code opens that copy).
-        const k = m.data.newKey;
-        if (k) window.opener.postMessage({type: 'reader-newkey', publicKey: k.publicKey, lockedKey: k.lockedKey, fingerprint: k.fingerprint}, mailOrigin);
-        window.opener.postMessage({type: 'reader-sealed', record: m.data.record}, mailOrigin);
-      }
-      window.close();
+      // Whether Mail kept the key, for the new tab, which offers Connect to
+      // Mail when it did not (the mail page may have moved on meanwhile).
+      const answer = kept => { relay.postMessage({type: kept ? 'kept' : 'not-kept', id}); window.close(); };
+      if (!mailOrigin || !window.opener) return answer(false);
+      addEventListener('message', e => {
+        if (e.source === window.opener && e.origin === mailOrigin && ['reader-kept', 'reader-not-kept'].includes(e.data?.type)) answer(e.data.type === 'reader-kept');
+      });
+      setTimeout(() => answer(false), 8000);
+      // A key made in the new tab: its public half and its copy locked with
+      // the recovery code, for the mailbox (only the code opens that copy).
+      const k = m.data.newKey;
+      if (k) window.opener.postMessage({type: 'reader-newkey', publicKey: k.publicKey, lockedKey: k.lockedKey, fingerprint: k.fingerprint}, mailOrigin);
+      window.opener.postMessage({type: 'reader-sealed', record: m.data.record}, mailOrigin);
     };
     window.open(`${location.origin}${location.pathname}#handoff=${id}`, '_blank', 'noopener');
     card.querySelector('p').textContent = 'Finish in the new tab. This one closes once your key is added there.';
@@ -119,6 +124,9 @@ async function list() {
       `<p class="key-meta">Added ${escape(when(r.created))}${r.pinSalt ? ', with a PIN' : ''}</p>` +
       `<p class="key-meta">Key ${escape(String(r.keyId).toUpperCase().replace(/(.{4})(?=.)/g, '$1 '))}</p>` +
       (times[r.keyId] > 1 ? `<p class="key-note">This key is here ${times[r.keyId]} times, each time with a passkey of its own. One is enough: remove the ones you do not use.</p>` : '') +
+      // Only in a tab no page opened (a page holding this one could word it its own way).
+      (!window.opener && mailFor(r) ? `<div class="actions"><button class="text" type="button" data-connect="${escape(r.credentialId)}" ` +
+        `title="If Mail asks to set up this browser although your key is here">Connect to Mail</button></div>` : '') +
       `</div><button class="icon-button danger" type="button" data-remove="${escape(r.credentialId)}" data-who="${who}" title="Remove from this browser" aria-label="Remove ${who} from this browser">${icon('delete')}</button></div>`;
   }).join('');
   showAlarm(records);
@@ -134,6 +142,10 @@ async function list() {
     b.setAttribute('aria-label', 'Your mark');
     b.nextElementSibling.textContent = 'Your mark';
     b.dataset.shown = '';
+  }));
+  box.querySelectorAll('[data-connect]').forEach(b => b.addEventListener('click', e => {
+    const r = records.find(x => x.credentialId === b.dataset.connect);
+    if (e.isTrusted && r) connect(r);
   }));
   box.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', e => {
     if (!e.isTrusted) return;
@@ -242,6 +254,44 @@ async function adopt(found, addresses, pin) {
   found.scalar.fill(0);
   return {record, mark};
 }
+// Connect to Mail: the sealed record of a key in this browser, handed to the
+// Mail app of its domain in the fragment of the address (which no request
+// carries), in a tab that cannot reach this one. Mail keeps it on a press
+// there, and only for the mailbox whose key it is. It is what Mail gets after
+// any setup, and opens nothing without this browser's passkey.
+function mailFor(record) {
+  const domain = String(record.addresses?.[0] || '').split('@')[1] || '';
+  return MAIL_SITES.find(site => new URL(site).hostname === 'mail.' + domain) || MAIL_SITES.find(site => domain && new URL(site).hostname.endsWith('.' + domain));
+}
+function connect(record) {
+  const site = mailFor(record);
+  if (!site) return;
+  const bytes = new TextEncoder().encode(JSON.stringify(record));
+  const text = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  window.open(`${site}/keys/connect#record=${text}`, '_blank', 'noopener,noreferrer');
+}
+// After a key is added in the tab that the Mail app's tab handed over to: if
+// Mail did not say it kept the key (the mail page moved on, or closed), this
+// tab offers Connect to Mail itself.
+function awaitKept(record) {
+  if (!relayId) return;
+  let settled = false;
+  const offer = () => {
+    if (settled) return;
+    settled = true;
+    const box = document.getElementById('connect');
+    box.hidden = false;
+    box.querySelector('button').onclick = e => { if (e.isTrusted) connect(record); };
+  };
+  const hear = m => {
+    if (m.data?.id !== relayId) return;
+    if (m.data.type === 'kept') { settled = true; relay.removeEventListener('message', hear); }
+    else if (m.data.type === 'not-kept') offer();
+  };
+  relay.addEventListener('message', hear);
+  setTimeout(offer, 12000);
+}
+
 // The key's mark, shown here once with what it is for.
 function showDone(addresses, mark, closing = !!handed || !!createFor) {
   done.innerHTML = `<b>Ready.</b> Encrypted messages to ${escape(addresses.join(', '))} now open in this browser, right in the Mail app.` +
@@ -286,6 +336,7 @@ document.getElementById('create-button').addEventListener('click', async e => {
     const {record, mark} = await adopt(found, [createFor.address], pin);
     const fingerprint = (await openpgp.readKey({armoredKey: publicKey})).getFingerprint().toUpperCase();
     if (relayId) relay.postMessage({type: 'sealed', id: relayId, record, newKey: {publicKey, lockedKey: locked, fingerprint}});
+    awaitKept(record);
     lockedCopy = locked; madeFor = createFor.address; madeMark = mark;
     document.getElementById('sheet-address').textContent = createFor.address;
     document.getElementById('sheet-fingerprint').innerHTML = fingerprint.match(/.{4}/g).reduce((a, g, i) => a + (i === 5 ? '</span><span>' : i ? ' ' : '') + g, '<span>') + '</span>';
@@ -348,6 +399,7 @@ async function setUp() {
     // The Mail app keeps the sealed key with the mailbox, for frames and for
     // the owner's other devices; without the passkey it opens nothing.
     if (relayId) relay.postMessage({type: 'sealed', id: relayId, record});  // to the tab the Mail app opened, which hands it over
+    awaitKept(record);
     form.reset();
     if (handed) form.hidden = true;  // its work is done; what is left is the mark
     showDone(addresses, mark);

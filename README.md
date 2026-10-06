@@ -61,7 +61,15 @@ the seal holds.
   in a tab no page holds, which takes the key over through this site's
   storage, still locked, for minutes at most; the passphrase is typed only
   there, and the first tab only hands the finished record back to the Mail
-  app and closes. The decryption subkey is sealed (AES-GCM) under a key
+  app, waits for Mail to say it kept it, and closes. When Mail does not say
+  so (the mail page moved on, or the key was added in a tab Mail never
+  opened), Seal offers Connect to Mail, also on every key on `setup.html`:
+  a tab of Mail, which cannot reach Seal's, opens at /keys/connect with the
+  sealed record in the address's fragment (no request carries it), and Mail
+  keeps it on a press there. Where the frames share this site's storage with
+  its tabs (Chrome; Safari keeps frames apart), the hub also hands Mail the
+  record of a key of the mailbox that Mail lacks. The mail server keeps a
+  record only for the mailbox's own key, published or waiting. The decryption subkey is sealed (AES-GCM) under a key
   made from a passkey's PRF output (Touch ID, a fingerprint, the screen lock
   or a security key) and, if chosen, a PIN. The sealed copy is kept by the
   Mail app with the mailbox (it cannot open it) and in this site's
