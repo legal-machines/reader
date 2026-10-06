@@ -113,6 +113,9 @@ dialog.confirm h2:focus{outline:none}  /* the dialog opens on its headline, so n
 dialog.confirm .confirm-text{margin:0 0 var(--s-6);color:var(--c-text-2);font-size:14px;line-height:20px;text-wrap:pretty}
 dialog.confirm .actions{display:flex;justify-content:flex-end;gap:var(--s-2);margin:0}
 .done{line-height:1.5}.done > b{color:var(--c-good)}
+/* check.html: the answer, in the colour of what it says. */
+.verdict{margin:0 0 var(--s-3);padding:var(--s-5) var(--s-6);border-radius:var(--r-md);background:var(--c-surface-3);color:var(--c-text)}.verdict h2{margin:0 0 var(--s-2);font-size:22px;font-weight:400;line-height:1.3}.verdict p{margin:0;line-height:1.5}
+.verdict.good{background:var(--c-good-soft);color:var(--c-on-good-soft)}.verdict.bad{background:var(--c-danger-soft);color:var(--c-on-danger-soft)}
 /* The mark: its four pictures in two rows on a Material 3 large square tonal icon button (96 dp, corner 28 dp), as in the composer. */
 .mark-tile{display:grid;flex:none;grid-template-columns:repeat(2,32px);grid-auto-rows:32px;gap:4px;place-content:center;place-items:center;width:96px;height:96px;
   border-radius:28px;background:var(--c-good-soft);font-size:30px;line-height:32px;white-space:nowrap;-webkit-user-select:none;user-select:none}
