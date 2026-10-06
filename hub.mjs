@@ -109,7 +109,7 @@ async function openAll() {
     if (!keyId) { post({type: 'failed', slot}); continue; }
     try {
       const model = await openWith(w.armored, s.infos[keyId], {raw: w.raw, sentFrom: w.from});
-      model.sentFrom ||= w.from;
+      if (!w.raw) model.sentFrom ||= w.from;  // with the whole message, its own From only
       opened.set(slot, {model, keyId});
       send(slot);
     } catch (err) {

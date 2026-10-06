@@ -95,7 +95,7 @@ button.addEventListener('click', async e => {
     const own = known.get(from);
     if (!own?.internal) throw new Error('End to end goes only from a mailbox here with a key.');
     const changed = everyone.filter(a => known.get(a)?.changed);
-    if (changed.length) throw new Error(`New key for ${changed.join(', ')}: accept it on the Seal page, or remove it there, then press Send. Nothing was sent.`);
+    if (changed.length) throw new Error(`New key for ${changed.join(', ')}: accept it or keep the old one under their latest message, or on the Security page, then press Send. Nothing was sent.`);
     const missing = everyone.filter(a => !known.get(a));
     if (missing.length) throw new Error(`Seal has no key for ${missing.join(', ')}. It learns one from a message of theirs that carries it, signed by their domain.`);
     // Your key, for the seal: open already, or opened now with this press.

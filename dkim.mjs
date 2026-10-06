@@ -3,8 +3,8 @@
 // key whose public half it publishes in its domain's DNS; our mail server
 // does not hold that key, so a message it made up, or changed, does not pass.
 // The key comes from public DNS through two resolvers of two companies,
-// Cloudflare and Google, and counts only when both give the same: the mail
-// server answers neither. They learn the signing domain and its selector
+// Cloudflare and Google (dns.html), and counts only when both give the same:
+// the mail server answers neither. They learn the signing domain and its selector
 // (google._domainkey.a16z.com), which the message shows in the open anyway,
 // and nothing else: no address, nothing of what is encrypted.
 //
@@ -13,10 +13,6 @@
 // which person at that domain wrote it: that is the sender's own OpenPGP
 // signature (decrypt.mjs).
 
-const RESOLVERS = [
-  name => `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(name)}&type=TXT`,
-  name => `https://dns.google/resolve?name=${encodeURIComponent(name)}&type=TXT`,
-];
 
 const latin1 = bytes => {
   let out = '';
@@ -38,10 +34,29 @@ export function fieldsOf(raw) {
   const fields = head.split(/\r\n(?![ \t])/).filter(Boolean).map(f => f + '\r\n');
   return {fields, body};
 }
+// Every field written as RFC 5322 has it: a name of printable characters
+// right before its colon. Anything else (a stray line, a control character,
+// a space before the colon) and mail programs disagree about what the header
+// says, so a signature over it proves nothing here.
+const wellFormed = fields => fields.every(f => /^[\x21-\x39\x3b-\x7e]+:/.test(f) && !/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]|\r(?!\n)/.test(f));
 const nameOf = field => field.slice(0, Math.max(0, field.indexOf(':'))).replace(/[ \t]+$/, '').toLowerCase();
 const valueOf = field => field.slice(field.indexOf(':') + 1).replace(/\r\n$/, '');
 // Every value of a header field, in order.
 export const values = (fields, name) => fields.filter(f => nameOf(f) === name).map(valueOf);
+
+// The one address of a From field, read strictly: a bare address, or a name
+// (quoted, or plain words) and the address in angle brackets. A name with @,
+// < or > in it, or more than one address, gives '': nothing that a mail
+// program could show as another address passes.
+const ADDR = '([A-Za-z0-9.!#$%&\'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)+)';
+export function mailbox(value) {
+  const v = String(value).replace(/\r\n(?=[ \t])/g, '').replace(/^[ \t]+|[ \t]+$/g, '');
+  let m = new RegExp(`^${ADDR}$`).exec(v);
+  if (m) return m[1].toLowerCase();
+  m = new RegExp(`^(?:"((?:[^"\\\\\r\n]|\\\\.)*)"|([^"<>@,;:()\\\\\r\n]*?))[ \t]*<${ADDR}>$`).exec(v);
+  if (!m || /[@<>]/.test(m[1] ?? m[2] ?? '')) return '';
+  return m[3].toLowerCase();
+}
 
 // tag=value; tag=value (section 3.2)
 function tags(text) {
@@ -67,40 +82,46 @@ function canonicalBody(body, relaxed) {
   return lines.slice(0, end).join('\r\n') + '\r\n';
 }
 
-// TXT data as the resolvers give it: Cloudflare quotes each string of the
-// record ("a" "b"), Google joins them.
-function txtOf(data) {
-  data = String(data);
-  if (!data.startsWith('"')) return data;
-  let out = '';
-  for (let i = 0; i < data.length;) {
-    if (data[i++] !== '"') continue;
-    while (i < data.length && data[i] !== '"') {
-      if (data[i] === '\\' && /^\d{3}$/.test(data.substr(i + 1, 3))) { out += String.fromCharCode(Number(data.substr(i + 1, 3))); i += 4; }
-      else if (data[i] === '\\') { out += data[i + 1] || ''; i += 2; }
-      else out += data[i++];
-    }
-    i++;
-  }
-  return out;
-}
-
 // The TXT records of a name, the same from both resolvers, or an error:
-// 'unreachable' (a resolver did not answer) or 'disagree'.
+// 'unreachable' (a resolver did not answer) or 'disagree'. They come from
+// dns.html, a page of this site in a hidden frame, the only one that may
+// reach the resolvers: the pages that hold messages reach no network.
+let resolver = null;
+export const useResolver = f => { resolver = f; };  // for tests
+function frameResolver() {
+  let ready = null, n = 0;
+  const pending = new Map();
+  return name => (ready ||= new Promise((ok, no) => {
+    const f = document.createElement('iframe');
+    f.src = 'dns.html';
+    f.hidden = true;
+    f.tabIndex = -1;
+    f.setAttribute('aria-hidden', 'true');
+    addEventListener('message', e => {
+      if (e.source !== f.contentWindow || e.origin !== location.origin) return;
+      if (e.data?.type === 'dns-ready') ok(f.contentWindow);
+      else if (e.data?.type === 'dns-answer') {
+        const p = pending.get(e.data.id);
+        if (!p) return;
+        pending.delete(e.data.id);
+        if (Array.isArray(e.data.records)) p.ok(e.data.records.map(String)); else p.no(new Error(e.data.error === 'disagree' ? 'disagree' : 'unreachable'));
+      }
+    });
+    document.body.append(f);
+    setTimeout(() => no(new Error('unreachable')), 10000);
+  })).then(w => new Promise((ok, no) => {
+    const id = ++n;
+    pending.set(id, {ok, no});
+    w.postMessage({type: 'dns-ask', id, name}, location.origin);
+    setTimeout(() => { if (pending.delete(id)) no(new Error('unreachable')); }, 20000);
+  }));
+}
 const asked = new Map();
 async function txt(name) {
   const hit = asked.get(name);
   if (hit && Date.now() - hit.at < 10 * 60e3) return hit.answer;
-  const answer = Promise.all(RESOLVERS.map(async url => {
-    const r = await fetch(url(name), {headers: {accept: 'application/dns-json'}, credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-store', signal: AbortSignal.timeout(8000)});
-    if (!r.ok) throw new Error('unreachable');
-    const d = await r.json();
-    if (d.Status !== 0 && d.Status !== 3) throw new Error('unreachable');  // 3: no such name
-    return (d.Answer || []).filter(a => a.type === 16).map(a => txtOf(a.data)).sort();
-  })).catch(() => { throw new Error('unreachable'); }).then(([a, b]) => {
-    if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error('disagree');
-    return a;
-  });
+  resolver ||= frameResolver();
+  const answer = resolver(name);
   asked.set(name, {at: Date.now(), answer});
   answer.catch(() => asked.delete(name));
   return answer;
@@ -137,17 +158,17 @@ async function one(field, fields, body) {
   if (!kind) return {state: 'fail', why: 'algorithm'};  // rsa-sha1 among them: no longer safe
   if (!HOST.test(d) || !HOST.test(s) || !d.includes('.')) return {state: 'fail', why: 'unreadable'};
   const covers = (t.get('h') || '').replace(/[ \t\r\n]/g, '').toLowerCase().split(':').filter(Boolean);
-  if (!covers.includes('from')) return {state: 'fail', why: 'unreadable'};
+  if (!covers.includes('from')) return {state: 'fail', why: 'unreadable', domain: d};
   const i = (t.get('i') || '').toLowerCase(), iDomain = i.slice(i.lastIndexOf('@') + 1);
-  if (i && iDomain !== d && !iDomain.endsWith('.' + d)) return {state: 'fail', why: 'unreadable'};
+  if (i && iDomain !== d && !iDomain.endsWith('.' + d)) return {state: 'fail', why: 'unreadable', domain: d};
   const [hc, bc = 'simple'] = (t.get('c') || 'simple/simple').toLowerCase().split('/');
-  if (!['simple', 'relaxed'].includes(hc) || !['simple', 'relaxed'].includes(bc)) return {state: 'fail', why: 'unreadable'};
+  if (!['simple', 'relaxed'].includes(hc) || !['simple', 'relaxed'].includes(bc)) return {state: 'fail', why: 'unreadable', domain: d};
 
   // The body: all of it signed, or the signature counts for nothing here
   // (l= leaves whatever follows open to anyone).
   const canon = canonicalBody(body, bc === 'relaxed');
-  if (t.has('l') && !(/^\d{1,76}$/.test(t.get('l')) && Number(t.get('l')) >= canon.length)) return {state: 'fail', why: 'part'};
-  if (b64(await sha256(canon)) !== (t.get('bh') || '').replace(/[ \t\r\n]/g, '')) return {state: 'fail', why: 'body'};
+  if (t.has('l') && !(/^\d{1,76}$/.test(t.get('l')) && Number(t.get('l')) >= canon.length)) return {state: 'fail', why: 'part', domain: d};
+  if (b64(await sha256(canon)) !== (t.get('bh') || '').replace(/[ \t\r\n]/g, '')) return {state: 'fail', why: 'body', domain: d};
 
   // The header fields it covers, each taken from the bottom up, then the
   // signature's own field with its b= emptied.
@@ -162,10 +183,10 @@ async function one(field, fields, body) {
 
   let records;
   try { records = await txt(`${s}._domainkey.${d}`); }
-  catch (e) { return {state: 'unknown', why: e.message}; }
-  if (!records.length) return {state: 'fail', why: 'no key'};
+  catch (e) { return {state: 'unknown', why: e.message, domain: d}; }
+  if (!records.length) return {state: 'fail', why: 'no key', domain: d};
   let signature;
-  try { signature = unbase64((t.get('b') || '').replace(/[ \t\r\n]/g, '')); } catch (e) { return {state: 'fail', why: 'unreadable'}; }
+  try { signature = unbase64((t.get('b') || '').replace(/[ \t\r\n]/g, '')); } catch (e) { return {state: 'fail', why: 'unreadable', domain: d}; }
   let why = 'signature';
   for (const record of records) {
     const k = tags(record);
@@ -182,14 +203,14 @@ async function one(field, fields, body) {
       ok = kind === 'rsa' ? await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, signature, bytesOf(data))
                           : await crypto.subtle.verify('Ed25519', key, signature, await sha256(data));
     } catch (e) {
-      if (e.name === 'NotSupportedError') return {state: 'unknown', why: 'browser'};
+      if (e.name === 'NotSupportedError') return {state: 'unknown', why: 'browser', domain: d};
       continue;
     }
     // A domain still trying DKIM out (t=y) asks that its signatures count
     // for nothing yet.
-    if (ok) return flags.includes('y') ? {state: 'fail', why: 'testing'} : {state: 'pass', domain: d, covers};
+    if (ok) return flags.includes('y') ? {state: 'fail', why: 'testing', domain: d} : {state: 'pass', domain: d, covers};
   }
-  return {state: 'fail', why};
+  return {state: 'fail', why, domain: d};
 }
 
 // Whether two domains belong together the way DMARC's relaxed alignment
@@ -201,6 +222,7 @@ const aligned = (a, b) => a === b || a.endsWith('.' + b) || b.endsWith('.' + a);
 // or {state: 'fail' | 'unknown' | 'none', why}. from: the address in From.
 export async function dkim(raw, fromAddress) {
   const {fields, body} = fieldsOf(raw);
+  if (!wellFormed(fields)) return {state: 'fail', why: 'header'};
   // Two From fields: the signature covers one, a mail program may show the
   // other.
   if (values(fields, 'from').length !== 1) return {state: 'fail', why: 'from'};
@@ -208,7 +230,12 @@ export async function dkim(raw, fromAddress) {
   const signatures = fields.filter(f => nameOf(f) === 'dkim-signature').slice(0, 5);
   if (!signatures.length) return {state: 'none'};
   const results = await Promise.all(signatures.map(f => one(f, fields, body).catch(() => ({state: 'fail', why: 'signature'}))));
-  for (const r of results) if (r.state === 'pass') r.aligned = !!fromDomain && aligned(r.domain, fromDomain);
+  for (const r of results) if (r.domain) r.aligned = !!fromDomain && aligned(r.domain, fromDomain);
+  // "Could not be checked now" only for a signature of the sender's own
+  // domain: one of any other domain (which a mail server can add, naming a
+  // domain whose DNS never answers) must not stand in for a failure.
+  // Likewise a failure counts only for the sender's own domain: another
+  // domain's signature that fails says nothing about this sender.
   return results.find(r => r.state === 'pass' && r.aligned) || results.find(r => r.state === 'pass') ||
-         results.find(r => r.state === 'unknown') || results[0];
+         results.find(r => r.state === 'unknown' && r.aligned) || results.find(r => r.state === 'fail' && r.aligned) || {state: 'none', why: 'other domains'};
 }

@@ -4,8 +4,8 @@
 // letter in its place; Mail learns only the height to give the frame. In a
 // tab of its own (opened by Mail where a browser keeps passkeys out of
 // frames) it is handed the message and opens it itself.
-// This page makes no network requests but to two public DNS resolvers, for
-// the signing key of a sender's domain (dkim.mjs; index.html, its policy).
+// This page makes no network requests at all (index.html, its policy); the
+// signing key of a sender's domain comes from dns.html, in a frame (dkim.mjs).
 
 import {all, valid} from './store.mjs';
 import {addressOf, escape, linkify} from './mime.mjs';
@@ -14,6 +14,7 @@ import {widths} from './width.mjs';
 import {icon} from './icons.mjs';
 import {LETTER_CSS} from './letter.mjs';
 import {markFor, tile} from './mark.mjs';
+import * as contacts from './contacts.mjs';
 import * as vault from './vault.mjs';
 import {canOpen, openWith, openpgpLib, recipientsOf} from './decrypt.mjs';
 
@@ -111,42 +112,54 @@ const alertBox = (title, text) => `<div class="reader-alert" role="alert">${icon
 // a line like it beside a message of its own, but not your mark.
 const sealLine = (text, weak) => `<p class="seal-line${weak ? ' none' : ''}">${icon(weak ? 'warning' : 'verified_user')}<span>${text}</span>` +
   (weak ? '' : '<button class="mark-check" type="button" hidden title="Only Seal can show your mark: Mail cannot">Show my mark</button>') + '</p>';
-const peopleLink = '<a href="setup.html#people" target="_blank" rel="noopener">Seal page</a>';
 const reportLink = '<a href="setup.html#alarm" target="_blank" rel="noopener">Seal page</a>';
 
 // What Seal could check of a message from outside our mailboxes (decrypt.mjs):
 // first what proves its writer (their own signature, with the key Seal
 // knows), then what proves its way here (their domain's signature).
+const grouped = f => { const g = String(f).match(/.{1,4}/g) || []; return g.slice(0, 5).join(' ') + '\u2003' + g.slice(5).join(' '); };
 function senderLines(s, when) {
-  const d = s.dkim || {state: 'none'}, domain = s.from.split('@')[1], from = escape(s.from);
+  const d = s.dkim || {state: 'none'}, from = escape(s.from), domain = escape(s.from.split('@')[1] || '');
+  if (!s.from) return alertBox('Who sent it is not clear', 'Its From line does not name one plain address, so Seal cannot tell who sent it. Do not trust its links and requests.');
   const signedKnown = s.signed?.state === 'ok' && s.signed.by === 'known', signedNew = s.signed?.state === 'ok' && s.signed.by === 'new';
   const domainOk = d.state === 'pass' && d.aligned, tampered = d.state === 'fail' && ['body', 'signature', 'from', 'part'].includes(d.why);
+  // Encrypted text quoted or forwarded inside a message: the message around
+  // it, and its domain's signature, say nothing about who wrote it.
+  if (s.quoted) {
+    const line = s.signed?.state === 'ok' && s.signed.by === 'known' ? sealLine(`Signed with the key of ${from}${s.checked ? ', checked with them' : ''}`) : '';
+    return line + alertBox('Quoted or forwarded', 'The encrypted text is only part of this message: someone quoted or forwarded it. ' +
+      (line ? 'Its signature shows who wrote it; the rest of the message, Seal cannot vouch for.' : 'Who wrote it is not known, whatever the message around it says.'));
+  }
   if (s.signed?.state === 'bad') return alertBox('Its signature does not hold', `It says it is from ${from}, but its signature was not made with their key, or the text was changed after. Do not trust its links and requests.`);
   let out = '';
   if (tampered && !signedKnown)
-    return alertBox('Not as its sender sent it', `${escape(domain)} signs the mail it sends, and this message does not match the signature: it was changed on the way, or made up. Do not trust who it says it is from, nor its links and requests.`);
+    return alertBox('Not as its sender sent it', `${domain} signs the mail it sends, and this message does not match the signature: it was changed on the way, or made up. Do not trust who it says it is from, nor its links and requests.`);
   // Someone whose key Seal knows, in a message signed neither with it nor by
   // their domain: what a mail server writing in their name would send.
-  if (!signedKnown && !signedNew && !domainOk && s.fingerprint && d.state !== 'unknown')
-    return alertBox(`Not signed by ${from}`, `Seal knows their key, and this message carries neither their signature nor their domain's. It may not be from them: do not trust its links and requests, and ask them another way.`);
+  if (!signedKnown && !signedNew && !domainOk && s.fingerprint)
+    return alertBox(`Not signed by ${from}`, `Seal knows their key, and this message carries neither their signature nor their domain's` +
+      (d.state === 'unknown' ? ' that Seal could check now' : '') + '. It may not be from them: do not trust its links and requests, and ask them another way.');
   if (signedKnown || domainOk) {
     const parts = [];
     if (signedKnown) parts.push(`Signed with the key of ${from}${s.checked ? ', checked with them' : ''}`);
     if (domainOk) parts.push(`${signedKnown ? 'sent' : 'Sent'} by the mail of ${escape(d.domain)}`);
     out += sealLine(parts.join('; ') + escape(when));
-    if (tampered) out += alertBox('Changed on the way', `The text is theirs, signed with their key, but something around it was changed after it left the mail of ${escape(domain)}: only a mail server on the way could do that. Report it on the ${reportLink}.`);
+    if (tampered) out += alertBox('Changed on the way', `The text is theirs, signed with their key, but something around it was changed after it left the mail of ${domain}: only a mail server on the way could do that. Report it on the ${reportLink}.`);
     if (d.state === 'pass' && !d.aligned && !signedKnown) out += alertBox('Signed by another domain', `It says it is from ${from}, but ${escape(d.domain)} signed it. That says nothing about who wrote it.`);
   } else if (d.state === 'pass') {
     out += alertBox('Signed by another domain', `It says it is from ${from}, but ${escape(d.domain)} signed it. That says nothing about who wrote it.`);
   } else if (d.state === 'unknown') {
     out += sealLine(`Who sent it could not be checked now: ${d.why === 'browser' ? 'this browser cannot check its signature' : 'no answer from DNS'}. Open it again later`, true);
-  } else if (d.state === 'fail') {
-    out += sealLine(['no key', 'revoked'].includes(d.why) ? `${escape(domain)} no longer publishes the key it was signed with, so who sent it cannot be checked` : 'Not signed in a way Seal can check: anyone who has your public key, the mail server included, could have written it', true);
   } else {
-    out += sealLine('Not signed: anyone who has your public key, the mail server included, could have written it', true);
+    out += sealLine('Not signed in a way Seal can check: anyone who has your public key, the mail server included, could have written it', true);
   }
-  if (signedNew || s.change || s.learned === 'changed')
-    out += alertBox(`${from} has a new key`, `Their mail sent a key that differs from the one Seal knows${signedNew ? ', and this message is signed with it' : ''}. Seal goes on encrypting to the old key until you accept the new one on the ${peopleLink}. Ask them first, not by email, whether they changed it.`);
+  // A new key from their mail: used only once you accept it, here, by the
+  // fingerprint shown, after asking them another way.
+  if (s.change)
+    out += `<div class="reader-alert new-key" role="alert" data-fingerprint="${escape(s.change)}">${icon('warning')}<div><b>${from} has a new key</b>` +
+      `<p>Their mail sent a key that differs from the one Seal knows${signedNew ? ', and this message is signed with it' : ''}. Seal goes on encrypting to the old key until you accept the new one. ` +
+      `Ask them first, not by email, whether they changed it, and read them its fingerprint.</p><p class="fingerprint">${escape(grouped(s.change))}</p>` +
+      `<div class="actions"><button class="text" type="button" data-accept-key>Use the new key</button><button class="text" type="button" data-decline-key>Keep the old one</button></div></div></div>`;
   else if (s.learned === 'new')
     out += sealLine(`Seal now knows the key of ${from}: what you write back to them can be encrypted end to end`);
   return out;
@@ -268,6 +281,25 @@ function markChecks() {
     });
   }
 }
+// Use the new key / Keep the old one, under the letter that brought it: on a
+// press of yours, while this frame has the keyboard and the whole notice is
+// on the screen (in Chrome, not covered either).
+function keyChoices(m) {
+  for (const box of view.querySelectorAll('.new-key')) {
+    lineWatch?.observe(box);
+    const ok = e => { const seen = lines.get(box); return e.isTrusted && document.hasFocus() && (!lineWatch || (seen?.whole && seen.visible !== false)); };
+    const done = text => { box.outerHTML = sealLine(text); report(); };
+    box.querySelector('[data-accept-key]').addEventListener('click', async e => {
+      if (!ok(e)) return;
+      if (await contacts.acceptChange(m.sender.from, box.dataset.fingerprint)) done(`Seal now encrypts to the new key of ${escape(m.sender.from)}`);
+    });
+    box.querySelector('[data-decline-key]').addEventListener('click', async e => {
+      if (!ok(e)) return;
+      await contacts.declineChange(m.sender.from);
+      done(`Seal keeps the key it knew for ${escape(m.sender.from)}`);
+    });
+  }
+}
 addEventListener('blur', hideMarks);
 document.addEventListener('visibilitychange', hideMarks);
 
@@ -290,6 +322,7 @@ async function reveal(m) {
   } else view.replaceChildren(stage);
   await fill(m);
   markChecks();
+  if (m.sender) keyChoices(m);
   report();
   // Mail's header says "End-to-end encrypted" only for a letter whose seal
   // holds; until the reader says so, it says "Encrypted".
@@ -380,7 +413,7 @@ async function prepare() {
 }
 async function openHere(info, keyId) {
   const m = await openWith(armored, info, {raw: handedRaw, sentFrom});
-  m.sentFrom ||= sentFrom;
+  if (!handedRaw) m.sentFrom ||= sentFrom;  // with the whole message, its own From only
   shown = {keyId};
   view.replaceChildren();
   reveal(m);

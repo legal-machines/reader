@@ -9,7 +9,7 @@
 import {keyOf} from './seal.mjs';
 
 const DB = 'seal-contacts', STORE = 'keys', CHECKED = 'checked';
-const OURS = /@(legalmachines\.org|dzyza\.com)$/;
+const OURS = /@(?:[a-z0-9-]+\.)*(?:legalmachines\.org|dzyza\.com)$/;  // our domains and any name under them
 
 function db() {
   return new Promise((ok, no) => {
@@ -59,8 +59,9 @@ export async function learn(openpgp, address, data) {
   const old = await get(address);
   if (!old) { await put({address, fingerprint, armored, first: now, seen: now, checked: '', change: null}); return 'new'; }
   if (old.fingerprint === fingerprint) { old.seen = now; await put(old); return 'same'; }
-  if (old.change?.fingerprint !== fingerprint) old.change = {fingerprint, armored, seen: now};
-  await put(old);
+  // The first new key waits, and no later one takes its place: the one you
+  // check with them is the one you accept.
+  if (!old.change) { old.change = {fingerprint, armored, seen: now}; await put(old); }
   return 'changed';
 }
 
@@ -77,12 +78,20 @@ export async function keyFor(address) {
   return {armored: c.armored, contact: c};
 }
 
-// You accept a changed key (after making sure it is theirs), or mark the
-// current one checked.
-export async function acceptChange(address) {
+// You accept a changed key (after making sure it is theirs), by the
+// fingerprint you were shown; or mark the current one checked.
+export async function acceptChange(address, fingerprint) {
+  const c = await get(String(address).toLowerCase());
+  if (!c?.change || c.change.fingerprint !== String(fingerprint || '').toUpperCase()) return false;
+  Object.assign(c, {fingerprint: c.change.fingerprint, armored: c.change.armored, seen: c.change.seen, checked: '', change: null});
+  await put(c);
+  return true;
+}
+// You decline a new key: the one Seal knew stays.
+export async function declineChange(address) {
   const c = await get(String(address).toLowerCase());
   if (!c?.change) return;
-  Object.assign(c, {fingerprint: c.change.fingerprint, armored: c.change.armored, seen: c.change.seen, checked: '', change: null});
+  c.change = null;
   await put(c);
 }
 export async function check(address, on = true) {

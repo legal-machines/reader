@@ -66,7 +66,7 @@ the seal holds.
   opened), Seal offers Connect to Mail, also on every key on `setup.html`:
   a tab of Mail, which cannot reach Seal's, opens at /keys/connect with the
   sealed record in the address's fragment (no request carries it), and Mail
-  keeps it on a press there. Where the frames share this site's storage with
+  keeps it on a press there, and only when Seal's origin opened the page. Where the frames share this site's storage with
   its tabs (Chrome; Safari keeps frames apart), the hub also hands Mail the
   record of a key of the mailbox that Mail lacks. The mail server keeps a
   record only for the mailbox's own key, published or waiting. The decryption subkey is sealed (AES-GCM) under a key
@@ -132,24 +132,35 @@ the seal holds.
   remote addresses and shown in a sandboxed frame without scripts.
   Attachments are only downloaded or shown in the browser's own viewer.
 * **Senders outside our mailboxes** (`dkim.mjs`, `contacts.mjs`). Mail hands
-  Seal the whole message as the server holds it, and Seal reads the
-  encrypted text out of it itself. It checks the DKIM signature of the
-  sender's domain in the browser: the key comes from public DNS through
-  Cloudflare and Google, and counts only when both give the same, so the mail
-  server, which holds no such key, cannot make up or change a message that
-  passes. A message that passes, and was first opened so, stays passed (by
-  the SHA-256 of the whole message) after the domain withdraws its key.
+  Seal the whole message as the server holds it, and Seal reads the sender
+  and the encrypted text out of it itself. The sender is the one address of
+  its one From field, read strictly: a name holding @, < or >, two
+  addresses, or a header field that is not written by the rules, and nothing
+  vouches for it. Seal checks the DKIM signature of the sender's domain in
+  the browser: the key comes from public DNS through Cloudflare and Google,
+  and counts only when both give the same, so the mail server, which holds
+  no such key, cannot make up or change a message that passes. Only the
+  sender's own domain counts, for a failure or for "could not be checked"
+  as much as for a pass. A message that passes, and was first opened so,
+  stays passed (by the SHA-256 of the whole message) after the domain
+  withdraws its key. The encrypted text counts as the sender's only when the
+  message is it as a whole (PGP/MIME, or a text body that is one armored
+  block); encrypted text quoted or forwarded in a message opens with a
+  warning that nothing around it vouches for it, and teaches Seal no key.
   Seal learns the sender's OpenPGP key only from what the domain signed (the
-  Autocrypt header when the signature covers it, a key attached to or inside
-  the message), keeps the first one for that address and encrypts to it; a
-  different key later waits on `setup.html` until you accept it, and never
-  replaces the first by itself. The sender's own signature in the message is
-  checked with the key Seal knows. The letter then says "Signed with the key
-  of", "Sent by the mail of" the domain, or warns: changed on the way, signed
-  by another domain, a new key, or a message from someone whose key Seal
-  knows that carries neither their signature nor their domain's.
-  `setup.html` lists these keys with their fingerprints, to read with the
-  person by phone and mark as checked.
+  Autocrypt header when the signature covers it, or a key inside the
+  encrypted text), keeps the first one for that address and encrypts to it;
+  a different key later waits, and no later one takes its place, until you
+  accept it by the fingerprint shown, under the letter that brought it or in
+  the list on the Mail app's Security page (`people.html`, a frame of Seal:
+  Safari keeps a frame's storage apart from Seal's own tabs, so the keys live
+  where the frames that open and send messages are). Our domains and any name
+  under them never count as outside. The sender's own signature in the
+  message is checked with the key Seal knows. The letter then says "Signed
+  with the key of", "Sent by the mail of" the domain, or warns: changed on
+  the way, signed by another domain, a new key, quoted or forwarded, a From
+  that names no one plainly, or a message from someone whose key Seal knows
+  that carries neither their signature nor their domain's.
 * **Show my mark** ends every line that vouches for a letter ("Sealed by",
   "Signed with the key of"): Mail could draw such a line beside a message of
   its own, but not your mark. It shows for ten seconds on a press of yours,
@@ -210,10 +221,10 @@ secret.
 
 * Every page carries a Content-Security-Policy that allows no requests
   beyond this site's own files: nothing decrypted, and nothing about the
-  key, can be sent anywhere. The two pages that open letters (`hub.html`,
-  `index.html`) may also ask cloudflare-dns.com and dns.google for the DKIM
-  key of a sender's domain, by the selector and domain the message shows in
-  the open; nothing else of a message goes there.
+  key, can be sent anywhere. One page alone reaches the network: `dns.html`,
+  in a hidden frame of the page that opens a letter, asks cloudflare-dns.com
+  and dns.google for the DKIM key of a sender's domain, by the selector and
+  domain the message shows in the open, and holds no key and no message.
 * `SHA256SUMS` lists every file's hash. Two watches compare what is served at
   both addresses with it, and look for signs that someone else serves these
   names: the domains' delegation and DNSSEC at their registries, the CNAMEs
@@ -320,7 +331,8 @@ and passkeys), `vault.mjs` and `sw.js` (the key while unlocked), `hub.mjs`
 (a letter), `row.mjs` (a line of a list), `title.mjs` (the subject),
 `compose.mjs` and `send.mjs` (writing), `tab.mjs` (Seal's frames in a
 tab), `seal.mjs` (the sender's seal and key lookup by hash), `dkim.mjs`
-(the signature of a sender's domain), `contacts.mjs` (keys of people outside), `keys.mjs` and
+(the signature of a sender's domain), `dns.html` (its keys, the only page with network), `contacts.mjs` and
+`people.html` (keys of people outside), `keys.mjs` and
 `keys.html` (our public keys, from `make-keys.py`), `notices.mjs` (from
 `make-notices.py`), `setup.mjs`, `width.mjs`, `publish.sh` (both sites, with
 `make-styles.py` and `make-pins.py`), and

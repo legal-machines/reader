@@ -12,7 +12,6 @@ import {escape} from './mime.mjs';
 import {icon} from './icons.mjs';
 import {MAIL_SITES} from './sites.mjs';
 import {KEYS} from './keys.mjs';
-import * as contacts from './contacts.mjs';
 
 if (window.top !== window) {
   // Never inside another page: the key file and the PIN are typed only here,
@@ -130,7 +129,6 @@ async function list() {
       `</div><button class="icon-button danger" type="button" data-remove="${escape(r.credentialId)}" data-who="${who}" title="Remove from this browser" aria-label="Remove ${who} from this browser">${icon('delete')}</button></div>`;
   }).join('');
   showAlarm(records);
-  people();
   // The mark shows only on a press of yours, in a tab of its own with this
   // site's address in view, and goes when the tab loses the keyboard or
   // leaves the screen: a page cannot open this one in a small window beside
@@ -152,40 +150,6 @@ async function list() {
     ask('Remove this key?', `Encrypted messages to ${b.dataset.who} will not open in this browser until you add the key again. The key itself stays in your mailbox.`,
         'Remove', async () => { await remove(b.dataset.remove); list(); });
   }));
-}
-
-// The keys of people outside, as Seal learned them (contacts.mjs), each on a
-// panel: its fingerprint, since when, whether you checked it with them, and a
-// new key waiting, if one came. Only in a tab no page opened: a page that
-// holds this one could put its own words around these buttons.
-const fingerprint = f => { const g = String(f).match(/.{1,4}/g) || []; return g.slice(0, 5).join(' ') + '\u2003' + g.slice(5).join(' '); };
-const day = iso => { const d = new Date(iso); return isNaN(d) ? '' : `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`; };
-async function people() {
-  const box = document.getElementById('people');
-  const records = window.opener ? [] : await contacts.all().catch(() => []);
-  box.hidden = !records.length;
-  records.sort((a, b) => a.address.localeCompare(b.address));
-  box.querySelector('.key-list').innerHTML = records.map(c => {
-    const who = escape(c.address);
-    return `<div class="key-panel person" role="listitem"><div class="key-text"><p class="key-name">${who}</p>` +
-      `<p class="key-meta">${c.checked ? `Checked with them on ${escape(day(c.checked))}` : `From their mail since ${escape(day(c.first))}, not checked with them`}</p>` +
-      `<p class="key-meta fingerprint">${escape(fingerprint(c.fingerprint))}</p>` +
-      (c.change ? `<p class="key-note bad">Their mail sent a new key on ${escape(day(c.change.seen))}:<br><span class="fingerprint">${escape(fingerprint(c.change.fingerprint))}</span><br>` +
-                  `Seal encrypts to the old key until you accept this one. Ask them first, not by email, whether they changed it.</p>` : '') +
-      `<div class="actions">` +
-      (c.change ? `<button class="tonal" type="button" data-accept="${who}">Use the new key</button>` : '') +
-      `<button class="text" type="button" data-checked="${who}" data-on="${c.checked ? '' : '1'}">${c.checked ? 'Mark as not checked' : 'I checked it with them'}</button></div>` +
-      `</div><button class="icon-button danger" type="button" data-forget="${who}" title="Forget this key" aria-label="Forget the key of ${who}">${icon('delete')}</button></div>`;
-  }).join('');
-  const press = (selector, run) => box.querySelectorAll(selector).forEach(b => b.addEventListener('click', e => { if (e.isTrusted && document.hasFocus()) run(b); }));
-  press('[data-checked]', async b => {
-    if (b.dataset.on) ask('Checked with them?', `Only if you read the fingerprint above with ${b.dataset.checked} by phone, in person or in another app, and it matched theirs.`, 'Yes, it matched', async () => { await contacts.check(b.dataset.checked, true); people(); });
-    else { await contacts.check(b.dataset.checked, false); people(); }
-  });
-  press('[data-accept]', b => ask('Use the new key?', `Messages to ${b.dataset.accept} will be encrypted to the new key from now on. Do this once they told you, not by email, that they changed it.`,
-                                  'Use it', async () => { await contacts.acceptChange(b.dataset.accept); people(); }));
-  press('[data-forget]', b => ask('Forget this key?', `Seal will not encrypt to ${b.dataset.forget} until a signed message of theirs brings a key again.`,
-                                  'Forget', async () => { await contacts.remove(b.dataset.forget); people(); }));
 }
 
 // The alarm, only for someone whose key is set up in this browser. Raised
@@ -268,7 +232,14 @@ function connect(record) {
   if (!site) return;
   const bytes = new TextEncoder().encode(JSON.stringify(record));
   const text = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  window.open(`${site}/keys/connect#record=${text}`, '_blank', 'noopener,noreferrer');
+  // A link, not window.open: it can say where it comes from (this site's
+  // origin alone, which Mail checks), while this page tells no one else.
+  const a = document.createElement('a');
+  a.href = `${site}/keys/connect#record=${text}`;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  a.referrerPolicy = 'origin';
+  a.click();
 }
 // After a key is added in the tab that the Mail app's tab handed over to: if
 // Mail did not say it kept the key (the mail page moved on, or closed), this

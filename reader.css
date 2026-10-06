@@ -153,3 +153,12 @@ p,li{text-wrap:pretty}
   #sheet .no-print{display:none!important}
   .sheet-notes,.sheet-facts dt{color:#000!important}
 }
+
+/* people.html, in a frame on the Mail app's Security page */
+body.in-frame{background:transparent}
+.people-intro{margin:0 0 var(--s-4);color:var(--c-text-2);font-size:14px;line-height:20px}
+.people-none{margin:0;color:var(--c-text-2)}
+.confirm-inline{margin-top:var(--s-3)}
+.confirm-inline[hidden]{display:none}
+.confirm-inline p{margin:0 0 var(--s-3);font-size:14px;line-height:20px;text-wrap:pretty}
+.choices[hidden]{display:none}

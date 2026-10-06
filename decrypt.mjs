@@ -6,7 +6,7 @@ import {open} from './sealed-core.mjs';
 import {addressOf, read} from './mime.mjs';
 import {deriver} from './vault.mjs';
 import {addressHash, check} from './seal.mjs';
-import {dkim, fieldsOf, values} from './dkim.mjs';
+import {dkim, fieldsOf, mailbox, values} from './dkim.mjs';
 import * as contacts from './contacts.mjs';
 
 // OpenPGP.js (about 400 KB) loads only when there is something to open.
@@ -64,25 +64,47 @@ export async function recipientsOf(armored) {
 let capable = null;
 export const canOpen = () => (capable ||= crypto.subtle.importKey('raw', new Uint8Array(32).fill(9), {name: 'X25519'}, false, []).then(() => true, () => false));
 
-const OURS = /@(legalmachines\.org|dzyza\.com)$/;
+const OURS = /@(?:[a-z0-9-]+\.)*(?:legalmachines\.org|dzyza\.com)$/;  // our domains and any name under them
 const KEY_BLOCK = '-----BEGIN PGP PUBLIC KEY BLOCK-----';
 const ascii = bytes => new TextDecoder().decode(bytes.subarray(0, 4e6));
 const isKey = f => f.type === 'application/pgp-keys' || ascii(f.data.subarray(0, 4096)).includes(KEY_BLOCK);
 const keyData = f => ascii(f.data).includes(KEY_BLOCK) ? ascii(f.data) : f.data;
 
-// The message as the mail server holds it: its sender (From), its encrypted
-// text, the keys attached to it and its Autocrypt header.
+// The encrypted text when it is all there is: one armored block, nothing
+// around it.
+const single = text => {
+  const t = String(text || '').trim();
+  return t.startsWith('-----BEGIN PGP MESSAGE-----') && t.endsWith('-----END PGP MESSAGE-----') && t.indexOf('-----BEGIN PGP MESSAGE-----', 1) < 0 ? t : '';
+};
+
+// The message as the mail server holds it: its sender, read strictly from
+// its one From field (dkim.mjs), its encrypted text and its Autocrypt header.
+// The encrypted text counts only where the whole message is it: PGP/MIME
+// (RFC 3156), or a text body that is one armored block (inline, as some apps
+// send it). Encrypted text quoted or forwarded in a message the domain
+// signed was not written by the domain's sender, and is not read as theirs.
 function outer(raw) {
-  const m = read(raw), {fields} = fieldsOf(raw);
-  const armored = m.text?.includes('-----BEGIN PGP MESSAGE-----') ? m.text
-    : m.files.map(f => ascii(f.data)).find(t => t.includes('-----BEGIN PGP MESSAGE-----')) || '';
-  return {from: addressOf(m.from || ''), armored, keys: m.files.filter(isKey).map(keyData), autocrypt: values(fields, 'autocrypt')};
+  const {fields} = fieldsOf(raw);
+  const froms = values(fields, 'from'), types = values(fields, 'content-type');
+  const from = froms.length === 1 ? mailbox(froms[0]) : '';
+  const type = (types.length === 1 ? types[0] : types.length ? 'x/several' : 'text/plain').trim().toLowerCase();
+  const m = read(raw);
+  let armored = '';
+  if (/^multipart\/encrypted\b/.test(type) && /protocol\s*=\s*"?application\/pgp-encrypted/.test(type) && m.text === undefined && m.html === undefined &&
+      m.files.length === 2 && m.files[0].type === 'application/pgp-encrypted' && m.files[1].type === 'application/octet-stream')
+    armored = single(ascii(m.files[1].data));
+  else if ((/^text\/plain\b/.test(type) || /^multipart\/alternative\b/.test(type)) && !m.files.length)
+    armored = single(m.text);
+  // Otherwise the first encrypted text anywhere in it, quoted or forwarded:
+  // it opens, but nothing in the message around it vouches for it.
+  const quoted = armored ? '' : [m.text, ...m.files.map(f => ascii(f.data))].map(t => /-----BEGIN PGP MESSAGE-----[\s\S]*?-----END PGP MESSAGE-----/.exec(t || '')?.[0]).find(Boolean) || '';
+  return {from, armored, quoted, autocrypt: values(fields, 'autocrypt')};
 }
 
 // The keys of a sender outside, learned only from what its domain signed
-// (dkim.mjs): the Autocrypt header when the signature covers it, a key
-// attached to the message, or one inside it (the encrypted text is part of
-// the signed body). 'new', 'same', 'changed' or ''.
+// (dkim.mjs): the Autocrypt header when the signature covers it, or a key
+// inside the encrypted text (part of the signed body, and the whole of it,
+// so written by that sender). 'new', 'same', 'changed' or ''.
 async function learn(openpgp, from, wrapper, content) {
   const found = [];
   if (wrapper.signedAutocrypt && wrapper.autocrypt.length === 1) {
@@ -91,7 +113,6 @@ async function learn(openpgp, from, wrapper, content) {
       try { found.push(Uint8Array.from(atob(t.keydata.replace(/\s/g, '')), c => c.charCodeAt(0))); } catch (e) {}
     }
   }
-  found.push(...wrapper.keys);
   try { found.push(...read(content).files.filter(isKey).map(keyData)); } catch (e) {}
   let result = '';
   for (const data of found.slice(0, 6)) {
@@ -118,23 +139,27 @@ export async function openWith(armored, info, extra = {}) {
   const openpgp = await openpgpLib(), derive = deriver(info.keyId);
   const wrapper = extra.raw instanceof Uint8Array ? outer(extra.raw) : null;
   if (wrapper) {
-    if (!wrapper.armored) throw new Error('This message holds no encrypted text.');
-    armored = wrapper.armored;
+    if (!wrapper.armored && !wrapper.quoted) throw new Error('This message holds no encrypted text.');
+    armored = wrapper.armored || wrapper.quoted;
   }
-  const from = wrapper?.from || String(extra.sentFrom || '').toLowerCase();
-  const outside = !!from && !OURS.test(from);
+  const quoted = !!wrapper && !wrapper.armored;
+  // With the whole message, its own From field and nothing Mail says.
+  const from = wrapper ? wrapper.from : addressOf(String(extra.sentFrom || ''));
+  const unclear = !!wrapper && !from;
+  const outside = unclear || (!!from && !OURS.test(from));
   // The domain's signature, checked while the message opens: for a sender
   // outside only (our own mail server signs ours, so it would prove nothing).
-  const checking = outside && wrapper ? domainSigned(extra.raw, from) : Promise.resolve({state: 'none', why: wrapper ? '' : 'not handed'});
+  const checking = unclear ? Promise.resolve({state: 'fail', why: 'from'}) : quoted ? Promise.resolve({state: 'none', why: 'quoted'})
+    : outside && wrapper ? domainSigned(extra.raw, from) : Promise.resolve({state: 'none', why: wrapper ? '' : 'not handed'});
   let learned = null;
   const learnOnce = async content => {
     if (learned !== null) return;
     const d = await checking;
     learned = '';
-    if (d.state === 'pass' && d.aligned) learned = await learn(openpgp, from, {...wrapper, signedAutocrypt: d.covers.includes('autocrypt')}, content);
+    if (d.state === 'pass' && d.aligned && from && !quoted) learned = await learn(openpgp, from, {...wrapper, signedAutocrypt: d.covers.includes('autocrypt')}, content);
   };
   // The sender's own signature, checked with the key known for that address.
-  const verifier = outside ? async (content, ids) => {
+  const verifier = outside && from ? async (content, ids) => {
     await learnOnce(content);
     const c = await contacts.recordOf(from);
     const keys = [];
@@ -151,13 +176,13 @@ export async function openWith(armored, info, extra = {}) {
   message.seal = {state: sealed.state, domain: sealed.domain || '', inside: !!inside && (sealed.hashes || []).includes(await addressHash(inside))};
   if (wrapper) message.sentFrom = from;
   if (outside) {
-    const c = await contacts.recordOf(from);
+    const c = from ? await contacts.recordOf(from) : null;
     let by = null;
     if (signed?.by && c) {
       const known = await openpgp.readKey({armoredKey: c.armored});
       by = known.getKeyIDs().some(id => id.toHex() === signed.by) ? 'known' : 'new';
     }
-    message.sender = {from, dkim: await checking, signed: signed ? {state: signed.state, by} : null, learned,
+    message.sender = {from, quoted, dkim: await checking, signed: signed ? {state: signed.state, by} : null, learned,
                       fingerprint: c?.fingerprint || '', checked: c?.checked || '', change: c?.change?.fingerprint || ''};
   }
   bytes.fill(0);
