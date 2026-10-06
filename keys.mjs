@@ -2,4 +2,25 @@
 // end-to-end messages written in the reader are encrypted to, one a key. Our
 // addresses are here only as the SHA-256 of each (lower case, hex): hashes;
 // a key carries one user ID, an address our sites show anyway.
-export const KEYS = [];
+export const KEYS = [
+ {
+  "domain": "dzyza.com",
+  "fingerprint": "EFDBD12BD273E950E6253B450BD8F834052AC32D",
+  "created": "2026-10-06",
+  "expires": "2029-10-05",
+  "subkeys": [
+   "c37f5020f22f77c7"
+  ],
+  "x25519": {
+   "c37f5020f22f77c7": "LEvXllwRif2O3c4HZlXBAG2xcuNTtsdI30VX2rbl/Sc="
+  },
+  "keys": [
+   "efdbd12bd273e950e6253b450bd8f834052ac32d",
+   "33768bc64e2ae2b98b59b5b2c37f5020f22f77c7"
+  ],
+  "hashes": [
+   "2af3ef453c4a27493703a81daaf5a01e76290e8db22a7c025670db863d998736"
+  ],
+  "armored": "-----BEGIN PGP PUBLIC KEY BLOCK-----\n\nmDMEasU7KBYJKwYBBAHaRw8BAQdA75kpvhb7HltVRNQTjR2rIUOsb33y11Tou+gY\nNjJa7pa0IUFsZXhhbmRlciBEenl6YSA8aW5ib3hAZHp5emEuY29tPojnBBMWCgCZ\nBYJqxTsoBYkFo5qAAwsJBwkQC9j4NAUqwy1FFAAAAAAAHAAgc2FsdEBub3RhdGlv\nbnMub3BlbnBncGpzLm9yZ1HRGOY8hKgXqXfZJIdk2VGgC15bsegzWYJjvjtF+uFc\nBRUKCA4MBBYAAgECGQECmwMCHgkWIQTv29Er0nPpUOYlO0UL2Pg0BSrDLQ0nCQMH\nAwkBBwEJAgcCAAAhNgD/VyIAAGlQrdaPXC7in4AYWFDJClTfA5ksiFLL5FiRxxQA\n/09kJDrQkIKgjUQ+Dt2k0QKZ0ldNGlhH0eXrFUnn9gACuDgEasU7KBIKKwYBBAGX\nVQEFAQEHQCxL15ZcEYn9jt3OB2ZVwQBtsXLjU7bHSN9FV9q25f0nAwEIB4jEBBgW\nCgB2BYJqxTsoBYkFo5qACRAL2Pg0BSrDLUUUAAAAAAAcACBzYWx0QG5vdGF0aW9u\ncy5vcGVucGdwanMub3JnrysV7qzcjqKAnddeijikXXV9reaVdYAqNkGoMSPAOGAC\nmwwWIQTv29Er0nPpUOYlO0UL2Pg0BSrDLQAAq6kBAMgZBcS330sPQMQAOy5krHqj\nVRuD2N9KwoBd7v4CMHnBAQD6AhbdjeA9hwnqsY+pmRpqdpggIluma9pXn40EzOss\nAQ==\n=NYAb\n-----END PGP PUBLIC KEY BLOCK-----\n"
+ }
+];
