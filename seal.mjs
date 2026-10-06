@@ -37,6 +37,11 @@ export async function directory(openpgp) {
   if (known) return known;
   const out = {};
   for (const k of KEYS) {
+    if (k.x25519) {
+      for (const [id, point] of Object.entries(k.x25519))
+        (out[id] ||= {pub: Uint8Array.from(atob(point), c => c.charCodeAt(0)), hashes: [], domain: k.domain}).hashes.push(...k.hashes);
+      continue;
+    }
     const key = await openpgp.readKey({armoredKey: k.armored});
     for (const sub of key.subkeys) {
       const p = sub.keyPacket;

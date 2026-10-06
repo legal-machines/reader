@@ -11,6 +11,7 @@ import {MAIL_SITES} from './sites.mjs';
 import {widths} from './width.mjs';
 import {seal} from './seal.mjs';
 import {signedPackets} from './sign.mjs';
+import {armoredFor} from './wkd.mjs';
 import {keyFor} from './contacts.mjs';
 import * as vault from './vault.mjs';
 import {all, valid} from './store.mjs';
@@ -140,7 +141,10 @@ button.addEventListener('click', async e => {
     const keys = [...new Set([...everyone, from])].map(a => known.get(a));
     // The seal goes to our mailboxes only: Seal elsewhere has no key of theirs to check it with.
     text = await seal(openpgp, text, fromId, derive, keys.filter(k => k.internal).map(k => k.subkeys[0]));
-    const encryptionKeys = await Promise.all(keys.map(k => openpgp.readKey({armoredKey: k.armored})));
+    // Our keys that keys.mjs lists without the key itself come from the Web
+    // Key Directory, each only as the key it names (wkd.mjs).
+    const addresses = [...new Set([...everyone, from])];
+    const encryptionKeys = await Promise.all(keys.map(async (k, i) => openpgp.readKey({armoredKey: k.armored || await armoredFor(openpgp, addresses[i], k.entry)})));
     const data = new TextEncoder().encode(text);
     const message = signer ? await signedPackets(openpgp, data, signer, vault.signer(fromId)) : await openpgp.createMessage({binary: data});
     const armored = await openpgp.encrypt({message, encryptionKeys, format: 'armored'});

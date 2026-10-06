@@ -154,7 +154,7 @@ export async function learn(openpgp, address, data) {
 export async function keyFor(address) {
   address = String(address || '').toLowerCase();
   const ours = await keyOf(address);
-  if (ours) return {armored: ours.armored, internal: true, subkeys: ours.subkeys};
+  if (ours) return {armored: ours.armored, internal: true, subkeys: ours.subkeys, entry: ours};  // armored absent: fetched by wkd.mjs
   if (OURS.test(address)) return null;
   const c = await get(address).catch(() => null);
   if (!c) return null;

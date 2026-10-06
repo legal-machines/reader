@@ -4,11 +4,16 @@
 #
 #   keys.mjs         one entry a key: its domain, fingerprint and dates, the
 #                    IDs of its encryption subkeys (whose mark to show, whose
-#                    seal), the SHA-256 of each address it serves (lower case,
-#                    hex, sorted; pages hash an address to look it up), and
-#                    the key itself with one user ID: the domain's address
-#                    that our sites show anyway (PUBLIC below). The compose
-#                    page encrypts only to these.
+#                    seal) and their public points (x25519, to check seals),
+#                    the fingerprints of all its keys (keys), the SHA-256 of
+#                    each address it serves (lower case, hex, sorted; pages
+#                    hash an address to look it up), and the key itself with
+#                    one user ID where it serves the domain's address that our
+#                    sites show anyway (PUBLIC below). A key that serves no
+#                    such address comes without it (wkd): Seal fetches it from
+#                    the Web Key Directory by the address it writes to, and
+#                    takes it only with this fingerprint, so this file lists
+#                    no address. The compose page encrypts only to these.
 #   keys.html        the fingerprint of one domain's key (--keys-page DOMAIN:
 #                    each site shows only its own domain's), for people to
 #                    compare with the one their mail app shows (between
@@ -60,6 +65,25 @@ def encryption_ids(data):
     return [fingerprint(body)[-16:].lower() for tag, body in packets(data) if tag == 14 and body[0] == 4 and body[5] == 18]  # v4 ECDH subkeys
 
 
+def points(data):
+    """The X25519 public point of each Curve25519 encryption subkey, by key ID."""
+    out = {}
+    for tag, body in packets(data):
+        if tag != 14 or body[0] != 4 or body[5] != 18:
+            continue
+        n = body[6]
+        at = 7 + n
+        bits = int.from_bytes(body[at:at + 2], "big")
+        q = body[at + 2:at + 2 + (bits + 7) // 8]
+        if len(q) == 33 and q[0] == 0x40:
+            out[fingerprint(body)[-16:].lower()] = base64.b64encode(q[1:]).decode()
+    return out
+
+
+def all_keys(data):
+    return [fingerprint(body).lower() for tag, body in packets(data) if tag in (6, 14)]
+
+
 def wkd_hash(local):
     bits = "".join(f"{b:08b}" for b in hashlib.sha1(local.lower().encode()).digest())
     return "".join(ZBASE32[int(bits[i:i + 5].ljust(5, "0"), 2)] for i in range(0, len(bits), 5))
@@ -78,7 +102,7 @@ for k in json.load(open(os.path.join(src, "keys.json"))):
     if [t for t, _ in found].count(6) != 1 or fingerprint(found[0][1]) != fpr or [t for t, _ in found].count(13) != 1:
         raise SystemExit(f"make-keys: the key file of an address at {domain} is not one key {fpr} with one user ID")
     entry = keys.setdefault(fpr, {"domain": domain, "fingerprint": fpr, "created": k.get("created", ""), "expires": k.get("expires", ""),
-                                  "subkeys": encryption_ids(data), "hashes": [], "armored": None})
+                                  "subkeys": encryption_ids(data), "x25519": points(data), "keys": all_keys(data), "hashes": [], "armored": None})
     if entry["domain"] != domain:
         raise SystemExit(f"make-keys: the key {fpr} serves more than one domain")
     entry["hashes"].append(hashlib.sha256(address.encode()).hexdigest())
@@ -89,7 +113,8 @@ for k in json.load(open(os.path.join(src, "keys.json"))):
     want["wkd"][wkd_hash(local)] = fpr
 for entry in keys.values():
     if entry["armored"] is None:
-        raise SystemExit(f"make-keys: the key {entry['fingerprint']} has no address that our sites show; name one in PUBLIC")
+        del entry["armored"]
+        entry["wkd"] = True  # fetched from the Web Key Directory, by the address written to
     entry["hashes"].sort()
 ordered = sorted(keys.values(), key=lambda e: (e["domain"], e["fingerprint"]))
 
@@ -107,7 +132,7 @@ block = "".join(
     f'<section class="card"><h2>{html.escape(e["domain"])}</h2>'
     f'<p class="fingerprint" aria-label="Fingerprint"><span>{grouped(e["fingerprint"])[0]}</span><span>{grouped(e["fingerprint"])[1]}</span></p>'
     f'<p class="hint">Created {html.escape(e["created"])}' + (f', valid until {html.escape(e["expires"])}' if e["expires"] else "") + "</p></section>\n"
-    for e in ordered if only in (None, e["domain"]))
+    for e in ordered if only in (None, e["domain"]) and e.get("armored"))
 path = os.path.join(here, "keys.html")
 page = open(path).read()
 page = re.sub(r"<!-- KEYS-BEGIN \(make-keys.py\) -->\n.*?<!-- KEYS-END -->", lambda _: "<!-- KEYS-BEGIN (make-keys.py) -->\n" + block + "<!-- KEYS-END -->", page, flags=re.S)

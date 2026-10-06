@@ -371,10 +371,7 @@ async function setUp() {
       throw new Error('This key is not published yet, or is not the key of one of our mailboxes. A new key works once an administrator has published it.');
     // The key that signs, likewise, only where it is part of that published key.
     const published = KEYS.find(k => (k.subkeys || []).includes(String(found.info.keyId).toLowerCase()));
-    if (found.sign && published) {
-      const fingerprints = (await openpgp.readKey({armoredKey: published.armored})).getKeys().map(k => k.getFingerprint().toLowerCase());
-      if (!fingerprints.includes(found.sign.fingerprint)) { found.sign.pkcs8.fill(0); found.sign = null; }
-    }
+    if (found.sign && (!published || !(published.keys || []).includes(found.sign.fingerprint))) { found.sign.pkcs8.fill(0); found.sign = null; }
     const addresses = found.userIds.map(u => (/<([^>]+)>/.exec(u) || [, u])[1].toLowerCase());
     const {record, mark} = await adopt(found, addresses, pin);
     // The Mail app keeps the sealed key with the mailbox, for frames and for
