@@ -23,6 +23,10 @@ const view = document.getElementById('hub');
 const opened = new Map();     // slot -> {model, keyId}, while the key is open
 const wants = new Map();      // slot -> Set of kinds: what frames on the page asked to show
 const waiting = new Map();    // slot -> {armored, from, ids}
+// Messages for a key of this mailbox that the vault does not hold open,
+// though it holds others (an older key, still open from before): they ask
+// for Unlock, of that key, rather than end as a key this browser lacks.
+const missing = new Set();
 let parentOrigin = null, channel = null, records = [], minutes = 15, mode = 'quiet', count = 0;
 let unlocked = false, busy = false, failure = '', alarm = false;
 raised().then(at => { if (at) { alarm = true; draw(); } });
@@ -35,7 +39,7 @@ const post = message => channel?.postMessage(message);
 // The keys a page's messages may need: the records Mail keeps for this mailbox.
 const mine = () => records.filter(r => r.rp === location.hostname);
 const needed = () => {
-  const ids = new Set([...waiting.values()].flatMap(w => w.ids || []));
+  const ids = new Set((missing.size ? [...missing].map(s => waiting.get(s)) : [...waiting.values()]).flatMap(w => w?.ids || []));
   const fit = mine().filter(r => ids.has(r.keyId));
   return fit.length ? fit : mine();
 };
@@ -45,9 +49,9 @@ function draw() {
   const shownCount = Math.max(count, lockedHere);
   let html = '';
   if (mode === 'panel') {
-    html = `<div class="hub-panel"><div class="hub-status">${unlocked ? `<span>${icon('lock_open')}Encrypted mail is unlocked on this device.</span><button class="text" type="button" id="lock">Lock now</button>`
+    html = `<div class="hub-panel"><div class="hub-status">${unlocked && !missing.size ? `<span>${icon('lock_open')}Encrypted mail is unlocked on this device.</span><button class="text" type="button" id="lock">Lock now</button>`
                                           : `<span>${icon('lock')}Encrypted mail is locked.</span>${mine().length ? unlockForm() : ''}`}</div></div>`;
-  } else if (!unlocked && shownCount > 0 && mine().length) {
+  } else if ((!unlocked || missing.size) && shownCount > 0 && mine().length) {
     // A Material 3 list item: the lock, a headline and one line under it,
     // and Unlock at the end. No mark here: anything shown without a
     // condition could be cut out by Mail and set beside a field of its own.
@@ -86,6 +90,7 @@ async function submit(e) {
     openpgpLib();  // loads while the passkey is asked
     await vault.unlock(needed(), document.getElementById('pin')?.value || '', minutes);
     unlocked = true;
+    missing.clear();
     await openAll();
   } catch (err) {
     failure = escape(err.name === 'NotAllowedError' ? 'Cancelled or not allowed here.' : err.name === 'SecurityError' ? 'This browser does not allow passkeys here.' : err.message) +
@@ -107,7 +112,12 @@ async function openAll() {
     if (opened.has(slot) || ![...(wants.get(slot) || [])].some(k => k === 'view' || k === 'line')) continue;
     w.ids ||= await recipientsOf(w.armored).catch(() => []);
     const keyId = w.ids.find(id => s.keyIds.includes(id)) || (w.ids.includes('0000000000000000') ? s.keyIds[0] : null);
-    if (!keyId) { post({type: 'failed', slot}); continue; }
+    if (!keyId) {
+      if (mine().some(r => w.ids.includes(r.keyId))) { missing.add(slot); post({type: 'locked', slot}); }
+      else post({type: 'failed', slot});
+      continue;
+    }
+    missing.delete(slot);
     try {
       const model = await openWith(w.armored, s.infos[keyId], {raw: w.raw, sentFrom: w.from});
       if (!w.raw) model.sentFrom ||= w.from;  // with the whole message, its own From only
@@ -131,6 +141,7 @@ function send(slot) {
 
 function forget() {
   opened.clear();
+  missing.clear();
   post({type: 'locked'});
 }
 
@@ -182,7 +193,7 @@ try { new BroadcastChannel('seal-people').onmessage = e => { if (e.data?.type !=
 
 vault.watch(open => {
   if (open) syncPeople();
-  if (open && !unlocked) openAll().then(draw);
+  if (open && (!unlocked || missing.size)) { missing.clear(); openAll().then(draw); }
   if (!open && unlocked) { unlocked = false; forget(); draw(); }
 });
 
@@ -209,7 +220,7 @@ addEventListener('message', async e => {
           if (!wants.has(x.slot)) wants.set(x.slot, new Set());
           wants.get(x.slot).add(x.kind);
           if (opened.has(x.slot)) send(x.slot);
-          else if (!unlocked && waiting.has(x.slot)) post({type: 'locked', slot: x.slot});
+          else if ((!unlocked || missing.has(x.slot)) && waiting.has(x.slot)) post({type: 'locked', slot: x.slot});
           else if (unlocked && waiting.has(x.slot) && x.kind !== 'title') openAll().then(draw);
         } else if (x.type === 'use') vault.used(true);
       };
