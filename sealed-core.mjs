@@ -35,6 +35,10 @@ export const describe = (fingerprint, keyId, hash, cipher) => ({fingerprint: hex
 // never comes here.
 export async function sessionKey(openpgp, message, derive, info) {
   const fingerprint = Uint8Array.from(info.fingerprint.match(/../g).map(h => parseInt(h, 16)));
+  // SEIPD version 2 (RFC 9580, 5.13.2) names its cipher itself: its session
+  // keys come in version 6 packets, without the cipher's octet.
+  const data = message.packets.filterByTag(openpgp.enums.packet.symEncryptedIntegrityProtectedData)[0];
+  const v2cipher = data?.version === 2 ? data.cipherAlgorithm : null;
   const params = concat(new Uint8Array([CURVE25519_OID.length]), CURVE25519_OID, new Uint8Array([18, 3, 1, info.hash, info.cipher]), ANONYMOUS_SENDER, fingerprint);
   for (const p of message.packets.filterByTag(openpgp.enums.packet.publicKeyEncryptedSessionKey)) {
     if (p.publicKeyAlgorithm !== openpgp.enums.publicKey.ecdh) continue;
@@ -63,7 +67,11 @@ export async function sessionKey(openpgp, message, derive, info) {
     const pad = m[m.length - 1];
     if (pad < 1 || pad > 8) continue;
     const body = m.slice(0, m.length - pad);
-    const algorithm = body[0], key = body.slice(1, body.length - 2);
+    // Version 3: the cipher's octet, the key, its checksum; version 6: the
+    // key and its checksum, the cipher named by the encrypted data.
+    const six = p.version === 6;
+    if (six && v2cipher == null) continue;
+    const algorithm = six ? v2cipher : body[0], key = body.slice(six ? 0 : 1, body.length - 2);
     const sum = key.reduce((s, b) => (s + b) & 0xffff, 0);
     if (sum !== ((body[body.length - 2] << 8) | body[body.length - 1])) continue;
     m.fill(0);

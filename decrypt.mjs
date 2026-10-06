@@ -17,7 +17,10 @@ let library = null;
 export const openpgpLib = () => (library ||= import('./openpgp.min.mjs'));
 
 // The key IDs a message is encrypted to: its Public-Key Encrypted Session Key
-// packets (RFC 9580, sections 4.2 and 5.1), read from the armored text.
+// packets (RFC 9580, sections 4.2 and 5.1), read from the armored text. Both
+// versions: 3, with the key ID, and 6, with the key's fingerprint (what
+// OpenPGP.js writes to keys that ask for SEIPD version 2, as Seal's do); a
+// version 4 key's ID is the end of its fingerprint, a version 6 key's its start.
 export function recipients(text) {
   const body = text.split(/-----BEGIN PGP MESSAGE-----/)[1]?.split(/-----END PGP MESSAGE-----/)[0];
   if (!body) throw new Error('no message');
@@ -44,7 +47,12 @@ export function recipients(text) {
       length = 0;
       for (let i = 0; i < [1, 2, 4][kind]; i++) length = length * 256 + bytes[at++];
     }
-    if (tag === 1 && bytes[at] === 3) ids.push([...bytes.subarray(at + 1, at + 9)].map(b => b.toString(16).padStart(2, '0')).join(''));
+    const hex = b => [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+    if (tag === 1 && bytes[at] === 3) ids.push(hex(bytes.subarray(at + 1, at + 9)));
+    else if (tag === 1 && bytes[at] === 6) {
+      const size = bytes[at + 1], version = bytes[at + 2], fpr = bytes.subarray(at + 3, at + 2 + size);
+      ids.push(size === 0 ? '0000000000000000' : version === 4 && fpr.length === 20 ? hex(fpr.subarray(12)) : version === 6 && fpr.length === 32 ? hex(fpr.subarray(0, 8)) : '');
+    }
     else if (tag !== 1 && tag !== 3) break;  // the encrypted data: no more session keys
     at += length;
   }
