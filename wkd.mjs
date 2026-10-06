@@ -24,7 +24,7 @@ function frame() {
     });
     document.body.append(f);
     setTimeout(() => no(new Error('The key of one of our addresses could not be fetched: nothing was sent.')), 10000);
-  });
+  }).catch(e => { ready = null; throw e; });  // the next try makes the frame again
 }
 export async function armoredFor(openpgp, address, entry) {
   if (entry.armored) return entry.armored;
@@ -38,7 +38,11 @@ export async function armoredFor(openpgp, address, entry) {
     setTimeout(() => { if (pending.delete(id)) no(new Error('The key of one of our addresses could not be fetched: nothing was sent.')); }, 15000);
   });
   const key = await openpgp.readKey({binaryKey: bytes});
-  if (key.getFingerprint().toUpperCase() !== entry.fingerprint || !key.users.some(u => (u.userID?.email || '').toLowerCase() === address))
+  // Its encryption subkey, too: the one keys.mjs names (subkeys), so a key
+  // with the right primary but another subkey bound to it is not taken.
+  const sub = await key.getEncryptionKey().catch(() => null);
+  if (key.getFingerprint().toUpperCase() !== entry.fingerprint || !key.users.some(u => (u.userID?.email || '').toLowerCase() === address) ||
+      !sub || !(entry.subkeys || []).includes(sub.getKeyID().toHex()))
     throw new Error('The key the directory gave for ' + address + ' is not the one published with Seal: nothing was sent.');
   const armored = key.armor();
   cache.set(entry.fingerprint + '|' + address, armored);

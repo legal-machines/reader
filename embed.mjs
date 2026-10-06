@@ -190,6 +190,9 @@ function letterHtml(m) {
                               `but it was sealed with the key of another mailbox, at ${escape(sealed.domain)}.</p></div></div>`
     : sealed.state === 'bad' ? `<div class="reader-alert" role="alert">${icon('warning')}<div><b>Its seal does not hold</b><p>Do not trust who it says it is from, ` +
                                `nor its links and requests.</p></div></div>`
+    // Sealed with a key no longer published, or not yet: nothing to check it with.
+    : sealed.state === 'unknown' ? `<p class="seal-line none">${icon('warning')}<span>Sealed with a key Seal does not list (an old one, or one not published yet): ` +
+                                   `who wrote it cannot be checked</span></p>`
     // No seal: encrypted to your public key, which anyone can do, the mail
     // server among them (it encrypts mail between our mailboxes on arrival).
     : `<p class="seal-line none">${icon('warning')}<span>Not sealed: anyone who has your public key, the mail server included, could have written it</span></p>`;

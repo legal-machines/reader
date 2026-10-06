@@ -78,7 +78,9 @@ export async function seal(openpgp, inner, fromId, derive, toIds) {
 
 // The seal of an opened message, for the key that opened it (myId):
 // {state: 'ok', hashes, domain} (written with the key of the addresses with
-// those hashes, at that domain), 'bad' (a seal that does not hold), or
+// those hashes, at that domain), 'bad' (a seal that does not hold),
+// 'unknown' (sealed with a key Seal does not list: not published yet, or
+// withdrawn; it vouches for nothing, but proves nothing wrong either), or
 // 'none'; and the message without it.
 export async function check(openpgp, bytes, myId, derive) {
   let at = 0, mine = null;
@@ -95,7 +97,7 @@ export async function check(openpgp, bytes, myId, derive) {
   if (!at) return {state: 'none', rest};
   if (!mine) return {state: 'none', rest};
   const sender = (await directory(openpgp))[mine.fromId];
-  if (!sender) return {state: 'bad', rest};
+  if (!sender) return {state: 'unknown', rest};
   const shared = await derive(sender.pub);
   if (!shared) return {state: 'none', rest};
   const tag = await tagOf(shared, mine.fromId, myId, new Uint8Array(await crypto.subtle.digest('SHA-256', rest)));

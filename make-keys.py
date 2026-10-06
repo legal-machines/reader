@@ -93,7 +93,9 @@ def grouped(fpr):
     return " ".join(fpr[i:i + 4] for i in range(0, 20, 4)), " ".join(fpr[i:i + 4] for i in range(20, 40, 4))
 
 
-keys, expected = {}, {}
+keys = {}
+# Each domain is watched even with no key: its pages must then show none.
+expected = {d: {"keys": {}, "wkd": {}} for d in PUBLIC}
 for k in json.load(open(os.path.join(src, "keys.json"))):
     address, fpr = k["address"].lower(), k["fingerprint"].upper()
     local, domain = address.rsplit("@", 1)
@@ -126,13 +128,17 @@ with open(os.path.join(here, "keys.mjs"), "w") as f:
             "export const KEYS = " + json.dumps(ordered, indent=1) + ";\n")
 
 only = sys.argv[sys.argv.index("--keys-page") + 1] if "--keys-page" in sys.argv else None
-if only and not any(e["domain"] == only for e in ordered):
-    raise SystemExit(f"make-keys: no key for {only}")
+if only and only not in PUBLIC:
+    raise SystemExit(f"make-keys: {only} is not one of our domains")
 block = "".join(
     f'<section class="card"><h2>{html.escape(e["domain"])}</h2>'
     f'<p class="fingerprint" aria-label="Fingerprint"><span>{grouped(e["fingerprint"])[0]}</span><span>{grouped(e["fingerprint"])[1]}</span></p>'
     f'<p class="hint">Created {html.escape(e["created"])}' + (f', valid until {html.escape(e["expires"])}' if e["expires"] else "") + "</p></section>\n"
     for e in ordered if only in (None, e["domain"]) and e.get("armored"))
+# A domain whose shown address has no key yet (each mailbox makes its own,
+# and it is published once its fingerprint is read with its owner).
+block += "".join(f'<section class="card"><h2>{html.escape(d)}</h2><p>No key is published for this domain right now.</p></section>\n'
+                 for d in sorted(PUBLIC) if only in (None, d) and not any(e["domain"] == d and e.get("armored") for e in ordered))
 path = os.path.join(here, "keys.html")
 page = open(path).read()
 page = re.sub(r"<!-- KEYS-BEGIN \(make-keys.py\) -->\n.*?<!-- KEYS-END -->", lambda _: "<!-- KEYS-BEGIN (make-keys.py) -->\n" + block + "<!-- KEYS-END -->", page, flags=re.S)
