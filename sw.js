@@ -20,6 +20,8 @@
 // PINS-BEGIN (make-pins.py)
 const PINS = {
  "alarm.mjs": "2e924e862b89c8961ddac0dca7fd7522097a5c1a93b259cf816adb0212756854",
+ "check.html": "7400dac7b364ccb9af054f71aec7abdec3dc1d731eba3303db76121e3e2e4525",
+ "check.mjs": "c581bdf6a7fa24adace6e7713b3c0582070be91fabf35ffbf031efab00f03adb",
  "compose.html": "af86e0834cee3319214b6c2bafd530da6e2ee243b0f4b98f7a4f68aba993661c",
  "compose.mjs": "62ebf28f51517709674a46c2ca798f7d5b26ae1fd25328542cb5fa368dfb59d7",
  "contacts.mjs": "009a50c543d8c2faa672d2d09ab10185cb116869e9ff6dfb591da2900f0b463e",
@@ -44,7 +46,7 @@ const PINS = {
  "openpgp.min.mjs": "7d3285efa6dfedbb34a136d8b5ad21c28fb973269df0b2818dcb74dfb40b59d9",
  "people.html": "a522def3eff493bee85e36ea4ee64c7d2ad434d87f0cf903aa49f9d68857544f",
  "people.mjs": "1c6d190ee531a3caf35f9bd8710f8913a9361cf39d8bd4b2946614ba37550cd3",
- "reader.css": "259a3632c4cdce05785f5322a735486a74d442e9e1717e3651dd5a37e4303e15",
+ "reader.css": "683df04eb6e9da72808d8cae0715bacabe227abf8c3f183cf90aa33cb8d886ad",
  "row.css": "f372764933bb9c7d8f7ac92a624ee2849397429d4c4b1eab07b94a12ef70b2a2",
  "row.html": "1c20365a92f3e856c687e50b661088b1dcde1ff6d4662bed28c5a6b6938e4865",
  "row.mjs": "c51ace7c4a897a7a950ade899ed491f073c678c9ddcc69f8c9725a50caab9439",
