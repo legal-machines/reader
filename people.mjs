@@ -47,7 +47,7 @@ async function draw() {
 
 function panel(c) {
   const who = escape(c.address);
-  return `<div class="key-panel person" role="listitem" data-address="${who}" data-change="${escape(c.change?.fingerprint || '')}"><div class="key-text"><p class="key-name">${who}</p>` +
+  return `<div class="key-panel person" role="listitem" data-address="${who}" data-fingerprint="${escape(c.fingerprint)}" data-change="${escape(c.change?.fingerprint || '')}"><div class="key-text"><p class="key-name">${who}</p>` +
     `<p class="key-meta">${c.checked ? `Checked with them on ${escape(day(c.checked))}` : `From their mail since ${escape(day(c.first))}, not checked with them`}</p>` +
     `<p class="key-meta fingerprint">${escape(grouped(c.fingerprint))}</p>` +
     (c.change ? `<p class="key-note bad">Their mail sent a new key on ${escape(day(c.change.seen))}:<br><span class="fingerprint">${escape(grouped(c.change.fingerprint))}</span><br>` +
@@ -61,7 +61,7 @@ function panel(c) {
 
 // What each choice asks before it is done, and what it does.
 const CHOICES = {
-  check: c => ({text: `Only if you read the fingerprint above with ${c.address} by phone, in person or in another app, and it matched theirs.`, action: 'It matched', run: () => contacts.check(c.address, true)}),
+  check: c => ({text: `Only if you read the fingerprint above with ${c.address} by phone, in person or in another app, and it matched theirs.`, action: 'It matched', run: () => contacts.check(c.address, true, c.fingerprint)}),
   uncheck: c => ({run: () => contacts.check(c.address, false)}),
   accept: c => ({text: `Messages to ${c.address} will be encrypted to the new key from now on. Do this once they told you, not by email, that they changed it, and its fingerprint matched.`,
                  action: 'Use it', run: () => contacts.acceptChange(c.address, c.change)}),
@@ -70,7 +70,7 @@ const CHOICES = {
 };
 
 function wire(p) {
-  const c = {address: p.dataset.address, change: p.dataset.change};
+  const c = {address: p.dataset.address, change: p.dataset.change, fingerprint: p.dataset.fingerprint};
   const box = p.querySelector('.confirm-inline'), choices = p.querySelector('.choices');
   let pending = null;
   const close = () => { pending = null; box.hidden = true; choices.hidden = false; report(); };

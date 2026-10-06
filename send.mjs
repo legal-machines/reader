@@ -106,7 +106,9 @@ button.addEventListener('click', async e => {
     // so do those this browser keeps itself, so Mail cannot leave them out.
     const fromId = own.subkeys[0];
     const mine = records.filter(r => r.keyId === fromId);
-    try { for (const r of await all()) if (valid(r) && r.keyId === fromId && !mine.some(m => m.credentialId === r.credentialId)) mine.push(r); } catch (e) {}
+    // This browser's own copy of a record stands over Mail's, which could
+    // leave a part out (the key that signs).
+    try { for (const r of await all()) if (valid(r) && r.keyId === fromId) { const at = mine.findIndex(m => m.credentialId === r.credentialId); if (at >= 0) mine[at] = r; else mine.push(r); } } catch (e) {}
     let st = await vault.state();
     const opened = st.keyIds.includes(fromId);
     if (!mine.length && !opened) throw new Error('Sending end to end needs your own key in this browser. Add it on the Security page, then press Send.');
@@ -118,7 +120,7 @@ button.addEventListener('click', async e => {
     const toOutside = outside([...new Set(everyone)].map(a => known.get(a)));
     const signing = mine.filter(r => r.signSealed);
     if (toOutside && !st.signers?.[fromId] && !signing.length)
-      throw new Error('Your key in this browser does not sign yet, and to people outside a message goes signed or not at all. Add your key to this browser again, once (Security, Add my key to this browser), then press Send. Nothing was sent.');
+      throw new Error('Your key in this browser does not sign yet, and to people outside a message goes signed or not at all. Add your key to this browser again, once (Security, Add my key to this browser), then press Send. If it asks again after that, report it on the Seal page. Nothing was sent.');
     let derive = null;
     {
       if (!opened || (toOutside && !st.signers?.[fromId])) {

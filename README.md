@@ -206,23 +206,31 @@ hashes an address to find its key. A short address can still be found by
 trying names against the hashes; they keep the list out of sight, not
 secret.
 
-* **Your OpenPGP signature** (`sign.mjs`). Every message Send encrypts is
+* **Your OpenPGP signature** (`sign.mjs`). A message Send encrypts is
   signed with your key that signs (a signing subkey, or a primary key that
   signs: Ed25519), as OpenPGP apps write it, so a recipient's app (Thunderbird,
   Proton, GnuPG) checks it with your published key; a message the mail server
   encrypts to someone in your name carries none. To people outside a message
-  goes signed or not at all. The key that signs is sealed beside the key that
-  decrypts, under the same passkey, and bound to its record; while unlocked it
-  waits in the vault, and the worker signs only for Send. A browser that added
-  the key before this signs nothing until the key is added again, once.
+  goes signed or not at all; between our mailboxes the seal vouches for it,
+  and it is signed where the key in this browser signs. The key that signs is
+  sealed beside the key that decrypts, under the same passkey, and bound to
+  its record (this browser's own copy of a record stands over Mail's); while
+  unlocked it waits in the vault, which signs only for Send and only a
+  signature on a message, making the digest itself. It is taken from a key
+  file only where it is part of the published key. A browser that added the
+  key before this signs nothing until the key is added again, once.
 * **The keys of people you write to, alike on your devices.** Mail keeps the
   list sealed under a key made from yours (X25519 with a point of its own,
   which no message can lead the vault to, through HKDF): it can neither read
-  nor change it, only hand over an older copy or none. Every record is dated
-  by your devices, a key forgotten stays as a dated mark, and for each
-  address the newer record stands, so an older copy changes nothing where a
-  newer one is known. The hub merges it in once your key is open and hands
-  it back when it changes.
+  nor change it, only hand over an older copy or none, which a device that
+  knows nothing yet would take and pass on. So a merge never puts one key in
+  another's place: only your own Use the new key does that, on any of your
+  devices, when it is later than the key in use there came into use; any
+  other key a merge brings waits beside it for you to accept or decline.
+  Checked goes with the fingerprint you were shown; forgotten keys stay as
+  dated marks, and the newer stands. Mail keeps a copy only over the one the
+  hub merged, and a copy the key does not open is left alone. The hub merges
+  it in once your key is open and hands it back when it changes.
 * **The sender's seal.** Encryption alone proves nothing about who wrote a
   message: anyone can encrypt to a public key, the mail server too.
   Seal adds, for each recipient, an HMAC over the whole message under the

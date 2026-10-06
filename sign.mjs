@@ -39,8 +39,9 @@ function mpi(bytes) {
 }
 
 // The signed message (the bytes OpenPGP.js reads with readMessage), for
-// data, signed by signer {keyId, fingerprint} through sign(digest) -> 64
-// bytes (R and S of Ed25519).
+// data, signed by signer {keyId, fingerprint} through sign(data, hashed) ->
+// 64 bytes (R and S of Ed25519): the vault makes the digest itself, and only
+// for this kind of signature.
 export async function signedMessage(data, signer, sign) {
   if (!/^[0-9a-f]{16}$/.test(signer?.keyId) || !/^[0-9a-f]{40}$/.test(signer?.fingerprint)) throw new Error('No key to sign with.');
   const keyId = unhex(signer.keyId), fingerprint = unhex(signer.fingerprint);
@@ -50,7 +51,7 @@ export async function signedMessage(data, signer, sign) {
   const hashed = new Uint8Array([4, BINARY, EDDSA_LEGACY, SHA512, subs.length >> 8, subs.length & 255, ...subs]);
   const trailer = new Uint8Array([4, 0xff, ...be32(hashed.length)]);
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-512', concat(data, hashed, trailer)));
-  const signature = await sign(digest);
+  const signature = await sign(data, hashed);
   if (!(signature instanceof Uint8Array) || signature.length !== 64) throw new Error('locked');
   const unhashed = subpacket(16, [...keyId]);
   const body = concat(hashed, new Uint8Array([unhashed.length >> 8, unhashed.length & 255, ...unhashed, digest[0], digest[1]]),

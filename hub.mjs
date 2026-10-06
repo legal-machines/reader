@@ -143,6 +143,7 @@ let peopleKeyId = null, remote = null, syncing = false, again = false, pushed = 
 const b64u = bytes => { let t = ''; for (let i = 0; i < bytes.length; i += 0x8000) t += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(t).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
 const unb64u = text => Uint8Array.from(atob(text.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
 const canonical = list => JSON.stringify([...list].sort((a, b) => a.address < b.address ? -1 : 1));
+const sha256hex = async text => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))].map(b => b.toString(16).padStart(2, '0')).join('');
 async function syncPeople() {
   if (!peopleKeyId || !remote) return;
   if (syncing) { again = true; return; }
@@ -152,14 +153,23 @@ async function syncPeople() {
     const box = vault.peopleBox(peopleKeyId);
     let theirs = [];
     if (remote.blob) {
+      // A copy this key does not open (sealed under another, or changed) is
+      // left as it is: nothing here takes its place.
       const plain = await box.open(unb64u(remote.blob)).catch(() => null);
       const d = plain ? JSON.parse(new TextDecoder().decode(plain)) : null;
-      if (d?.v === 1 && Array.isArray(d.people)) { theirs = d.people; await contacts.merge(theirs); }
+      if (!(d?.v === 1 && Array.isArray(d.people))) return;
+      theirs = d.people;
+      await contacts.merge(theirs);
     }
     const mine = await contacts.snapshot(), body = canonical(mine);
     if (body !== canonical(theirs) && body !== pushed && (mine.length || remote.blob)) {
       const sealed = await box.seal(new TextEncoder().encode(JSON.stringify({v: 1, people: mine})));
-      if (sealed) { const blob = b64u(sealed); tell({type: 'hub-people-save', blob}); remote = {blob}; pushed = body; }
+      if (sealed && sealed.length <= 4e6) {
+        const blob = b64u(sealed);
+        tell({type: 'hub-people-save', blob, prev: remote.hash});  // kept only over the copy merged here
+        remote = {blob, hash: await sha256hex(blob)};
+        pushed = body;
+      }
     }
   } catch (e) {
   } finally {
@@ -214,7 +224,11 @@ addEventListener('message', async e => {
     if (typeof d.me === 'string' && d.me.length <= 254) {
       const ours = await keyOf(d.me.toLowerCase()).catch(() => null);
       peopleKeyId = ours?.subkeys?.[0] || null;
-      const local = ours ? (await all().catch(() => [])).filter(r => valid(r) && ours.subkeys.includes(r.keyId) && !records.some(m => m.credentialId === r.credentialId)) : [];
+      const mineHere = ours ? (await all().catch(() => [])).filter(r => valid(r) && ours.subkeys.includes(r.keyId)) : [];
+      // This browser's own copy of a record stands over Mail's, which could
+      // leave a part out (the key that signs).
+      records = records.map(r => mineHere.find(h => h.credentialId === r.credentialId) || r);
+      const local = mineHere.filter(r => !records.some(m => m.credentialId === r.credentialId));
       if (local.length) {
         records = [...records, ...local].slice(0, 20);
         tell({type: 'hub-records', records: local});
@@ -243,7 +257,8 @@ addEventListener('message', async e => {
   } else if (d.type === 'hub-people' && typeof d.blob === 'string' && d.blob.length <= 6e6) {
     // The list of people you write to as your other devices left it with
     // Mail, sealed under your key: merged in once the key is open.
-    remote = {blob: d.blob};
+    remote = {blob: d.blob, hash: d.blob ? await sha256hex(d.blob) : ''};
+    pushed = '';
     syncPeople();
   } else if (d.type === 'hub-keys-for' && Array.isArray(d.addresses)) {
     // Which of these addresses outside our mailboxes have a key here (one

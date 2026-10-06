@@ -91,7 +91,9 @@ export async function hold(record, pkcs8, minutes, signPkcs8 = null) {
     if (!keep?.keyIds?.includes(record.keyId) || keep.served === false || !navigator.serviceWorker?.controller) {
       const key = await crypto.subtle.importKey('pkcs8', pkcs8, {name: 'X25519'}, false, ['deriveBits']);
       const signKey = signer ? await crypto.subtle.importKey('pkcs8', signPkcs8, {name: 'Ed25519'}, false, ['sign']).catch(() => null) : null;
-      page.set(record.keyId, {key, info: record.info, markSecret: await markSecret(key), peopleSecret: await peopleSecret(key), ...(signKey ? {signKey, signer} : {})});
+      const before = page.get(record.keyId);  // a key that signs held already stays when this record brings none
+      page.set(record.keyId, {key, info: record.info, markSecret: await markSecret(key), peopleSecret: await peopleSecret(key),
+                              ...(signKey ? {signKey, signer} : before?.signKey ? {signKey: before.signKey, signer: before.signer} : {})});
       remember({[record.keyId]: await markOf(key)});
     } else remember(keep.marks);
   } finally {
@@ -142,13 +144,27 @@ export function peopleBox(keyId) {
   };
 }
 
-// Your signature on a digest (sign.mjs), with the key that signs for the
-// key keyId: the 64 bytes, or null. The worker gives it only to Send.
+// Your signature on a message (sign.mjs: the data and the signature's
+// hashed part), with the key that signs for the key keyId: the 64 bytes, or
+// null. Only a signature on a message is made (as the worker makes it, for
+// Send alone), never a certification.
+async function messageDigest(data, hashed) {
+  if (!(data instanceof Uint8Array) || !(hashed instanceof Uint8Array) || hashed.length < 6 || hashed.length > 1024 ||
+      hashed[0] !== 4 || hashed[1] !== 0x00 || hashed[2] !== 22 || hashed[3] !== 10 || hashed.length !== 6 + (hashed[4] << 8 | hashed[5])) return null;
+  const n = hashed.length, all = new Uint8Array(data.length + n + 6);
+  all.set(data);
+  all.set(hashed, data.length);
+  all.set([4, 0xff, (n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255], data.length + n);
+  return new Uint8Array(await crypto.subtle.digest('SHA-512', all));
+}
 export function signer(keyId) {
-  return async digest => {
+  return async (data, hashed) => {
     const here = page.get(keyId);
-    if (here?.signKey) return new Uint8Array(await crypto.subtle.sign('Ed25519', here.signKey, digest));
-    const r = await ask({type: 'sign', keyId, digest});
+    if (here?.signKey) {
+      const digest = await messageDigest(data, hashed);
+      return digest ? new Uint8Array(await crypto.subtle.sign('Ed25519', here.signKey, digest)) : null;
+    }
+    const r = await ask({type: 'sign', keyId, data, hashed});
     return r?.signature instanceof Uint8Array ? r.signature : null;
   };
 }

@@ -178,8 +178,10 @@ async function handle(d, from) {
             signKey = await crypto.subtle.importKey('pkcs8', s.pkcs8, {name: 'Ed25519'}, false, ['sign']).catch(() => null);
             if (signKey) signer = {keyId: s.keyId, fingerprint: s.fingerprint};
           }
+          // A key that signs held already stays when this record brings none.
+          const before = keys.get(k.keyId);
           keys.set(k.keyId, {key, mark: await markOf(key), markSecret: await markSecret(key), peopleSecret: await peopleSecret(key), info: {fingerprint: info.fingerprint, keyId: info.keyId, hash: info.hash, cipher: info.cipher},
-                             ...(signKey ? {signKey, signer} : {})});
+                             ...(signKey ? {signKey, signer} : before?.signKey ? {signKey: before.signKey, signer: before.signer} : {})});
         } finally {
           new Uint8Array(k.pkcs8).fill(0);
           if (s?.pkcs8 instanceof ArrayBuffer) new Uint8Array(s.pkcs8).fill(0);
@@ -208,9 +210,14 @@ async function handle(d, from) {
       // Your signature on a message, for Send alone (send.html, a page this
       // worker served): no other page of the reader signs anything.
       if (!await served(from) || !await isPage(from, 'send.html')) return {foreign: true};
+      // Only a signature on a message (type 0x00, EdDSA, SHA-512): the digest
+      // is made here from what is signed, so nothing else (a certification,
+      // a revocation) can be had from this key.
       const held = vault?.keys.get(d.keyId);
-      if (!held?.signKey || !(d.digest instanceof Uint8Array) || d.digest.length !== 64) return {locked: !held};
-      return {signature: new Uint8Array(await crypto.subtle.sign('Ed25519', held.signKey, d.digest))};
+      if (!held?.signKey) return {locked: !held};
+      const digest = await messageDigest(d.data, d.hashed);
+      if (!digest) return {};
+      return {signature: new Uint8Array(await crypto.subtle.sign('Ed25519', held.signKey, digest))};
     }
     case 'people-seal': case 'people-open': {
       // The list of people you write to (contacts.mjs), sealed for Mail to
@@ -307,6 +314,17 @@ function alarmRaised() {
 }
 
 // A page this worker served (its document came from the checked copy).
+// The digest of a binary-document signature (RFC 9580, 5.2.4) over data,
+// with its hashed part (version 4, type 0x00, EdDSA, SHA-512), or null.
+async function messageDigest(data, hashed) {
+  if (!(data instanceof Uint8Array) || !(hashed instanceof Uint8Array) || data.length > 40e6 || hashed.length < 6 || hashed.length > 1024 ||
+      hashed[0] !== 4 || hashed[1] !== 0x00 || hashed[2] !== 22 || hashed[3] !== 10 || hashed.length !== 6 + (hashed[4] << 8 | hashed[5])) return null;
+  const n = hashed.length, all = new Uint8Array(data.length + n + 6);
+  all.set(data);
+  all.set(hashed, data.length);
+  all.set([4, 0xff, (n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255], data.length + n);
+  return new Uint8Array(await crypto.subtle.digest('SHA-512', all));
+}
 const served = async id => !!id && (await self.clients.matchAll({type: 'window'})).some(c => c.id === id);
 const isPage = async (id, name) => (await self.clients.matchAll({type: 'window'})).some(c => c.id === id && new URL(c.url).pathname.endsWith('/' + name));
 self.addEventListener('message', e => {
