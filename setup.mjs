@@ -303,7 +303,7 @@ if (createFor && !window.opener) {
   form.hidden = true;
   document.getElementById('create-address').textContent = createFor.address;
 }
-let lockedCopy = null, madeFor = null, madeMark = null;
+let lockedCopy = null, madeFor = null, madeMark = null, olderHere = [];
 document.getElementById('create-button').addEventListener('click', async e => {
   if (!e.isTrusted || !createFor) return;
   createError.hidden = true;
@@ -324,17 +324,11 @@ document.getElementById('create-button').addEventListener('click', async e => {
       // Thunderbird and GnuPG open with the recovery code; the key asks for
       // SEIPD version 1, which they read.
       format: 'armored'});
-    const found = await extract(openpgp, locked, printed(code));
+    const found = await extract(openpgp, locked, printed(code), new Date(now()));
     const {record, mark} = await adopt(found, [createFor.address], pin);
-    // A new key for an address replaces its older ones here: they are no
-    // longer published (Mail takes a new key only for an address without
-    // one), so their records go, and their passkeys are reported as unknown,
-    // which a browser that knows the Signal API takes out of the passkey list.
-    for (const old of await all()) {
-      if (old.credentialId === record.credentialId || !old.addresses.some(a => String(a).toLowerCase() === createFor.address.toLowerCase())) continue;
-      await remove(old.credentialId);
-      try { await PublicKeyCredential.signalUnknownCredential?.({rpId: location.hostname, credentialId: old.credentialId}); } catch (e) {}
-    }
+    // Older keys of this address kept here stay until you remove them on the
+    // sheet: mail encrypted to them opens only with them.
+    olderHere = (await all()).filter(r => r.credentialId !== record.credentialId && r.addresses.some(a => String(a).toLowerCase() === createFor.address.toLowerCase()));
     const fingerprint = (await openpgp.readKey({armoredKey: publicKey})).getFingerprint().toUpperCase();
     if (relayId) relay.postMessage({type: 'sealed', id: relayId, record, newKey: {publicKey, lockedKey: locked, fingerprint}});
     awaitKept(record);
@@ -346,6 +340,7 @@ document.getElementById('create-button').addEventListener('click', async e => {
     const off = drift(), clock = document.getElementById('sheet-clock');
     clock.textContent = off ? `This computer's clock is ${off}. Seal made your key with the right time all the same. Set the clock to set itself, time zone included, so your other apps and your signatures keep the right time too.` : '';
     clock.hidden = !off;
+    document.getElementById('sheet-older').hidden = !olderHere.length;
     document.getElementById('sheet-site').textContent = `${location.host}, in a tab of its own; and Mail, at ${createFor.address.split('@')[1]}`;
     createCard.hidden = true;
     sheet.hidden = false;
@@ -357,6 +352,22 @@ document.getElementById('create-button').addEventListener('click', async e => {
   }
 });
 document.getElementById('sheet-print').addEventListener('click', () => print());
+// The older keys of the address, removed on your word: their records here,
+// and their passkeys reported as unknown, which a browser that knows the
+// WebAuthn Signal API takes out of its list of passkeys.
+document.getElementById('sheet-older-remove').addEventListener('click', e => {
+  if (!e.isTrusted || !olderHere.length) return;
+  ask('Remove the older keys?', `This browser keeps ${olderHere.length === 1 ? 'an older key' : olderHere.length + ' older keys'} of ${madeFor}. Mail encrypted to ${olderHere.length === 1 ? 'it' : 'them'} will no longer open here.`,
+      'Remove', async () => {
+        for (const old of olderHere) {
+          await remove(old.credentialId);
+          try { await PublicKeyCredential.signalUnknownCredential?.({rpId: location.hostname, credentialId: old.credentialId}); } catch (err) {}
+        }
+        olderHere = [];
+        document.getElementById('sheet-older').hidden = true;
+        list();
+      });
+});
 // A copy of a key for Thunderbird, GnuPG and other mail apps, which open a
 // key locked the classic way, not one locked with Argon2 and AEAD, as Seal
 // locked its keys until October 2026. Opened here and locked again with the
@@ -453,8 +464,9 @@ async function setUp() {
     let found;
     try {
       let first = null;
+      await measure();  // the key's parts judged at GitHub's time (clock.mjs)
       for (const p of codeForms(document.getElementById('passphrase').value)) {
-        try { found = await extract(openpgp, text, p); break; } catch (err) { first ||= err; }
+        try { found = await extract(openpgp, text, p, new Date(now())); break; } catch (err) { first ||= err; }
       }
       if (!found) throw first;
     } catch (err) {

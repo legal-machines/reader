@@ -110,7 +110,9 @@ export async function open(openpgp, armored, derive, info, verifier, date = new 
 
 // From a secret key file and its passphrase: the decryption subkey's scalar
 // (RFC 7748 order) and its description. Used once, when a device is set up.
-export async function extract(openpgp, armoredSecretKey, passphrase) {
+// date: now, by a clock to trust (clock.mjs): a key made a minute "ahead" of
+// a device's slow clock still has the key that signs.
+export async function extract(openpgp, armoredSecretKey, passphrase, date = new Date()) {
   const key = await openpgp.decryptKey({privateKey: await openpgp.readPrivateKey({armoredKey: armoredSecretKey}), passphrase});
   for (const sub of key.subkeys) {
     const packet = sub.keyPacket;
@@ -125,7 +127,7 @@ export async function extract(openpgp, armoredSecretKey, passphrase) {
       if (hex(x) === hex(Q.slice(1))) {
         const kdf = packet.publicParams.kdfParams;
         return {scalar, info: describe(packet.getFingerprintBytes(), packet.getKeyID().toHex(), kdf.hash, kdf.cipher),
-                userIds: key.getUserIDs(), primary: key.getFingerprint(), sign: await signingKey(openpgp, key)};
+                userIds: key.getUserIDs(), primary: key.getFingerprint(), sign: await signingKey(openpgp, key, date)};
       }
     }
   }
@@ -136,9 +138,9 @@ export async function extract(openpgp, armoredSecretKey, passphrase) {
 // (Ed25519, as OpenPGP v4 writes it, EdDSALegacy): its seed as PKCS #8 for
 // WebCrypto, its key ID and fingerprint. null where the file holds none
 // (a key exported without its signing secret).
-async function signingKey(openpgp, key) {
+async function signingKey(openpgp, key, date) {
   try {
-    const p = (await key.getSigningKey()).keyPacket;
+    const p = (await key.getSigningKey(undefined, date)).keyPacket;
     const seed = p.privateParams?.seed;
     if (p.algorithm !== openpgp.enums.publicKey.eddsaLegacy || p.publicParams?.oid?.getName?.() !== 'ed25519Legacy' || seed?.length !== 32) return null;
     return {pkcs8: concat(PKCS8_ED25519, seed), keyId: p.getKeyID().toHex(), fingerprint: hex(p.getFingerprintBytes())};

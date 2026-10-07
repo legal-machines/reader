@@ -12,6 +12,15 @@ let worker = null, ready = null;
 const page = new Map();  // keyId -> {key, info, signKey, signer}, when the vault is not used
 const listeners = new Set();
 
+// A newer Seal taking over (its service worker, after a publish) leaves the
+// worker this page talked to gone, and the new one holds no key: the page
+// starts over with it, and hears the vault is locked.
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('controllerchange', () => {
+  worker = null;
+  ready = null;
+  for (const f of listeners) f(false);
+});
+
 function start() {
   return ready ||= (async () => {
     if (!('serviceWorker' in navigator)) return null;

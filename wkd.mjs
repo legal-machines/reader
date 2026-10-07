@@ -3,6 +3,8 @@
 // not name): fetched from the Web Key Directory through wkd.html, the only
 // page that reaches it, and taken only when it is that entry's key, by its
 // fingerprint, with that address's user ID. Armored, or an error.
+import {now} from './clock.mjs';
+
 let ready = null, n = 0;
 const pending = new Map(), cache = new Map();
 function frame() {
@@ -40,7 +42,7 @@ export async function armoredFor(openpgp, address, entry) {
   const key = await openpgp.readKey({binaryKey: bytes});
   // Its encryption subkey, too: the one keys.mjs names (subkeys), so a key
   // with the right primary but another subkey bound to it is not taken.
-  const sub = await key.getEncryptionKey().catch(() => null);
+  const sub = await key.getEncryptionKey(undefined, new Date(now())).catch(() => null);
   if (key.getFingerprint().toUpperCase() !== entry.fingerprint || !key.users.some(u => (u.userID?.email || '').toLowerCase() === address) ||
       !sub || !(entry.subkeys || []).includes(sub.getKeyID().toHex()))
     throw new Error('The key the directory gave for ' + address + ' is not the one published with Seal: nothing was sent.');

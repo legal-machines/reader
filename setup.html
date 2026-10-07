@@ -62,6 +62,10 @@
       <li>Before anyone can write to you end to end, an administrator publishes the key. They check it with you first, so they publish this key and not another: by a link that opens Seal's check in this browser, or by the fingerprint above, read by phone.</li>
     </ul>
     <p class="warn no-print" id="sheet-clock" hidden></p>
+    <div class="no-print" id="sheet-older" hidden>
+      <p class="hint">This browser also keeps an older key of this address. Keep it while you still have mail encrypted to it; remove it once you do not.</p>
+      <div class="actions"><button class="text" type="button" id="sheet-older-remove">Remove the older keys from this browser</button></div>
+    </div>
     <div class="actions no-print"><button class="tonal" type="button" id="sheet-print">Print</button><button class="text" type="button" id="sheet-save">Save the locked key file</button></div>
     <label class="check no-print"><input type="checkbox" id="sheet-kept"><span>I printed this code or wrote it down</span></label>
     <div class="actions no-print"><button class="filled" type="button" id="sheet-done" disabled>Done</button></div>

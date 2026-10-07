@@ -244,6 +244,12 @@ addEventListener('message', async e => {
         records = [...records, ...local].slice(0, 20);
         tell({type: 'hub-records', records: local});
       }
+      // Older keys of this mailbox kept in this browser (made or added here,
+      // then replaced by a new one): they still open the mail encrypted to
+      // them. Mail is not told of them.
+      const me = d.me.toLowerCase();
+      const older = (await all().catch(() => [])).filter(r => valid(r) && r.addresses.some(a => String(a).toLowerCase() === me) && !records.some(m => m.credentialId === r.credentialId));
+      records = [...records, ...older].slice(0, 20);
     }
     minutes = [0, 5, 15, 30, 60].includes(d.minutes) ? d.minutes : 15;
     mode = ['thread', 'list', 'panel', 'quiet'].includes(d.mode) ? d.mode : 'quiet';
