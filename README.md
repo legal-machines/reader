@@ -47,9 +47,13 @@ the seal holds.
   encryption subkey), seals it under a passkey like any other, and shows a
   sheet to print once: the address, the fingerprint and a recovery code of
   20 characters (100 bits). Mail gets only the public half and a copy locked
-  with that code under Argon2, which it files in the inbox as "Your
-  encryption key" for the person's other devices; no server can guess the
-  code. Mail cannot publish the key: the owner of the keys reads the
+  with that code, which it files in the inbox as "Your encryption key" for
+  the person's other devices. The copy is locked the classic OpenPGP way
+  that Thunderbird and GnuPG open (iterated and salted S2K with SHA-256,
+  AES-256), not with Argon2: what keeps a server from guessing the code is
+  its 100 random bits, not the cost of each guess. (Keys Seal made before
+  October 2026 were locked with Argon2 and AEAD; `setup.html` makes a
+  classic copy of such a file.) Mail cannot publish the key: the owner of the keys reads the
   fingerprint with the person by phone or in person and publishes it from
   his Mac (`scripts/keys-approve.py` in the mail repository), since a key
   the server published could be its own.
@@ -147,16 +151,28 @@ the seal holds.
   message is it as a whole (PGP/MIME, or a text body that is one armored
   block); encrypted text quoted or forwarded in a message opens with a
   warning that nothing around it vouches for it, and teaches Seal no key.
+  Whether the message is the encrypted text as a whole is read from its
+  Content-Type, so for learning a key the domain's signature must sign that
+  field too (and Content-Transfer-Encoding and MIME-Version where the message
+  has them), each as often as the message has it: otherwise a mail server
+  could change an unsigned Content-Type and have text quoted in a signed
+  message read as the whole of it.
   Seal learns the sender's OpenPGP key only from what the domain signed (the
   Autocrypt header when the signature covers it, or a key inside the
-  encrypted text), keeps the first one for that address and encrypts to it;
+  encrypted text). It keeps the first one for that address, and encrypts to
+  it, only when the message is also signed with that key: the domain's
+  signature says its mail service sent the message, not that the key in it
+  is the person's. A first key in a message not signed with it is only
+  offered under that message, with its fingerprint, for you to take once you
+  have read the fingerprint with them (kept as checked);
   a different key later waits, and no later one takes its place, until you
   accept it by the fingerprint shown, under the letter that brought it or in
   the list on the Mail app's Security page (`people.html`, a frame of Seal:
   Safari keeps a frame's storage apart from Seal's own tabs, so the keys live
   where the frames that open and send messages are). Our domains and any name
   under them never count as outside. The sender's own signature in the
-  message is checked with the key Seal knows. The letter then says "Signed
+  message is checked with the key Seal knows, and with a key the message
+  brings. The letter then says "Signed
   with the key of", "Sent by the mail of" the domain, or warns: changed on
   the way, signed by another domain, a new key, quoted or forwarded, a From
   that names no one plainly, or a message from someone whose key Seal knows
@@ -270,6 +286,22 @@ secret.
   these names itself. While either reports a
   problem, the Mail app opens no encrypted message, adds no key and offers
   no End to end by itself.
+* A watch run ends in one of three states: a problem; not verified, when a
+  check could not be done (the network, an API's limit or error, a file or
+  `SHA256SUMS` that could not be fetched), which is never taken for all
+  clear; or all clear. A file that differs stays a problem when GitHub's
+  history cannot be read. The run here fails on a problem and on "not
+  verified" alike, so GitHub mails its owner either way, apart from the mail
+  server; the mail server's watch tells the two apart and stops the Mail
+  app's encrypted mail only on a problem.
+* What the watches cannot do: they see what is served to them, from where
+  they ask, and some public records (DNS, the CT logs, our keys). They
+  cannot prove what one person's browser was served, so a change served to
+  one person only, or only now and then, may pass them; nor do they see what
+  a page of the mail server shows a signed-in user. Nor can they notice the
+  mail server or its hosting company copying or reading what it stores:
+  encrypted mail stays unreadable to them, but nothing reports that it was
+  read, and ordinary mail they can read anyway.
 * Both watches also check our public keys as the mail server hands them out
   against this repository's copy (`watch/keys.json`, made by
   `make-keys.py`: fingerprints, subkeys and the Web Key Directory hash of
@@ -293,7 +325,8 @@ service worker on that device. Exactly what that allows:
   names' DNS) cannot: pages not served from the worker's checked copy may
   not use the key, and a new `sw.js` means a new worker with an empty
   vault. Such code could still ask for a new touch; the watches see a
-  change within 10 minutes.
+  change served to them within about 10 minutes, but not one served to one
+  person only (see No network, and watched).
 * **The mail page** (its server, its hosting company) can hand Seal
   stored encrypted messages and have them shown in frames on the screen,
   without a touch. It cannot read what is shown; it learns each frame's
@@ -359,6 +392,8 @@ tab), `seal.mjs` (the sender's seal and key lookup by hash), `dkim.mjs`
 `people.html` (keys of people outside), `keys.mjs` and
 `keys.html` (our public keys, from `make-keys.py`), `notices.mjs` (from
 `make-notices.py`), `setup.mjs`, `width.mjs`, `publish.sh` (both sites, with
-`make-styles.py` and `make-pins.py`), and
+`make-styles.py` and `make-pins.py`), `tests/` (plain `node` and `python3`, nothing
+to install: `node tests/learning.mjs`, `node tests/key-verdict.mjs`,
+`python3 tests/test_watch.py`), and
 OpenPGP.js 6.3.2, unmodified (`openpgp.min.mjs`, LGPL-3.0,
 https://openpgpjs.org).

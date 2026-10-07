@@ -6,7 +6,7 @@ import {open} from './sealed-core.mjs';
 import {addressOf, read} from './mime.mjs';
 import {deriver} from './vault.mjs';
 import {addressHash, check} from './seal.mjs';
-import {dkim, fieldsOf, mailbox, values} from './dkim.mjs';
+import {dkim, fieldsOf, mailbox, mimeSigned, values} from './dkim.mjs';
 import * as contacts from './contacts.mjs';
 import {measure, now} from './clock.mjs';
 
@@ -112,11 +112,11 @@ function outer(raw) {
   return {from, armored, quoted, autocrypt: values(fields, 'autocrypt')};
 }
 
-// The keys of a sender outside, learned only from what its domain signed
+// The keys a sender outside brings, taken only from what its domain signed
 // (dkim.mjs): the Autocrypt header when the signature covers it, or a key
 // inside the encrypted text (part of the signed body, and the whole of it,
-// so written by that sender). 'new', 'same', 'changed' or ''.
-async function learn(openpgp, from, wrapper, content) {
+// so written by that sender). Those Seal could encrypt to, as OpenPGP.js keys.
+async function brought(openpgp, from, wrapper, content) {
   const found = [];
   if (wrapper.signedAutocrypt && wrapper.autocrypt.length === 1) {
     const t = Object.fromEntries(wrapper.autocrypt[0].split(';').map(p => p.split('=')).filter(p => p.length >= 2).map(([k, ...v]) => [k.trim().toLowerCase(), v.join('=')]));
@@ -125,12 +125,27 @@ async function learn(openpgp, from, wrapper, content) {
     }
   }
   try { found.push(...read(content).files.filter(isKey).map(keyData)); } catch (e) {}
-  let result = '';
+  const keys = [];
   for (const data of found.slice(0, 6)) {
-    const r = await contacts.learn(openpgp, from, data);
+    const key = await contacts.usable(openpgp, from, data);
+    if (key) keys.push(key);
+  }
+  return keys;
+}
+
+// What those keys teach Seal (contacts.learn): 'new', 'same', 'changed',
+// 'offered' or '', and the first key offered ({fingerprint, armored}). A
+// first key is kept only when the message is signed with it (signed, from
+// sealed-core.mjs); the key that signs goes first.
+async function learn(openpgp, from, keys, signed) {
+  const signs = k => signed?.state === 'ok' && k.getKeyIDs().some(id => id.toHex() === signed.by);
+  let result = '', offered = null;
+  for (const key of [...keys.filter(signs), ...keys.filter(k => !signs(k))]) {
+    const r = await contacts.learn(openpgp, from, key.armor(), signs(key));
+    if (r === 'offered') offered ||= {fingerprint: key.getFingerprint().toUpperCase(), armored: key.armor()};
     if (r === 'changed' || (r === 'new' && result !== 'changed') || (r && !result)) result = r;
   }
-  return result;
+  return {learned: result, offered: result === 'offered' ? offered : null};
 }
 
 async function domainSigned(raw, from) {
@@ -162,23 +177,27 @@ export async function openWith(armored, info, extra = {}) {
   // outside only (our own mail server signs ours, so it would prove nothing).
   const checking = unclear ? Promise.resolve({state: 'fail', why: 'from'}) : quoted ? Promise.resolve({state: 'none', why: 'quoted'})
     : outside && wrapper ? domainSigned(extra.raw, from) : Promise.resolve({state: 'none', why: wrapper ? '' : 'not handed'});
-  let learned = null;
-  const learnOnce = async content => {
-    if (learned !== null) return;
-    const d = await checking;
-    learned = '';
-    if (d.state === 'pass' && d.aligned && from && !quoted) learned = await learn(openpgp, from, {...wrapper, signedAutocrypt: d.covers.includes('autocrypt')}, content);
-  };
-  // The sender's own signature, checked with the key known for that address.
+  // The keys the message brings for its sender, read once from its content:
+  // only where the domain's signature passes for the sender's domain, the
+  // encrypted text is the whole message, and the signature also signs the
+  // fields that say so (dkim.mjs, mimeSigned). Otherwise a mail server on
+  // the way could change an unsigned Content-Type and have encrypted text
+  // quoted in a signed message read as the whole of it, and as the sender's.
+  let keys = null;
+  const keysOnce = content => (keys ||= checking.then(d =>
+    d.state === 'pass' && d.aligned && from && !quoted && mimeSigned(d.covers, extra.raw)
+      ? brought(openpgp, from, {...wrapper, signedAutocrypt: d.covers.includes('autocrypt')}, content) : []));
+  // The sender's own signature, checked with the key known for that address,
+  // and with the keys the message brings, so that a first key can sign for
+  // itself (learn, below).
   const verifier = outside && from ? async (content, ids) => {
-    await learnOnce(content);
     const c = await contacts.recordOf(from);
-    const keys = [];
-    for (const armoredKey of [c?.armored, c?.change?.armored].filter(Boolean)) keys.push(await openpgp.readKey({armoredKey}));
-    return keys.filter(k => k.getKeyIDs().some(id => ids.includes(id.toHex())));
+    const known = [];
+    for (const armoredKey of [c?.armored, c?.change?.armored].filter(Boolean)) known.push(await openpgp.readKey({armoredKey}));
+    return [...known, ...await keysOnce(content)].filter(k => k.getKeyIDs().some(id => ids.includes(id.toHex())));
   } : null;
   const {data: bytes, signed} = await open(openpgp, armored, derive, info, verifier, new Date(now()));
-  if (outside) await learnOnce(bytes);
+  const {learned, offered} = outside ? await learn(openpgp, from, await keysOnce(bytes), signed) : {learned: '', offered: null};
   const sealed = await check(openpgp, bytes, info.keyId, derive).catch(() => ({state: 'none', rest: bytes}));
   const message = read(sealed.rest);
   // Whether the key that sealed it is the key of the sender named inside
@@ -193,7 +212,7 @@ export async function openWith(armored, info, extra = {}) {
       const known = await openpgp.readKey({armoredKey: c.armored});
       by = known.getKeyIDs().some(id => id.toHex() === signed.by) ? 'known' : 'new';
     }
-    message.sender = {from, quoted, dkim: await checking, signed: signed ? {state: signed.state, by} : null, learned,
+    message.sender = {from, quoted, dkim: await checking, signed: signed ? {state: signed.state, by} : null, learned, offered,
                       fingerprint: c?.fingerprint || '', checked: c?.checked || '', change: c?.change?.fingerprint || ''};
   }
   bytes.fill(0);

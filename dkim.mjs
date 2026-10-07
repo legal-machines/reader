@@ -217,6 +217,27 @@ async function one(field, fields, body) {
 // asks: one is the other or under it.
 const aligned = (a, b) => a === b || a.endsWith('.' + b) || b.endsWith('.' + a);
 
+// Whether a signature that covers these header fields (h=, its covers) also
+// signs those that say how to read the body: Content-Type always (named in
+// h= even where the message has none, so that none can be added, and none
+// that was there unsigned can have been taken away), and
+// Content-Transfer-Encoding and MIME-Version where the message has them.
+// A field the message has more often than h= names it is not signed:
+// a signature takes fields from the bottom up, so one added above the
+// signed ones passes, and mail programs read the first (RFC 6376, 5.4).
+// Without this, a mail server on the way can change an unsigned
+// Content-Type and have the same signed body read another way: encrypted
+// text quoted in a message as the whole of it.
+const MIME_FIELDS = ['content-type', 'content-transfer-encoding', 'mime-version'];
+function mimeCovered(covers, fields) {
+  if (!Array.isArray(covers)) return false;
+  return MIME_FIELDS.every(name => {
+    const signed = covers.filter(n => n === name).length, present = values(fields, name).length;
+    return signed >= present && (signed > 0 || name !== 'content-type');
+  });
+}
+export const mimeSigned = (covers, raw) => mimeCovered(covers, fieldsOf(raw).fields);
+
 // The message's signatures, the best of them: {state: 'pass', domain,
 // aligned (with the domain of From), covers (the header fields it signs)},
 // or {state: 'fail' | 'unknown' | 'none', why}. from: the address in From.
@@ -235,7 +256,10 @@ export async function dkim(raw, fromAddress) {
   // domain: one of any other domain (which a mail server can add, naming a
   // domain whose DNS never answers) must not stand in for a failure.
   // Likewise a failure counts only for the sender's own domain: another
-  // domain's signature that fails says nothing about this sender.
-  return results.find(r => r.state === 'pass' && r.aligned) || results.find(r => r.state === 'pass') ||
+  // domain's signature that fails says nothing about this sender. Of the
+  // own domain's signatures that pass, one that signs how to read the body
+  // (mimeCovered) first.
+  const passing = results.filter(r => r.state === 'pass' && r.aligned);
+  return passing.find(r => mimeCovered(r.covers, fields)) || passing[0] || results.find(r => r.state === 'pass') ||
          results.find(r => r.state === 'unknown' && r.aligned) || results.find(r => r.state === 'fail' && r.aligned) || {state: 'none', why: 'other domains'};
 }

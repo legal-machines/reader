@@ -1,12 +1,16 @@
 // The keys of people outside our mailboxes, learned from mail they send
 // with them (the Autocrypt header, or a key attached): Seal keeps the first
-// key it sees for an address and encrypts to it from then on. A different
+// key it sees for an address in a message signed with that key, and
+// encrypts to it from then on; a first key in a message not signed with it
+// is only offered, under that message, for you to take by its fingerprint
+// (learn, take). A different
 // key later is kept beside it as a change and used only once you accept it
 // (setup.html), so a mail server that slips in a key of its own after the
 // first message is caught. Checked: you compared the fingerprint with the
 // person through a channel other than this mail. Our own addresses never come
 // from here, only from keys.mjs. Kept in this site's IndexedDB, in this browser.
 import {keyOf} from './seal.mjs';
+import {now as trustedNow} from './clock.mjs';
 
 const DB = 'seal-contacts', STORE = 'keys', CHECKED = 'checked';
 const OURS = /@(?:[a-z0-9-]+\.)*(?:legalmachines\.org|dzyza\.com)$/;  // our domains and any name under them
@@ -124,22 +128,38 @@ export async function merge(list) {
   return changed;
 }
 
-// A key from a message of this address, as bytes or armored text. Returns
-// 'new', 'same', 'changed' or '' (not a usable key of that address).
-export async function learn(openpgp, address, data) {
+// A key from a message of this address, as bytes or armored text, that Seal
+// could encrypt to: a public key with that address's user ID and a key that
+// encrypts. The key, or null.
+export async function usable(openpgp, address, data) {
   address = String(address || '').toLowerCase();
-  if (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(address) || OURS.test(address) || await keyOf(address)) return '';
-  let key;
+  if (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(address) || OURS.test(address) || await keyOf(address)) return null;
   try {
-    key = typeof data === 'string' ? await openpgp.readKey({armoredKey: data}) : await openpgp.readKey({binaryKey: data});
-    if (key.isPrivate()) return '';
-    if (!key.users.some(u => (u.userID?.email || '').toLowerCase() === address)) return '';
-    await key.getEncryptionKey();  // throws when it has none that works (expired, revoked)
+    const key = typeof data === 'string' ? await openpgp.readKey({armoredKey: data}) : await openpgp.readKey({binaryKey: data});
+    if (key.isPrivate()) return null;
+    if (!key.users.some(u => (u.userID?.email || '').toLowerCase() === address)) return null;
+    await key.getEncryptionKey(undefined, new Date(trustedNow()));  // throws when it has none that works (expired, revoked), by GitHub's time
+    return key;
   } catch (e) {
-    return '';
+    return null;
   }
+}
+
+// A key from a message of this address, as bytes or armored text. signed:
+// the message is signed with this very key. Returns 'new', 'same',
+// 'changed', 'offered' or '' (not a usable key of that address).
+// A first key is kept only from a message signed with it. The domain's
+// signature (DKIM) says its mail service sent the message, not that the key
+// in it is the sender's: a message that is not signed with it only offers
+// it ('offered', nothing kept), and you take it (take, below) once you have
+// read its fingerprint with them.
+export async function learn(openpgp, address, data, signed = false) {
+  address = String(address || '').toLowerCase();
+  const key = await usable(openpgp, address, data);
+  if (!key) return '';
   const fingerprint = key.getFingerprint().toUpperCase(), armored = key.armor(), now = new Date().toISOString();
   const old = await get(address);
+  if (!old && !signed) return 'offered';
   if (!old) { await put({address, fingerprint, armored, first: now, seen: now, checked: '', change: null, accepted: {by: 'first', at: Date.now()}}); return 'new'; }
   if (old.fingerprint === fingerprint) { old.seen = now; await write(old); return 'same'; }  // seen again: no change to share
   if (retiredOf(old).includes(fingerprint)) return 'same';  // a key you replaced, in an old message: not offered again
@@ -186,5 +206,20 @@ export async function check(address, on = true, fingerprint = '') {
   if (!c || (on && c.fingerprint !== String(fingerprint).toUpperCase())) return false;
   c.checked = on ? new Date().toISOString() : '';
   await put(c);
+  return true;
+}
+
+// You take a key a message offered (learn: 'offered'), by the fingerprint
+// you were shown, after reading it with them: it is kept as checked. Never
+// in place of a key Seal knows for the address (false); that same key is
+// only marked checked.
+export async function take(openpgp, address, data, fingerprint) {
+  address = String(address || '').toLowerCase();
+  const key = await usable(openpgp, address, data), fpr = key?.getFingerprint().toUpperCase();
+  if (!key || fpr !== String(fingerprint || '').toUpperCase()) return false;
+  const old = await get(address);
+  if (old) return old.fingerprint === fpr && check(address, true, fpr);
+  const now = new Date().toISOString();
+  await put({address, fingerprint: fpr, armored: key.armor(), first: now, seen: now, checked: now, change: null, accepted: {by: 'you', at: Date.now()}});
   return true;
 }

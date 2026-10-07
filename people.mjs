@@ -37,8 +37,8 @@ const allowed = (e, panel) => {
 
 async function draw() {
   const list = (await contacts.all().catch(() => [])).sort((a, b) => a.address.localeCompare(b.address));
-  view.innerHTML = '<p class="people-intro">Seal learns the key of someone outside our mailboxes from a message of theirs that carries it, once their domain\'s ' +
-    'signature shows the mail server did not put it there, and encrypts to them from then on. To be sure a key is theirs, read its fingerprint with ' +
+  view.innerHTML = '<p class="people-intro">Seal learns the key of someone outside our mailboxes from a message of theirs that carries it and is signed with it, once their domain\'s ' +
+    'signature shows the mail server did not put it there, and encrypts to them from then on. A key in a message not signed with it waits under that message for you to take it. To be sure a key is theirs, read its fingerprint with ' +
     'them by phone or in another app, not by email. These keys are kept in this browser.</p>' +
     (list.length ? '<div class="key-list" role="list">' + list.map(panel).join('') + '</div>' : '<p class="people-none">No keys yet.</p>');
   for (const p of view.querySelectorAll('.key-panel')) { watch?.observe(p); wire(p); }

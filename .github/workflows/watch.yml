@@ -4,8 +4,10 @@
 # (watch/expected.json). cron-job.org starts a run every 10 minutes through
 # the API, with a token limited to this repository's Actions; the schedule
 # here is a fallback, since GitHub starts it only now and then. A run checks
-# once and ends; a problem fails it, GitHub mails a failed run to the
-# repository's owner, and the mail server's own watch shows it in the webmail.
+# once and ends; a problem fails it (step Check), and so does a check that
+# could not be done (step Verified: "not verified" is never all clear).
+# GitHub mails a failed run to the repository's owner, and the mail server's
+# own watch shows it in the webmail, telling the two apart by the step.
 name: Watch
 on:
   schedule:
@@ -22,7 +24,17 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Check
+        id: check
         run: |
           command -v dig >/dev/null || sudo apt-get install -y -qq bind9-dnsutils
           git clone --quiet --depth 1 "https://github.com/${GITHUB_REPOSITORY}" r
-          python3 r/watch/watch.py github r/watch/expected.json
+          # 0 OK, 1 ALARM (fails here), 3 UNVERIFIED (fails at Verified)
+          code=0
+          python3 r/watch/watch.py github r/watch/expected.json || code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          [ "$code" = 0 ] || [ "$code" = 3 ]
+      - name: Verified
+        env:
+          CODE: ${{ steps.check.outputs.code }}
+        run: |
+          [ "$CODE" = 0 ] || { echo "::error::Not verified: some checks could not be done (see the warnings of the step Check)"; exit 1; }

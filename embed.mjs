@@ -162,6 +162,14 @@ function senderLines(s, when) {
       `<div class="actions"><button class="text" type="button" data-accept-key>Use the new key</button><button class="text" type="button" data-decline-key>Keep the old one</button></div></div></div>`;
   else if (s.learned === 'new')
     out += sealLine(`Seal now knows the key of ${from}: what you write back to them can be encrypted end to end`);
+  // A first key in a message not signed with it: their domain's signature
+  // shows their mail sent it, not that the key is theirs. Taken only by
+  // you, here, by the fingerprint shown, after reading it with them.
+  else if (s.learned === 'offered' && s.offered?.fingerprint)
+    out += `<div class="reader-alert new-key" role="alert" data-offered="${escape(s.offered.fingerprint)}">${icon('warning')}<div><b>${from} sent a key</b>` +
+      `<p>This message carries a key for ${from} but is not signed with it, so Seal does not encrypt to it by itself. ` +
+      `Read its fingerprint with them first, not by email, and take it only if it matches.</p><p class="fingerprint">${escape(grouped(s.offered.fingerprint))}</p>` +
+      `<div class="actions"><button class="text" type="button" data-take-key>It matched: use this key</button></div></div></div>`;
   return out;
 }
 
@@ -333,14 +341,21 @@ function keyChoices(m) {
     lineWatch?.observe(box);
     const ok = e => { const seen = lines.get(box); return e.isTrusted && document.hasFocus() && (!lineWatch || (seen?.whole && seen.visible !== false)); };
     const done = text => { box.outerHTML = sealLine(text); report(); };
-    box.querySelector('[data-accept-key]').addEventListener('click', async e => {
+    box.querySelector('[data-accept-key]')?.addEventListener('click', async e => {
       if (!ok(e)) return;
       if (await contacts.acceptChange(m.sender.from, box.dataset.fingerprint)) done(`Seal now encrypts to the new key of ${escape(m.sender.from)}`);
     });
-    box.querySelector('[data-decline-key]').addEventListener('click', async e => {
+    box.querySelector('[data-decline-key]')?.addEventListener('click', async e => {
       if (!ok(e)) return;
       await contacts.declineChange(m.sender.from);
       done(`Seal keeps the key it knew for ${escape(m.sender.from)}`);
+    });
+    // A first key offered (decrypt.mjs): kept as checked with them.
+    box.querySelector('[data-take-key]')?.addEventListener('click', async e => {
+      if (!ok(e) || !m.sender.offered) return;
+      if (await contacts.take(await openpgpLib(), m.sender.from, m.sender.offered.armored, box.dataset.offered))
+        done(`Seal now encrypts to the key of ${escape(m.sender.from)}, checked with them`);
+      else box.querySelector('p').textContent = `Seal did not take it: it knows another key for ${m.sender.from} by now, or this one no longer works. See the list on the Security page.`;
     });
   }
 }

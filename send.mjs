@@ -105,7 +105,7 @@ button.addEventListener('click', async e => {
     const missing = everyone.filter(a => !known.get(a));
     const unpublished = missing.filter(a => OURS.test(String(a).toLowerCase())), outsiders = missing.filter(a => !unpublished.includes(a));
     if (unpublished.length) throw new Error(`${unpublished.join(', ')} has no published key yet: its owner makes one in Mail (Security), and an administrator publishes it once checked. Nothing was sent.`);
-    if (outsiders.length) throw new Error(`Seal has no key for ${outsiders.join(', ')}. It learns one from a message of theirs that carries it, signed by their domain.`);
+    if (outsiders.length) throw new Error(`Seal has no key for ${outsiders.join(', ')}. It learns one from a message of theirs that carries it and is signed with it and by their domain; a key in a message not signed with it waits under that message for you to take it.`);
     // Your key, for the seal: open already, or opened now with this press.
     // Every message written here is sealed: one that is not could have come
     // from anyone who has your public key, the mail server included, so

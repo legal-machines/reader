@@ -23,9 +23,11 @@ A problem is any of these:
    (SSLMate's Cert Spotter) whose key GitHub Pages does not serve, half an
    hour after it was issued: a certificate is what someone who took the name
    would need first;
- - a reader file served other than its repository's SHA256SUMS, or (github
-   mode) a webmail file other than FILE says, unless the repository or FILE
-   changed in the last 20 minutes and the caches are catching up;
+ - a reader file served other than its repository's SHA256SUMS, unless it is
+   that of one of its recent commits within six hours of the last (GitHub
+   Pages catching up, named in a note), or the last commit is under 20
+   minutes old (not verified until then); or (github mode) a webmail file
+   other than FILE says, unless FILE changed in the last 20 minutes;
  - our public keys other than GitHub holds them (watch/keys.json in
    legal-machines/reader, made by its make-keys.py from the keys it
    publishes): a fingerprint on https://mail.<domain>/encryption that is not
@@ -35,7 +37,13 @@ A problem is any of these:
    alone, or no key at all. Both are asked by the WKD hash of the address's
    local part, so the watch knows no addresses. The host's own run reads
    keys.json from GitHub, never from this server.
-A check that cannot run (the network, an API's limit) is a note, not a problem.
+A run ends in one of three states. ALARM: a problem. UNVERIFIED: no problem
+found, but a check could not be done (the network, a timeout, an API's limit
+or error, an answer that cannot be read, a file that cannot be fetched), so
+the run cannot say all is well; the GitHub run fails on it too (watch.yml),
+in a step of its own, so the host's run can tell it from a problem. OK: every
+check was done and found nothing. A file that differs stays a problem when
+GitHub's history cannot be read: nothing then says a publish is on its way.
 """
 import base64
 import datetime
@@ -71,6 +79,12 @@ KEYS_URL = "https://raw.githubusercontent.com/legal-machines/reader/main/watch/k
 ZBASE32 = "ybndrfg8ejkmcpqxot1uwisza345h769"
 
 notes = []
+unverified = []  # checks that could not be done: the run cannot say all is well
+EXIT = {"OK": 0, "ALARM": 1, "UNVERIFIED": 3}
+
+
+def outcome(problems):
+    return "ALARM" if problems else "UNVERIFIED" if unverified else "OK"
 
 
 def now():
@@ -93,6 +107,11 @@ def fetch(url, timeout=20):
 
 def fetch_json(url):
     return json.loads(fetch(url)[0])
+
+
+def read_json(path):
+    with open(path) as f:
+        return json.load(f)
 
 
 # ---- DNS, asked of the registries and of deSEC directly (dig).
@@ -155,7 +174,7 @@ def check_dns(domain, ds_required):
     problems, seen = [], []
     servers = registry_servers(domain)
     if not servers:
-        notes.append(f"{domain}: the registry's name servers could not be found")
+        unverified.append(f"{domain}: the registry's name servers could not be found")
         return problems, seen
     ns = set()
     for server in servers:
@@ -163,7 +182,7 @@ def check_dns(domain, ds_required):
         if ns == NAMESERVERS:
             break
     if not ns:
-        notes.append(f"{domain}: the registry did not answer for NS")
+        unverified.append(f"{domain}: the registry did not answer for NS")
     elif ns != NAMESERVERS:
         problems.append(f"{domain} is delegated to {', '.join(sorted(ns))} at its registry, not to deSEC")
     ds_list, answered = ds_at_registry(domain, servers)
@@ -172,7 +191,7 @@ def check_dns(domain, ds_required):
     if ds:
         keys = [k for k in records("ns1.desec.io", domain, "DNSKEY") if k.split()[0] == "257"]
         if not keys:
-            notes.append(f"{domain}: deSEC did not answer for DNSKEY")
+            unverified.append(f"{domain}: deSEC did not answer for DNSKEY")
         else:
             wanted = {ds_from_key(domain, k, d[2]) for k in keys for d in ds if d[2] in (1, 2, 4)}
             if not any(d in wanted for d in ds):
@@ -180,13 +199,13 @@ def check_dns(domain, ds_required):
     elif ds_required and answered:
         problems.append(f"the DS of {domain} at its registry is gone (DNSSEC is off for it)")
     elif ds_required:
-        notes.append(f"{domain}: the registry did not answer for DS")
+        unverified.append(f"{domain}: the registry did not answer for DS")
     # The reader, and the Web Key Directory (other people's apps take our keys
     # from it), are GitHub Pages sites.
     for host in (READERS[domain][0], f"openpgpkey.{domain}"):
         cname = [c.lower() for c in records("ns1.desec.io", host, "CNAME")]
         if not cname and not records("ns1.desec.io", host, "A"):
-            notes.append(f"{host}: deSEC did not answer")
+            unverified.append(f"{host}: deSEC did not answer")
         elif cname != [PAGES_NAME]:
             problems.append(f"{host} points to {', '.join(cname) or 'an address'} at deSEC, not to GitHub Pages")
     return problems, seen
@@ -221,15 +240,17 @@ def check_certificates(host):
                 break
             issuances += page
             after = page[-1]["id"]
-    except (OSError, ValueError, urllib.error.URLError) as e:
-        notes.append(f"{host}: the CT logs could not be read ({type(e).__name__})")
+        else:
+            raise ValueError("more issuances than pages read")
+        recent = [i for i in issuances if now() - parse_time(i["not_before"]) < CERT_RECENT]
+    except (OSError, ValueError, KeyError, TypeError, IndexError, AttributeError, urllib.error.URLError) as e:
+        unverified.append(f"{host}: the CT logs could not be read ({type(e).__name__})")
         return problems
-    recent = [i for i in issuances if now() - parse_time(i["not_before"]) < CERT_RECENT]
     if not recent:
         return problems
     key = served_key(host)
     if key is None:
-        notes.append(f"{host}: GitHub Pages did not answer")
+        unverified.append(f"{host}: GitHub Pages did not answer")
         return problems
     for i in recent:
         if i.get("pubkey_sha256") != key and now() - parse_time(i["not_before"]) > CERT_GRACE:
@@ -243,60 +264,92 @@ def recent_commits(repo):
     """The newest commits on main, newest first: (sha, time), or None."""
     try:
         return [(c["sha"], parse_time(c["commit"]["committer"]["date"]))
-                for c in fetch_json(f"https://api.github.com/repos/{repo}/commits?sha=main&per_page=6")]
-    except (OSError, ValueError, KeyError, TypeError, urllib.error.URLError):
+                for c in fetch_json(f"https://api.github.com/repos/{repo}/commits?sha=main&per_page=6")] or None
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, urllib.error.URLError):
         return None
 
 
-def check_files(host, repo):
-    commits = recent_commits(repo)
-    try:
-        sums = fetch(f"https://raw.githubusercontent.com/{repo}/main/SHA256SUMS")[0].decode()
-    except (OSError, urllib.error.URLError) as e:
-        notes.append(f"{repo}: SHA256SUMS could not be read ({type(e).__name__})")
-        return []
-    differ = {}
-    for line in sums.splitlines():
+def read_sums(text):
+    """{name: digest} of a SHA256SUMS file; ValueError for a line that is not
+    a digest and a name."""
+    out = {}
+    for line in text.splitlines():
         if not line.strip():
             continue
         digest, name = line.split(None, 1)
-        name = name.strip().lstrip("*")
+        if not re.fullmatch(r"[0-9a-f]{64}", digest):
+            raise ValueError("not a SHA-256")
+        out[name.strip().lstrip("*")] = digest
+    return out
+
+
+def check_files(host, repo):
+    """Problems with the reader's files as served, against its repository's
+    SHA256SUMS. A file that cannot be fetched, or sums that cannot be read,
+    leave the check unverified; a file that differs is a problem, unless
+    GitHub's history shows a publish it is part of, or one still on its way."""
+    try:
+        sums = read_sums(fetch(f"https://raw.githubusercontent.com/{repo}/main/SHA256SUMS")[0].decode())
+    except (OSError, ValueError, urllib.error.URLError) as e:
+        unverified.append(f"{repo}: SHA256SUMS could not be read ({type(e).__name__}): {host} not checked")
+        return []
+    if not sums:
+        unverified.append(f"{repo}: SHA256SUMS lists no files: {host} not checked")
+        return []
+    differ, missing = {}, []
+    for name, digest in sorted(sums.items()):
         try:
             body = fetch(f"https://{host}/{name}")[0]
         except (OSError, urllib.error.URLError):
-            notes.append(f"{host}/{name} could not be fetched")
+            missing.append(name)
             continue
         got = hashlib.sha256(body).hexdigest()
         if got != digest:
             differ[name] = got
-    if not differ or not commits or now() - commits[0][1] < SETTLING:
-        return []  # nothing wrong, or a publish still on its way (unknown counts as that: no crying wolf)
-    still = sorted(differ)
-    if now() - commits[0][1] < 6 * 3600:
-        # GitHub Pages builds through Actions and can serve an earlier commit
-        # for an hour or more when Actions is slow: a file of one of the five
-        # commits before passes, for six hours. A commit made at GitHub alone
-        # is not passed by this: the host compares with this Mac's hashes too.
-        earlier = set()
-        for sha, _ in commits[1:]:
-            try:
-                text = fetch(f"https://raw.githubusercontent.com/{repo}/{sha}/SHA256SUMS")[0].decode()
-            except (OSError, urllib.error.URLError):
-                continue
-            for line in text.splitlines():
-                if line.strip():
-                    digest, name = line.split(None, 1)
-                    earlier.add((name.strip().lstrip("*"), digest))
-        still = sorted(n for n, got in differ.items() if (n, got) not in earlier)
-        if len(still) < len(differ):
-            notes.append(f"{host}: GitHub Pages still serves an earlier commit for {len(differ) - len(still)} file(s)")
-    return [f"{host} serves files that differ from {repo}: {', '.join(still)}"] if still else []
+    if missing:
+        unverified.append(f"{host}: {len(missing)} file(s) could not be fetched: {', '.join(missing[:8])}")
+    if not differ:
+        return []
+    problem = lambda names: [f"{host} serves files that differ from {repo}: {', '.join(names)}"]
+    commits = recent_commits(repo)
+    if not commits:
+        # Nothing then says a publish is on its way: unknown is not taken
+        # for one.
+        notes.append(f"{repo}: its commit history could not be read, so a publish on its way could not be ruled out")
+        return problem(sorted(differ))
+    age = now() - commits[0][1]
+    if age >= 6 * 3600:
+        return problem(sorted(differ))
+    # GitHub Pages builds through Actions and can serve an earlier commit
+    # for an hour or more when Actions is slow: a file of one of the recent
+    # commits passes, for six hours (named in a note). Each commit's sums by
+    # its own hash, the newest included: raw.githubusercontent.com can serve
+    # main's of a few minutes before. A commit made at GitHub alone is not
+    # passed by this: the host compares with this Mac's hashes too.
+    known, unread = set(), 0
+    for sha, _ in commits:
+        try:
+            known |= set(read_sums(fetch(f"https://raw.githubusercontent.com/{repo}/{sha}/SHA256SUMS")[0].decode()).items())
+        except (OSError, ValueError, urllib.error.URLError):
+            unread += 1
+    still = sorted(n for n, got in differ.items() if (n, got) not in known)
+    if len(still) < len(differ):
+        notes.append(f"{host}: {len(differ) - len(still)} file(s) are those of another recent commit of {repo} (GitHub Pages catching up)")
+    if unread:
+        notes.append(f"{repo}: the sums of {unread} recent commit(s) could not be read")
+    if still and age < SETTLING:
+        # A publish minutes old: what is served may still be on its way, so
+        # neither all clear nor a problem yet.
+        unverified.append(f"{host}: {', '.join(still)} not as {repo} has them, {int(age // 60)} minutes after its last commit")
+        return []
+    return problem(still) if still else []
 
 
 def check_mail(expected):
     """The webmail's static files and its pages' Content-Security-Policy, as
     they were right after the last deploy (watch/expected.json)."""
     if now() - parse_time(expected["updated"]) < SETTLING:
+        notes.append("the webmail was deployed in the last 20 minutes: its files not checked yet")
         return []
     problems = []
     for site, want in expected["mail"].items():
@@ -304,7 +357,7 @@ def check_mail(expected):
             try:
                 body = fetch(site + path)[0]
             except (OSError, urllib.error.URLError):
-                notes.append(f"{site}{path} could not be fetched")
+                unverified.append(f"{site}{path} could not be fetched")
                 continue
             if hashlib.sha256(body).hexdigest() != want.get(path):
                 problems.append(f"{site}{path} is not the file deployed on {expected['updated'][:10]}")
@@ -313,7 +366,7 @@ def check_mail(expected):
             if csp != want.get("csp"):
                 problems.append(f"{site}/login has another Content-Security-Policy than deployed")
         except (OSError, urllib.error.URLError):
-            notes.append(f"{site}/login could not be fetched")
+            unverified.append(f"{site}/login could not be fetched")
     return problems
 
 
@@ -431,7 +484,7 @@ def check_keys(expected):
             for fpr in sorted(set(keys) - shown):
                 problems.append(f"mail.{domain}/encryption does not show our key {fpr}")
         except (OSError, urllib.error.URLError) as e:
-            notes.append(f"{page} could not be fetched ({type(e).__name__})")
+            unverified.append(f"{page} could not be fetched ({type(e).__name__})")
         for hu, fpr in sorted(want["wkd"].items()):
             for where, url, armored in ((f"openpgpkey.{domain}", f"https://openpgpkey.{domain}/.well-known/openpgpkey/{domain}/hu/{hu}", False),
                                         (f"mail.{domain}/encryption/key", f"https://mail.{domain}/encryption/key?hu={hu}", True)):
@@ -441,10 +494,10 @@ def check_keys(expected):
                     if e.code == 404:
                         problems.append(f"{where} serves no key for one of our addresses (WKD hash {hu})")
                     else:
-                        notes.append(f"{where} answered {e.code} for WKD hash {hu}")
+                        unverified.append(f"{where} answered {e.code} for WKD hash {hu}")
                     continue
                 except (OSError, urllib.error.URLError) as e:
-                    notes.append(f"{where} could not be fetched for WKD hash {hu} ({type(e).__name__})")
+                    unverified.append(f"{where} could not be fetched for WKD hash {hu} ({type(e).__name__})")
                     continue
                 wrong = key_problem(armor_body(data.decode("latin-1")) if armored else data, domain, hu, fpr, keys[fpr]["subkeys"])
                 if wrong:
@@ -461,10 +514,10 @@ def check_webauthn(host):
         fetch(url)
     except urllib.error.HTTPError as e:
         if e.code != 404:
-            notes.append(f"{url} answered {e.code}")
+            unverified.append(f"{url} answered {e.code}")
         return []
     except (OSError, urllib.error.URLError) as e:
-        notes.append(f"{url} could not be asked ({type(e).__name__})")
+        unverified.append(f"{url} could not be asked ({type(e).__name__})")
         return []
     return [f"{url} exists: it would let other sites use this site's passkeys"]
 
@@ -480,7 +533,7 @@ def check_pins(state):
         with open(PINS) as f:
             pins = json.load(f)
     except (OSError, ValueError):
-        notes.append("no hashes from the last publish of Seal (reader-pins.json)")
+        unverified.append("no hashes from the last publish of Seal (reader-pins.json)")
         return []
     published = pins.get("published", "1970-01-01T00:00:00+00:00")
     if state.get("pins_published") != published:
@@ -501,7 +554,7 @@ def check_pins(state):
             try:
                 body = fetch(f"https://{host}/{name}")[0]
             except (OSError, urllib.error.URLError):
-                notes.append(f"{host}/{name} could not be fetched")
+                unverified.append(f"{host}/{name} could not be fetched")
                 continue
             got = hashlib.sha256(body).hexdigest()
             if got == digest:
@@ -517,15 +570,25 @@ def check_pins(state):
     return problems
 
 
+def attempt(what, empty, check, *args):
+    """A check that breaks (a timeout of dig or openssl, an answer of an
+    unexpected shape) is a check not done: unverified, not the end of the run."""
+    try:
+        return check(*args)
+    except Exception as e:
+        unverified.append(f"{what}: the check failed ({type(e).__name__})")
+        return empty
+
+
 def check_all(ds_required):
     problems, ds_seen = [], {}
     for domain, (host, repo) in READERS.items():
-        found, seen = check_dns(domain, ds_required.get(domain, False))
+        found, seen = attempt(f"{domain} DNS", ([], []), check_dns, domain, ds_required.get(domain, False))
         problems += found
         ds_seen[domain] = seen
-        problems += check_certificates(host)
-        problems += check_files(host, repo)
-        problems += check_webauthn(host)
+        problems += attempt(f"{host} certificates", [], check_certificates, host)
+        problems += attempt(f"{host} files", [], check_files, host, repo)
+        problems += attempt(f"{host}/.well-known/webauthn", [], check_webauthn, host)
     return problems, ds_seen
 
 
@@ -579,31 +642,37 @@ def run_server():
         state = {}
     ds_ever = state.get("ds", {})
     problems, ds_seen = check_all({d: bool(ds_ever.get(d)) for d in READERS})
-    problems += check_pins(state)
+    problems += attempt("the last publish's hashes", [], check_pins, state)
     # Our keys against GitHub's copy, never against one kept here.
     key_problems = []
     try:
-        key_problems = check_keys(fetch_json(KEYS_URL))
+        wanted = fetch_json(KEYS_URL)
+    except (OSError, ValueError, urllib.error.URLError) as e:
+        unverified.append(f"keys.json could not be read from GitHub ({type(e).__name__}): keys not checked")
+    else:
+        key_problems = attempt("our public keys", [], check_keys, wanted)
         problems += key_problems
-    except (OSError, ValueError, KeyError, urllib.error.URLError) as e:
-        notes.append(f"keys.json could not be read from GitHub ({type(e).__name__})")
     for domain, seen in ds_seen.items():
         if seen:
             ds_ever[domain] = sorted(set(ds_ever.get(domain, [])) | set(seen))
     # The watcher at GitHub, which sees this server from outside.
     # A run checks once, every 10 minutes (cron-job.org starts it), and fails
-    # on a problem. A run cancelled while waiting its turn says nothing; three
-    # hours without a finished check means the watch itself was stopped.
+    # on a problem, or, at its step Verified, on a check it could not do. A
+    # run cancelled while waiting its turn says nothing; three hours without
+    # a finished check means the watch itself was stopped.
     try:
         runs = fetch_json(WATCH_RUNS).get("workflow_runs", [])
         done = [r for r in runs if r.get("status") == "completed" and r.get("conclusion") in ("success", "failure")]
         if done and done[0].get("conclusion") == "failure":
-            problems.append(f"the watcher at GitHub reports a problem: {done[0].get('html_url', '')}")
+            if github_unverified(done[0]):
+                unverified.append(f"the watcher at GitHub could not do every check: {done[0].get('html_url', '')}")
+            else:
+                problems.append(f"the watcher at GitHub reports a problem: {done[0].get('html_url', '')}")
         last = max((parse_time(r.get("updated_at") or r.get("created_at")) for r in done), default=None)
         if last is None or now() - last >= 3 * 3600:
             problems.append("the watcher at GitHub has finished no check for three hours: https://github.com/legal-machines/reader/actions/workflows/watch.yml")
-    except (OSError, ValueError, KeyError, urllib.error.URLError):
-        pass
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, urllib.error.URLError) as e:
+        unverified.append(f"the runs of the watcher at GitHub could not be read ({type(e).__name__})")
     old = state.get("problems", [])
     since = state.get("since") if problems and old else (iso(now()) if problems else None)
     # The same problems are told once a day, not on every run: a link that
@@ -613,34 +682,60 @@ def run_server():
     due = same(problems) != same(old) or (problems and (not told or now() - parse_time(told) >= 86400))
     if due:
         told = iso(now())
-    write_public(ALERT, json.dumps({"problems": problems, "since": since, "checked": iso(now())}))
+    # problems (ALARM) alone stop the webmail opening encrypted mail; the
+    # state, and since when checks could not be done, are there to be shown.
+    result = outcome(problems)
+    unverified_since = (state.get("unverified_since") or iso(now())) if result == "UNVERIFIED" else None
+    write_public(ALERT, json.dumps({"problems": problems, "since": since, "checked": iso(now()),
+                                    "state": result, "unverified": unverified, "unverified_since": unverified_since}))
     write_public(STATE, json.dumps({"ds": ds_ever, "problems": problems, "since": since, "notes": notes, "checked": iso(now()), "told": told,
+                                    "state": result, "unverified": unverified, "unverified_since": unverified_since,
                                     **{k: state[k] for k in ("pins_published", "pins_sites", "pins_before") if k in state}}))
     if due:
         tell_postmasters(problems, bool(key_problems))
     for line in problems:
         print("PROBLEM", line)
+    for line in unverified:
+        print("UNVERIFIED", line)
     for line in notes:
         print("note", line)
+    print("state", result)
 
 
 # ---- In GitHub Actions, and for it.
+def github_unverified(run):
+    """Whether a failed run of the watcher at GitHub failed only at its step
+    Verified (watch.yml): a check it could not do, not a problem it found.
+    Anything else, or jobs that cannot be read, is a problem as before."""
+    try:
+        jobs = fetch_json(f"https://api.github.com/repos/legal-machines/reader/actions/runs/{int(run['id'])}/jobs").get("jobs", [])
+        failed = [s.get("name") for j in jobs for s in j.get("steps", []) if s.get("conclusion") == "failure"]
+        return failed == ["Verified"]
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, urllib.error.URLError):
+        return False
+
+
 def run_github(path):
+    """Exits 0 (OK), 1 (ALARM) or 3 (UNVERIFIED): watch.yml fails the run on
+    either, at a step of its own."""
     with open(path) as f:
         expected = json.load(f)
     problems, _ = check_all(expected.get("ds_required", {}))
-    problems += check_mail(expected)
+    problems += attempt("the webmail's files", [], check_mail, expected)
     keys = os.path.join(os.path.dirname(os.path.abspath(path)), "keys.json")
     if os.path.exists(keys):
-        with open(keys) as f:
-            problems += check_keys(json.load(f))
+        problems += attempt("our public keys", [], lambda: check_keys(read_json(keys)))
     else:
-        notes.append("no keys.json beside the expected file: keys not checked")
+        unverified.append("no keys.json beside the expected file: keys not checked")
+    result = outcome(problems)
     for line in notes:
         print(f"note: {line}")
+    for line in unverified:
+        print(f"::warning::not verified: {line}")
     for line in problems:
         print(f"::error::{line}")
-    sys.exit(1 if problems else 0)
+    print(f"state: {result}")
+    sys.exit(EXIT[result])
 
 
 def run_expected():

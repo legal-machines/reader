@@ -147,6 +147,23 @@ export async function unseal(records, pin) {
   return {record, pkcs8, signPkcs8};
 }
 
+// Whether a key waiting to be published is one kept here (check.mjs), from
+// the records kept here: 'good' only for a record of that address with
+// that encryption subkey and that key that signs (the primary key itself,
+// for a key Seal makes); a record that names no key that signs cannot vouch
+// for the primary key, nor a record of another address for this one.
+// Otherwise 'older' when every record of the address was made well before
+// the key waiting (madeAt, seconds since 1970, as the mail server noted it),
+// 'other' when the address has other keys here, 'none' when it has none.
+// madeAt only softens 'other' to 'older'; nothing turns a No into a Yes.
+export function keyVerdict(records, address, primary, subkey, madeAt = 0) {
+  address = String(address).toLowerCase();
+  const mine = records.filter(r => r.addresses.some(a => String(a).toLowerCase() === address));
+  const same = mine.find(r => r.info.fingerprint === subkey && r.signer?.fingerprint === primary);
+  const before = r => madeAt > 0 && Date.parse(r.created) < (madeAt - 600) * 1000;
+  return same ? {kind: 'good', record: same} : {kind: !mine.length ? 'none' : mine.every(before) ? 'older' : 'other'};
+}
+
 // A record handed over by the Mail app, checked for shape: anything else is ignored.
 export function valid(r) {
   // Version 2 only: its sealed bytes are bound to the record (bound above),
