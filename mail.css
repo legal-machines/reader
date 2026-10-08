@@ -191,6 +191,8 @@ border-radius:var(--r-sm) var(--r-sm) 0 0;color:var(--c-text-2);font-weight:var(
 .tabs.reordering .tab-edit{display:none!important}@media (hover:hover){.tabs.reordering .tab:not(.dragging):hover{background:transparent}}
 .tab-peek{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--c-text-3);font-size:var(--t-xs);font-weight:var(--w-regular)}
 
+.tab-peek{contain:inline-size}
+
 .dock-tabs{display:none;flex:0 1 auto;align-items:center;gap:2px;min-width:0;margin:0 var(--s-2);overflow-x:auto;scrollbar-width:none;overscroll-behavior:none}
 .dock-tabs::-webkit-scrollbar{display:none}
 .pane.docked .dock-tabs{display:flex;animation:dock-in 320ms cubic-bezier(.05,.7,.1,1)}
