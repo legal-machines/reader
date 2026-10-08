@@ -6,6 +6,22 @@ private keys and their decrypted mail live in it. Two things matter more than
 any feature: nothing that works may break, and no change may weaken what Seal
 protects. README.md says how it works; SECURITY.md lists the fixes made.
 
+## Required reading, before any change
+
+Codex reads only this file by itself; Claude Code (`CLAUDE.md`) and Gemini CLI
+(`GEMINI.md`) load this file and `SECURITY.md` at start. Every agent must also
+read, before it changes anything:
+
+1. **`AGENTS.md`**, all of it (this file).
+2. **`SECURITY.md`**: the fixes made; do not undo one.
+3. **`README.md`**, all of it: it says what Seal protects, how, and what it
+   cannot do.
+4. **`../mail/AGENTS.md`** and **`../mail/SECURITY.md`** (the private mail
+   repository, if you have it) when you change the watch, the keys, the
+   webmail's frames or anything the mail server talks to.
+
+If you cannot read one of them, say so and stop before changing anything.
+
 ## What this is
 
 Static pages and modules served by GitHub Pages: this repository is
