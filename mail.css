@@ -183,12 +183,13 @@ border-radius:var(--r-sm) var(--r-sm) 0 0;color:var(--c-text-2);font-weight:var(
 .tab-text{display:flex;flex-direction:column;min-width:0}
 .tab-name{display:flex;align-items:center;gap:var(--s-2);min-width:0;white-space:nowrap}.tab-name > span{overflow:hidden;text-overflow:ellipsis}
 .tab-text{flex:1}
-.tab-edit{display:none;place-items:center;flex:none;width:28px;height:28px;margin-right:calc(-1 * var(--s-2));border-radius:var(--r-full);color:var(--c-text-2);cursor:pointer}
+
+.tab-edit{display:inline-grid;opacity:0;pointer-events:none;place-items:center;flex:none;width:28px;height:28px;margin-right:calc(-1 * var(--s-2));border-radius:var(--r-full);color:var(--c-text-2);cursor:pointer}
 .tab-edit svg.i{width:16px;height:16px;fill:currentColor}@media (hover:hover){.tab-edit:hover{background:var(--c-hover)}}
-.tab.on .tab-edit,.tab-edit:focus-visible{display:inline-grid}@media (hover:hover){.tab:hover .tab-edit{display:inline-grid}}
+.tab.on .tab-edit,.tab-edit:focus-visible{opacity:1;pointer-events:auto}@media (hover:hover){.tab:hover .tab-edit{opacity:1;pointer-events:auto}}
 .tab{user-select:none;-webkit-touch-callout:none}
 .tab.dragging{z-index:5;background:var(--c-surface);box-shadow:var(--e-2);cursor:grabbing}
-.tabs.reordering .tab-edit{display:none!important}@media (hover:hover){.tabs.reordering .tab:not(.dragging):hover{background:transparent}}
+.tabs.reordering .tab-edit{opacity:0!important;pointer-events:none!important}@media (hover:hover){.tabs.reordering .tab:not(.dragging):hover{background:transparent}}
 .tab-peek{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--c-text-3);font-size:var(--t-xs);font-weight:var(--w-regular)}
 
 .tab-peek{contain:inline-size}
