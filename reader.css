@@ -43,6 +43,15 @@ button:disabled{opacity:.38;cursor:default}
 /* The file field: 56 dp like the others, its tonal button 40 dp with the same room on every side. */
 .field input[type=file]{height:56px;padding:7px}
 .field input:focus{outline:2px solid var(--c-primary);outline-offset:-1px;border-color:transparent}
+/* Inside it, on the right, the file chosen, or before that where else the key
+   comes from; the browser's own "no file selected" goes (a font size of 0
+   leaves the button, which sets its own). */
+.field.file .file-box{display:flex;align-items:center;gap:var(--s-3);min-height:56px;padding:7px var(--s-4) 7px 7px;border:1px solid var(--c-outline);border-radius:var(--r-sm);background:var(--c-surface);cursor:pointer}
+.field.file input[type=file]{flex:none;height:40px;padding:0;border:0;border-radius:var(--r-full);background:transparent;font-size:0;color:transparent}
+.field.file input[type=file]::file-selector-button{margin:0}
+.field.file input[type=file]:focus{outline:0}
+.field.file:focus-within .file-box{outline:2px solid var(--c-primary);outline-offset:-1px;border-color:transparent}
+.field.file .file-status{flex:1;min-width:0;color:var(--c-text-2);font-size:12px;line-height:16px;text-align:right;overflow-wrap:anywhere}
 
 /* The locked message, as the Mail app draws it */
 .sealed{display:flex;gap:var(--s-4);align-items:flex-start;padding:var(--s-5);border-radius:var(--r-lg);background:var(--c-surface-2)}

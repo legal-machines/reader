@@ -695,7 +695,10 @@ background:var(--c-inverse);color:var(--c-on-inverse);font-size:var(--t-xs);font
 body.bare{display:grid;grid-template-columns:minmax(0,1fr);place-items:center;min-height:100dvh;padding:var(--s-6)}
 body.bare main.card{width:100%;max-width:440px;margin:0;padding:calc(2 * var(--s-5));border-radius:var(--r-xl)}
 .brandmark{display:flex;align-items:center}.brandmark svg.brand-badge{height:36px}
-body.bare h1{margin:var(--s-6) 0 var(--s-1);font-size:var(--t-3xl)}p.sub{margin:0 0 var(--s-6);color:var(--c-text-2)}body.bare .filled{justify-self:end}
+body.bare h1{margin:var(--s-6) 0 var(--s-1);font-size:var(--t-3xl)}p.sub{margin:0 0 var(--s-6);color:var(--c-text-2)}
+
+body.bare .actions:not(.spread){justify-content:flex-end}body.bare .actions.spread:not(.stacked) > .text:first-child{margin-left:calc(-1 * var(--s-3))}body.bare .actions.spread.stacked{align-items:stretch}body.bare .actions.stacked > *{justify-content:center}
+body.bare main.card :is(p,.hint){text-wrap:wrap}
 .code-input{font-size:var(--t-3xl)!important;letter-spacing:.3em;text-align:center}
 
 

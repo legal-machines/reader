@@ -21,6 +21,11 @@
     <p>The mail page opened this tab and could still change what it shows. Your key's passphrase goes only into a tab no page can reach: Continue opens one, at this same address.</p>
     <div class="actions"><button class="filled" type="button" id="continue-button">Continue</button></div>
   </section>
+  <section class="card" id="already" hidden>
+    <h2>Your key is here already</h2>
+    <p>This browser keeps the key of <b class="already-who"></b>, but Mail cannot see what Seal keeps, so it asks for the key until you connect it, once. Connect to Mail opens a tab of Mail; press Connect there.</p>
+    <div class="actions" id="already-actions"><button class="text" type="button" id="already-other">Add another key</button></div>
+  </section>
   <section class="card" id="keys" hidden><h2>Keys in this browser</h2><div class="key-list" role="list"></div></section>
   <section class="card" id="alarm" hidden>
     <h2>Something looks wrong?</h2>
@@ -73,8 +78,8 @@
   <form class="card" id="setup" autocomplete="off">
     <h2>Add a key</h2>
     <p class="handed" id="handed" hidden>Your key came from your mailbox, locked with its passphrase. Enter the passphrase to add it to this browser.</p>
-    <label class="field" id="file-field"><span>Your secret key file (.asc)</span><input type="file" id="file" accept=".asc,.gpg,.key,.txt,application/pgp-keys" required>
-      <small>Or open the message "Your encryption key" in Mail and click Add to this browser.</small></label>
+    <label class="field file" id="file-field"><span>Your secret key file (.asc)</span>
+      <span class="file-box"><input type="file" id="file" accept=".asc,.gpg,.key,.txt,application/pgp-keys" required aria-describedby="file-status"><small class="file-status" id="file-status">Or open "Your encryption key" in Mail</small></span></label>
     <label class="field"><span>The key's passphrase</span><input type="password" id="passphrase" required></label>
     <label class="check"><input type="checkbox" id="use-pin"><span>Also ask a PIN with every message</span></label>
     <div id="pin-fields" hidden>

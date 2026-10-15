@@ -67,7 +67,10 @@ the seal holds.
   there, and the first tab only hands the finished record back to the Mail
   app, waits for Mail to say it kept it, and closes. When Mail does not say
   so (the mail page moved on, or the key was added in a tab Mail never
-  opened), Seal offers Connect to Mail, also on every key on `setup.html`:
+  opened), Seal offers Connect to Mail, also on every key on `setup.html`,
+  and first of all when Mail's Add to this browser brings no key while a key
+  of one of its mailboxes is here already (Mail cannot see what this site
+  keeps, and asks on every sign-in until a browser connects its key):
   a tab of Mail, which cannot reach Seal's, opens at /keys/connect with the
   sealed record in the address's fragment (no request carries it), and Mail
   keeps it on a press there, and only when Seal's origin opened the page. Where the frames share this site's storage with

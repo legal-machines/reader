@@ -94,6 +94,10 @@ if (window.opener) {
   history.replaceState(null, '', location.pathname);
 }
 document.getElementById('use-pin').addEventListener('change', e => { document.getElementById('pin-fields').hidden = !e.target.checked; });
+// The file chosen, inside the field on the right; before that, where else the key comes from.
+const fileStatus = document.getElementById('file-status'), fileHint = fileStatus.textContent;
+document.getElementById('file').addEventListener('change', e => { fileStatus.textContent = e.target.files[0]?.name || fileHint; });
+form.addEventListener('reset', () => { fileStatus.textContent = fileHint; });
 
 // Each key on a panel of its own: its mark as the composer shows it, the
 // address, when it was added (a key added twice has two passkeys, told apart
@@ -266,6 +270,33 @@ function awaitKept(record) {
   };
   relay.addEventListener('message', hear);
   setTimeout(offer, 12000);
+}
+
+// Mail cannot see what this site keeps, so it asks for the key on every
+// sign-in until a browser connects it: a key added here from its file is in
+// this browser, yet unknown to Mail. When Mail's Add to this browser brings
+// no key and a key of one of its mailboxes is here, Connect comes first, in
+// this tab, which no page holds.
+async function offerConnect() {
+  const here = (await all()).filter(r => mailFor(r));
+  if (!here.length) return;
+  const card = document.getElementById('already'), row = document.getElementById('already-actions');
+  card.querySelector('.already-who').textContent = [...new Set(here.flatMap(r => r.addresses))].join(', ');
+  for (const r of here.slice().reverse()) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'filled';
+    b.textContent = here.length > 1 ? `Connect ${r.addresses[0]}` : 'Connect to Mail';
+    b.addEventListener('click', e => { if (e.isTrusted) connect(r); });
+    row.prepend(b);
+  }
+  document.getElementById('already-other').addEventListener('click', e => {
+    if (!e.isTrusted) return;
+    card.hidden = true;
+    form.hidden = false;
+  });
+  form.hidden = true;
+  card.hidden = false;
 }
 
 // The key's mark, shown here once with what it is for.
@@ -497,4 +528,5 @@ async function setUp() {
   }
 }
 
+if (relayId && !handed && !createFor) offerConnect();
 list();
