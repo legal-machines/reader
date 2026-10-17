@@ -5,6 +5,7 @@ write to postmaster@legalmachines.org.
 
 | Date | Fix | Commit |
 |---|---|---|
+| 2026-10-18 | The watch also looks in the Certificate Transparency logs for certificates of openpgpkey.<domain>, the Web Key Directory where other people's mail apps take our keys, as it does for these sites; and it asks once more before it counts a request that got no answer as a check not done. | `7a38401` |
 | 2026-10-07 | A sender's key is learned only when their domain's DKIM signature also signs the fields that say how to read the message (Content-Type, and Content-Transfer-Encoding and MIME-Version where present), so a server on the way cannot have quoted encrypted text read as the whole message. A first key is kept only from a message signed with it; otherwise Seal offers it with its fingerprint to check. | `25082ad` |
 | 2026-10-07 | The check page says a key is safe to publish only for a record of the requested address, with the same encryption subkey and the primary key as its signer. | `25082ad` |
 | 2026-10-07 | The watch reports a check it could not run as not done (UNVERIFIED), never as clear, and keeps a changed file an alarm even when GitHub's history is unavailable; its run fails in both cases. | `25082ad` |
