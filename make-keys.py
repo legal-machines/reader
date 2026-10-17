@@ -14,10 +14,11 @@
 #                    the Web Key Directory by the address it writes to, and
 #                    takes it only with this fingerprint, so this file lists
 #                    no address. The compose page encrypts only to these.
-#   keys.html        the fingerprint of one domain's key (--keys-page DOMAIN:
-#                    each site shows only its own domain's), for people to
+#   keys.html        the fingerprints of one domain's keys (--keys-page
+#                    DOMAIN: each site shows only its own domain's), every
+#                    one that Mail's guide (/encryption) shows, for people to
 #                    compare with the one their mail app shows (between
-#                    KEYS-BEGIN and KEYS-END)
+#                    KEYS-BEGIN and KEYS-END); fingerprints name no address
 #   watch/keys.json  what the watch (watch/watch.py) expects our mail server
 #                    to hand out: fingerprints, subkeys and the Web Key
 #                    Directory hash of each address's local part; "updated"
@@ -134,11 +135,11 @@ block = "".join(
     f'<section class="card"><h2>{html.escape(e["domain"])}</h2>'
     f'<p class="fingerprint" aria-label="Fingerprint"><span>{grouped(e["fingerprint"])[0]}</span><span>{grouped(e["fingerprint"])[1]}</span></p>'
     f'<p class="hint">Created {html.escape(e["created"])}' + (f', valid until {html.escape(e["expires"])}' if e["expires"] else "") + "</p></section>\n"
-    for e in ordered if only in (None, e["domain"]) and e.get("armored"))
-# A domain whose shown address has no key yet (each mailbox makes its own,
-# and it is published once its fingerprint is read with its owner).
+    for e in ordered if only in (None, e["domain"]))
+# A domain with no key yet (each mailbox makes its own, and it is published
+# once its fingerprint is read with its owner).
 block += "".join(f'<section class="card"><h2>{html.escape(d)}</h2><p>No key is published for this domain right now.</p></section>\n'
-                 for d in sorted(PUBLIC) if only in (None, d) and not any(e["domain"] == d and e.get("armored") for e in ordered))
+                 for d in sorted(PUBLIC) if only in (None, d) and not any(e["domain"] == d for e in ordered))
 path = os.path.join(here, "keys.html")
 page = open(path).read()
 page = re.sub(r"<!-- KEYS-BEGIN \(make-keys.py\) -->\n.*?<!-- KEYS-END -->", lambda _: "<!-- KEYS-BEGIN (make-keys.py) -->\n" + block + "<!-- KEYS-END -->", page, flags=re.S)

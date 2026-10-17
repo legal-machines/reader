@@ -2,8 +2,9 @@
 // from your key (X25519 of the key with a fixed point, see sw.js), so they
 // are the same on every device that holds it, and neither Mail nor its
 // server, which have only the public key, can work them out. The reader shows
-// them with every message it opens and while you write end to end; a page
-// that only looks like the reader cannot.
+// them while you write end to end, on setup.html, and for ten seconds beside a
+// line that vouches for a letter (Show my mark); a page that only looks like
+// the reader cannot.
 //
 // A browser keeps the marks it has seen (this site's storage, which Mail
 // cannot read), so the mark can show before the key is opened.

@@ -7,13 +7,14 @@ hosting company can read them or take the key.
 It is served by GitHub Pages, not by the mail server: this repository is
 https://seal.legalmachines.org, and legal-machines/reader2 is the same files
 at https://seal.dzyza.com, except keys.html, which shows only its own
-domain's key. The Mail app shows it in frames and hands it the
+domain's keys. The Mail app shows it in frames and hands it the
 encrypted message, which the mail server holds anyway. The browser keeps the
 Mail app out of these frames and out of this site's storage.
 
 ## Two keys, and why the public one cannot read
 
-Every mailbox has a key pair, which works like a padlock and its key.
+A mailbox with an end-to-end key has a key pair, which works like a
+padlock and its key.
 
 * **The public key is the open padlock.** It is published (the Web Key
   Directory at openpgpkey.<domain>, which GitHub Pages serves from
@@ -103,15 +104,16 @@ the seal holds.
 * **Your mark.** Four pictures made from the key (X25519 of the key with a
   fixed point, `mark.mjs`): the same on every device that holds the key,
   and out of reach of Mail and its server, which have only the public key.
-  Seal shows them in one place only: at the foot of the text of an
-  end-to-end message, while the keyboard is in Seal's composer, after a key,
+  Seal shows them only where Mail cannot cut them out: at the foot of the
+  text of an end-to-end message, while the keyboard is in Seal's composer, after a key,
   a touch or a paste of yours there (a page that only moves the focus into
   the frame does not light it), and while the whole composer is on the
   screen (so a page cannot cut the frame down to the mark); it goes at once
   when the keyboard leaves. In Chrome the composer must also not be covered,
   faded or shrunk (IntersectionObserver v2). On `setup.html`, in a tab of its
   own with the address bar in view, it shows behind Show my mark, and goes
-  when the tab loses the keyboard. Shown anywhere without these conditions,
+  when the tab loses the keyboard; beside a line that vouches for a letter,
+  for ten seconds behind Show my mark (see Reading). Shown anywhere without these conditions,
   Mail could cut it out of a frame of Seal and set it beside a field of its
   own; shown only while you type or attach in Seal, every key you press and
   every file you pick goes to Seal.
@@ -219,9 +221,11 @@ press. A reply quotes an encrypted message as "X wrote" only when its seal
 holds, and says "not sealed" otherwise.
 
 `keys.mjs` lists no addresses: it has one entry a key, with the SHA-256 of
-each address the key serves (lower case, hex) and the key itself with one
-user ID, an address our sites show anyway (inbox@ the domain). Seal
-hashes an address to find its key. A short address can still be found by
+each address the key serves (lower case, hex), and the key itself, with one
+user ID, only for a key of the address our sites show anyway (inbox@ the
+domain); any other key Seal fetches from the Web Key Directory by the
+address written to (`wkd.html`) and takes only with the fingerprint listed.
+Seal hashes an address to find its key. A short address can still be found by
 trying names against the hashes; they keep the list out of sight, not
 secret.
 
@@ -265,10 +269,12 @@ secret.
 
 * Every page carries a Content-Security-Policy that allows no requests
   beyond this site's own files: nothing decrypted, and nothing about the
-  key, can be sent anywhere. One page alone reaches the network: `dns.html`,
-  in a hidden frame of the page that opens a letter, asks cloudflare-dns.com
-  and dns.google for the DKIM key of a sender's domain, by the selector and
-  domain the message shows in the open, and holds no key and no message.
+  key, can be sent anywhere. Two pages alone reach the network, each one
+  place: `dns.html`, in a hidden frame of the page that opens a letter, asks
+  cloudflare-dns.com and dns.google for the DKIM key of a sender's domain, by
+  the selector and domain the message shows in the open, and holds no key and
+  no message; `wkd.html` fetches a public key of one of our addresses from
+  the Web Key Directory (openpgpkey.<domain>) for Send.
 * `SHA256SUMS` lists every file's hash. Two watches compare what is served at
   both addresses with it, and look for signs that someone else serves these
   names: the domains' delegation and DNSSEC at their registries, the CNAMEs
@@ -391,7 +397,7 @@ and passkeys), `vault.mjs` and `sw.js` (the key while unlocked), `hub.mjs`
 (a letter), `row.mjs` (a line of a list), `title.mjs` (the subject),
 `compose.mjs`, `send.mjs` and `sign.mjs` (writing), `tab.mjs` (Seal's frames in a
 tab), `seal.mjs` (the sender's seal and key lookup by hash), `dkim.mjs`
-(the signature of a sender's domain), `dns.html` (its keys, the only page with network), `contacts.mjs` and
+(the signature of a sender's domain), `dns.html` (its keys) and `wkd.html` (our keys from the Web Key Directory), the only pages with network, `contacts.mjs` and
 `people.html` (keys of people outside), `keys.mjs` and
 `keys.html` (our public keys, from `make-keys.py`), `notices.mjs` (from
 `make-notices.py`), `setup.mjs`, `width.mjs`, `publish.sh` (both sites, with
