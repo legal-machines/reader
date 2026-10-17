@@ -3,7 +3,8 @@
 for signs that someone other than GitHub Pages serves them. Two places that
 do not depend on each other run it: this server every 10 minutes
 (mail-reader-watch.timer), and GitHub Actions in legal-machines/reader every
-15 (.github/workflows/watch.yml, with watch/watch.py, a copy of this file).
+10 too (.github/workflows/watch.yml, started by cron-job.org, its own
+schedule of 15 a fallback; with watch/watch.py, a copy of this file).
 
   reader-watch.py server          on the host: the webmail's alert file
                                   (/var/lib/mail-status/reader-alert.json) and
@@ -18,8 +19,10 @@ do not depend on each other run it: this server every 10 minutes
 A problem is any of these:
  - a domain's delegation at its registry is not deSEC's (NS), or its DS does
    not match deSEC's key, or a DS that was there is gone;
- - seal.<domain> at deSEC is not a CNAME to legal-machines.github.io;
- - a certificate for seal.<domain> in the Certificate Transparency logs
+ - seal.<domain> or openpgpkey.<domain> at deSEC is not a CNAME to
+   legal-machines.github.io;
+ - a certificate for seal.<domain> or openpgpkey.<domain> (the Web Key
+   Directory, where other people's apps take our keys) in the Certificate Transparency logs
    (SSLMate's Cert Spotter) whose key GitHub Pages does not serve, half an
    hour after it was issued: a certificate is what someone who took the name
    would need first;
@@ -80,6 +83,8 @@ ZBASE32 = "ybndrfg8ejkmcpqxot1uwisza345h769"
 
 notes = []
 unverified = []  # checks that could not be done: the run cannot say all is well
+retries_left = 4  # requests tried again in this run (fetch)
+RETRY_PAUSE = 3
 EXIT = {"OK": 0, "ALARM": 1, "UNVERIFIED": 3}
 
 
@@ -100,9 +105,25 @@ def parse_time(text):
 
 
 def fetch(url, timeout=20):
+    """GitHub Pages now and then drops one of the hundred requests of a run,
+    which alone made a run UNVERIFIED and mailed the owner: a request that
+    gets no answer, or a server error, is tried again a few seconds later.
+    An answer such as 404 is not: it says what is there. The few tries left
+    per run keep an outage from stretching a run past its time limit."""
+    global retries_left
     req = urllib.request.Request(url, headers={"User-Agent": "mail-reader-watch", "Accept": "application/json, */*"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read(), r.headers
+    while True:
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return r.read(), r.headers
+        except urllib.error.HTTPError as e:
+            if e.code < 500 or retries_left <= 0:
+                raise
+        except OSError:
+            if retries_left <= 0:
+                raise
+        retries_left -= 1
+        time.sleep(RETRY_PAUSE)
 
 
 def fetch_json(url):
@@ -586,7 +607,8 @@ def check_all(ds_required):
         found, seen = attempt(f"{domain} DNS", ([], []), check_dns, domain, ds_required.get(domain, False))
         problems += found
         ds_seen[domain] = seen
-        problems += attempt(f"{host} certificates", [], check_certificates, host)
+        for name in (host, f"openpgpkey.{domain}"):
+            problems += attempt(f"{name} certificates", [], check_certificates, name)
         problems += attempt(f"{host} files", [], check_files, host, repo)
         problems += attempt(f"{host}/.well-known/webauthn", [], check_webauthn, host)
     return problems, ds_seen
