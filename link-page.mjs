@@ -8,8 +8,8 @@
 // only where the page around it may use it too.
 
 import {MAIL_SITES} from './sites.mjs';
-import {all, unseal, valid} from './store.mjs';
-import {keyOf} from './seal.mjs';
+import {all, unseal, valid, forgetWithdrawn} from './store.mjs';
+import {keyOf, currentKeys} from './seal.mjs';
 import {packKey, readOffer, sealFor} from './link.mjs';
 import {escape} from './mime.mjs';
 import {icon} from './icons.mjs';
@@ -19,6 +19,8 @@ if (window.top !== window) {
   document.body.textContent = 'Open this page on its own.';
   throw new Error('framed');
 }
+// Keys withdrawn on 2026-10-18 are not handed on, nor kept (store.mjs).
+await currentKeys().then(forgetWithdrawn).catch(() => {});
 const view = document.getElementById('link');
 let mailOrigin = null, records = [], stream = null, timer = 0, offer = null, busy = false;
 const tell = m => { if (mailOrigin && window.opener) window.opener.postMessage(m, mailOrigin); };

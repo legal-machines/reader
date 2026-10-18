@@ -36,6 +36,11 @@ body.hub #hub:empty{display:none}
 .hub-unlock > button{grid-column:3;grid-row:1}
 .hub-unlock > button{padding:0 var(--s-6) 0 var(--s-4)}
 .hub-unlock > button svg.i{width:var(--icon-sm);height:var(--icon-sm)}
+.hub-add{grid-column:3;grid-row:1;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:var(--s-1) var(--s-2)}
+.hub-add > .tonal{padding:0 var(--s-6) 0 var(--s-4)}.hub-add > button svg.i{width:var(--icon-sm);height:var(--icon-sm)}
+.hub-add > .hub-error{flex-basis:100%;margin:0;text-align:right}
+:root.phone .hub-add{grid-column:1 / -1;grid-row:2;justify-content:flex-start;margin-top:var(--s-1)}:root.phone .hub-add > .hub-error{text-align:left}
+.hub-status .hub-add{grid-column:auto;grid-row:auto;justify-content:flex-start}.hub-status .hub-add > .hub-error{text-align:left}
 .hub-pin{grid-column:2 / 4;grid-row:2;width:min(200px,100%);margin:var(--s-2) 0 var(--s-1)}
 .hub-pin input{height:var(--h-md)}
 .hub-error{grid-column:2 / 4;margin:var(--s-1) 0;color:var(--c-danger);font-size:var(--t-xs)}

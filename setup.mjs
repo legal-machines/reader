@@ -4,7 +4,7 @@
 
 import * as openpgp from './openpgp.min.mjs';
 import {extract, pkcs8Of, signPkcs8Of} from './sealed-core.mjs';
-import {all, keep, newPasskey, remove} from './store.mjs';
+import {all, keep, newPasskey, remove, forgetWithdrawn} from './store.mjs';
 import {known, markOf, remember, setExplained, tile} from './mark.mjs';
 import {hold, lock} from './vault.mjs';
 import {drift, measure, now} from './clock.mjs';
@@ -15,6 +15,8 @@ import {MAIL_SITES} from './sites.mjs';
 import {addressHash, currentKeys} from './seal.mjs';
 import {newOffer, openFrom, unb64u, unpackKey} from './link.mjs';
 import {svg} from './qr.mjs';
+// Keys withdrawn on 2026-10-18 leave this browser before anything is listed (store.mjs).
+await currentKeys().then(forgetWithdrawn).catch(() => {});
 
 if (window.top !== window) {
   // Never inside another page: the key file and the PIN are typed only here,

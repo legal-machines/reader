@@ -9,7 +9,8 @@
 
 import {MAIL_SITES} from './sites.mjs';
 import {widths} from './width.mjs';
-import {all, valid} from './store.mjs';
+import {all, valid, forgetWithdrawn} from './store.mjs';
+import {currentKeys} from './seal.mjs';
 import {keyOf} from './seal.mjs';
 import {escape} from './mime.mjs';
 import {icon} from './icons.mjs';
@@ -29,6 +30,10 @@ const waiting = new Map();    // slot -> {armored, from, ids}
 const missing = new Set();
 let parentOrigin = null, channel = null, records = [], minutes = 15, mode = 'quiet', count = 0;
 let unlocked = false, busy = false, failure = '', alarm = false;
+// The passkeys this device made itself (their records are in this browser):
+// Unlock asks only for them, so the device's own Touch ID, Face ID or Windows
+// Hello answers, never a dialog for a phone nearby that may not hold one.
+let here = new Set();
 raised().then(at => { if (at) { alarm = true; draw(); } });
 
 const tell = message => { if (parentOrigin) parent.postMessage(message, parentOrigin); };
@@ -38,6 +43,7 @@ const post = message => channel?.postMessage(message);
 
 // The keys a page's messages may need: the records Mail keeps for this mailbox.
 const mine = () => records.filter(r => r.rp === location.hostname);
+const ownHere = () => needed().filter(r => here.has(r.credentialId));
 const needed = () => {
   const ids = new Set((missing.size ? [...missing].map(s => waiting.get(s)) : [...waiting.values()]).flatMap(w => w?.ids || []));
   const fit = mine().filter(r => ids.has(r.keyId));
@@ -67,6 +73,7 @@ function draw() {
   view.querySelector('#lock')?.addEventListener('click', async () => { await vault.lock(); });
   view.querySelector('#in-tab')?.addEventListener('click', () => tell({type: 'hub-tab'}));
   view.querySelector('#add-here')?.addEventListener('click', e => { if (e.isTrusted) tell({type: 'hub-add-here'}); });
+  view.querySelector('#try-elsewhere')?.addEventListener('click', e => { if (e.isTrusted) submit(e, true); });
   view.querySelector('form.hub-unlock button')?.addEventListener('pointerenter', () => openpgpLib(), {once: true});
   tell({type: 'hub-state', unlocked, shown: !!html});
   report();
@@ -74,6 +81,13 @@ function draw() {
 
 function unlockForm() {
   if (alarm) return `<p class="hub-error" role="alert">${escape(alarmText())}</p>`;
+  // No passkey of this device's own for the key: adding the key here comes
+  // first (a code for your phone to read); a passkey that came by sync from
+  // another device may still be tried.
+  if (!ownHere().length)
+    return `<div class="hub-add"><button class="tonal" type="button" id="add-here">${icon('key')}<span>Add your key to this device</span></button>` +
+      `<button class="text" type="button" id="try-elsewhere"${busy ? ' disabled' : ''}>My passkey is on this device</button>` +
+      (failure ? `<p class="hub-error" role="alert">${failure}</p>` : '') + `</div>`;
   const pin = needed().some(r => r.pinSalt);
   return `<form class="hub-unlock">` +
     `<button class="tonal" type="submit"${busy ? ' disabled' : ''}>${icon('lock_open')}<span>Unlock</span></button>` +
@@ -81,15 +95,15 @@ function unlockForm() {
     (failure ? `<p class="hub-error" role="alert">${failure}</p>` : '') + `</form>`;
 }
 
-async function submit(e) {
+async function submit(e, anywhere = false) {
   e.preventDefault();
   if (busy) return;
   busy = true;
   failure = '';
-  e.target.querySelector('button').disabled = true;
+  if (e.target.querySelector) (e.target.querySelector('button') || e.target).disabled = true;
   try {
     openpgpLib();  // loads while the passkey is asked
-    await vault.unlock(needed(), document.getElementById('pin')?.value || '', minutes);
+    await vault.unlock(anywhere || !ownHere().length ? needed() : ownHere(), document.getElementById('pin')?.value || '', minutes);
     unlocked = true;
     missing.clear();
     await openAll();
@@ -231,6 +245,7 @@ addEventListener('message', async e => {
       };
       channel.postMessage({type: 'hub-here'});  // frames that loaded first ask again
     }
+    await forgetWithdrawn(await currentKeys().catch(() => []));
     records = Array.isArray(d.records) ? d.records.filter(valid).slice(0, 20) : [];
     // A key of this mailbox that this browser holds and Mail does not know of
     // (added in a tab of Seal that Mail did not open, or whose answer never
@@ -256,6 +271,7 @@ addEventListener('message', async e => {
       const older = (await all().catch(() => [])).filter(r => valid(r) && r.addresses.some(a => String(a).toLowerCase() === me) && !records.some(m => m.credentialId === r.credentialId));
       records = [...records, ...older].slice(0, 20);
     }
+    here = new Set((await all().catch(() => [])).filter(r => valid(r) && r.rp === location.hostname).map(r => r.credentialId));
     minutes = [0, 5, 15, 30, 60].includes(d.minutes) ? d.minutes : 15;
     mode = ['thread', 'list', 'panel', 'quiet'].includes(d.mode) ? d.mode : 'quiet';
     count = Number.isInteger(d.count) ? Math.min(d.count, 999) : 0;

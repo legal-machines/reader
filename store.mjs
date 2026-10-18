@@ -46,12 +46,24 @@ export const all = () => run('readonly', s => s.getAll());
 export const put = record => run('readwrite', s => s.put(record));
 export const remove = credentialId => run('readwrite', s => s.delete(credentialId));
 
+// The keys the owner withdrew on 2026-10-18 and had removed everywhere (the
+// subkeys of the three then published), and any key this browser kept from
+// before that day that is not published now: they leave this browser too.
+// Mail encrypted to them opens nowhere after this; the owner chose so.
+const WITHDRAWN = ['c37f5020f22f77c7', '730512bac645c26f', '9b79155ec15adf36'];
+const RESET = '2026-10-18T18:30:00Z';
+export async function forgetWithdrawn(published) {
+  const now = new Set((published || []).flatMap(k => k.subkeys || []));
+  for (const r of await all().catch(() => []))
+    if (WITHDRAWN.includes(r.keyId) || (String(r.created || '') < RESET && !now.has(r.keyId))) await remove(r.credentialId).catch(() => {});
+}
+
 // One touch of a passkey that one of these records was sealed under: its
 // record and PRF output.
 async function prf(records) {
   const one = records.length === 1;
   const got = await navigator.credentials.get({publicKey: {
-    challenge: random(32), rpId: location.hostname, userVerification: 'required', timeout: 120000,
+    challenge: random(32), rpId: location.hostname, userVerification: 'required', timeout: 120000, hints: ['client-device'],
     allowCredentials: records.map(r => ({type: 'public-key', id: unb64u(r.credentialId)})),
     extensions: {prf: one ? {eval: {first: unb64u(records[0].salt)}}
                           : {evalByCredential: Object.fromEntries(records.map(r => [r.credentialId, {first: unb64u(r.salt)}]))}},
@@ -93,11 +105,14 @@ export async function newPasskey(label) {
     challenge: random(32), rp: {id: location.hostname, name: 'Seal'},
     user: {id: random(16), name: label, displayName: label},
     pubKeyCredParams: [{type: 'public-key', alg: -7}, {type: 'public-key', alg: -257}],
-    authenticatorSelection: {residentKey: 'preferred', userVerification: 'required'}, timeout: 120000,
+    // On this device itself (Touch ID, Face ID, Windows Hello, Google Password
+    // Manager), not on a phone nearby: a passkey made on the phone left this
+    // device needing the phone, and its QR code, for every Unlock.
+    authenticatorSelection: {authenticatorAttachment: 'platform', residentKey: 'required', userVerification: 'required'}, hints: ['client-device'], timeout: 120000,
     extensions: {prf: {eval: {first: salt}}},
   }});
   const result = made.getClientExtensionResults().prf;
-  if (result?.enabled === false) throw new Error('This passkey cannot lock a key. Make it again and choose where it is kept: in Chrome, Google Password Manager; Safari 18, Chrome and Edge can.');
+  if (result?.enabled === false) throw new Error('This passkey cannot lock a key. Make it again and keep it in Google Password Manager (Chrome) or iCloud Keychain (Safari); Safari 18, Chrome and Edge can.');
   const credentialId = b64u(made.rawId);
   // Some browsers give the PRF output only when the passkey is used.
   const out = result?.results?.first ? new Uint8Array(result.results.first) : (await prf([{credentialId, salt: b64u(salt)}])).out;

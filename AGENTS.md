@@ -53,7 +53,9 @@ Never weaken one of these without the owner's explicit decision.
 4. **What Seal says about a key.** The check page says "safe to publish" only
    for a record of that very address, with the same encryption subkey and the
    primary key as its signer (`keyVerdict`). Older keys stay until their owner
-   removes them.
+   removes them; the keys withdrawn on 2026-10-18 (and any kept from before
+   that day that is not published) Seal forgets in every browser, as the owner
+   decided (`store.mjs`, `forgetWithdrawn`).
 5. **The watch never says "clear" when it could not check.** Its outcomes are
    OK, UNVERIFIED and ALARM; a changed file is ALARM even when GitHub's history
    is unavailable; the workflow fails on both ALARM and UNVERIFIED.

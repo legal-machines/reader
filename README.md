@@ -99,8 +99,12 @@ the seal holds.
   of a key published for one of our mailboxes (`keys.mjs`: the key ID, the
   public point that half must give, and the addresses it serves), and seals
   it under a passkey of its own; from then on it opens your mail without the
-  phone. In Chrome on Windows, keep that passkey in Google Password Manager
-  if Windows Hello cannot lock a key. The camera is this site's alone: Mail's
+  phone. A passkey is made on the device itself (Touch ID, Face ID, Windows
+  Hello, Google Password Manager), never on a phone nearby, and Unlock asks
+  only for the passkeys this device made: a device without one is offered
+  Add your key to this device instead of a dialog that looks for a phone.
+  In Chrome on Windows, keep that passkey in Google Password Manager if
+  Windows Hello cannot lock a key. The camera is this site's alone: Mail's
   pages may use none.
 * **One touch for a while, not one per message.** A touch of the passkey
   (and the PIN, if there is one) unlocks every encrypted message at once:
