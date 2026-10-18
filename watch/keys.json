@@ -5,9 +5,17 @@
    "wkd": {}
   },
   "legalmachines.org": {
-   "keys": {},
-   "wkd": {}
+   "keys": {
+    "0EE5AEB354E6D7DB454DDB31C5FDAFE56599FA2F": {
+     "subkeys": [
+      "F0A8E67C1B3E40D46C9F161B971459B1BC6E4051"
+     ]
+    }
+   },
+   "wkd": {
+    "tp7o5e6sk8xbe3eq151qs3zie1rw9u38": "0EE5AEB354E6D7DB454DDB31C5FDAFE56599FA2F"
+   }
   }
  },
- "updated": "2026-10-18T18:25:50Z"
+ "updated": "2026-10-18T19:53:38Z"
 }
