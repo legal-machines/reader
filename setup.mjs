@@ -13,7 +13,8 @@ import {escape} from './mime.mjs';
 import {icon} from './icons.mjs';
 import {MAIL_SITES} from './sites.mjs';
 import {addressHash, currentKeys} from './seal.mjs';
-import {newOffer, openFrom, unb64u, unpackKey} from './link.mjs';
+import {newOffer, offerUrl, openFrom, unb64u, unpackKey} from './link.mjs';
+import {openRelay} from './relay.mjs';
 import {svg} from './qr.mjs';
 // Keys withdrawn on 2026-10-18 leave this browser before anything is listed (store.mjs).
 await currentKeys().then(forgetWithdrawn).catch(() => {});
@@ -44,6 +45,10 @@ const showHanded = () => {
   document.getElementById('passphrase').autocomplete = 'off';
 };
 let handed = null, mailOrigin = null, relayId = null, createFor = null;
+// Add your key to this device, from Mail (setup.html#add=<address>): a tab no
+// page holds (Mail opened it without a hold on it), which shows the code for
+// your phone at once and reaches the mailbox through Mail's relay.
+let addFor = null, mailRelay = null;
 // Making a key is its own task: the page says so, and its card says the rest.
 const making = () => {
   document.getElementById('page-title').textContent = 'Your end-to-end key';
@@ -107,6 +112,14 @@ if (window.opener) {
     card.querySelector('p').textContent = 'Go on in the new tab. Keep this one open: it closes by itself once your key is added there.';
     e.target.hidden = true;
   });
+} else if (/^#add=/.test(location.hash)) {
+  const a = decodeURIComponent(location.hash.slice(5)).toLowerCase();
+  if (OURS.test(a)) { addFor = a; mailRelay = openRelay(); }
+  history.replaceState(null, '', location.pathname);
+  document.getElementById('other-app').hidden = true;
+  // One thing to do here: the page says so, and the card says the rest.
+  document.getElementById('page-title').textContent = 'Add your key to this device';
+  document.getElementById('page-intro').hidden = true;
 } else if (/^#handoff=[0-9a-f]{32}$/.test(location.hash)) {
   relayId = location.hash.slice(9);
   // Sent here by Mail for one thing (a key made, or added to this device):
@@ -338,8 +351,14 @@ const linkCard = document.getElementById('link');
 let linkOffer = null, linked = null, linkTimer = 0;
 async function offerLink() {
   linkOffer = await newOffer();
-  linkCard.querySelector('.qr-box').innerHTML = svg(linkOffer.text, 'Code to scan with your phone');
-  relay.postMessage({type: 'link-wait', id: relayId, channel: linkOffer.channel});
+  linkCard.querySelector('.qr-box').innerHTML = svg(offerUrl(linkOffer, location.origin), 'Code to scan with your phone');
+  if (mailRelay) {
+    const offer = linkOffer;
+    mailRelay.ask('relay-wait', {address: addFor, channel: offer.channel}, 0).then(d => {
+      if (d.type === 'relay-blob' && linkOffer === offer && !linked) fromLink(d.blob);
+      else if (d.error === 'signed-out') linkStatus('Mail is signed out on this device: sign in to Mail here, then try again.', true);
+    });
+  } else relay.postMessage({type: 'link-wait', id: relayId, channel: linkOffer.channel});
   linkCard.hidden = false;
   form.hidden = true;
   // Mail keeps a channel ten minutes: a fresh code before then.
@@ -382,8 +401,11 @@ document.getElementById('link-lock').addEventListener('click', async e => {
   e.target.disabled = true;
   try {
     const {record, mark} = await adopt(linked.found, linked.addresses, '');
-    relay.postMessage({type: 'sealed', id: relayId, record});  // to the tab the Mail app opened, which hands it over
-    awaitKept(record);
+    if (mailRelay) keepInMail(record);
+    else {
+      relay.postMessage({type: 'sealed', id: relayId, record});  // to the tab the Mail app opened, which hands it over
+      awaitKept(record);
+    }
     linkCard.hidden = true;
     showDone(linked.addresses, mark);
     linked = {done: true};
@@ -392,11 +414,25 @@ document.getElementById('link-lock').addEventListener('click', async e => {
     e.target.disabled = false;
   }
 });
-document.getElementById('link-other').addEventListener('click', e => {
+document.getElementById('link-other').addEventListener('click', async e => {
   if (!e.isTrusted) return;
+  if (mailRelay && !handed) {
+    const d = await mailRelay.ask('relay-locked', {address: addFor});
+    if (d.armored && d.armored.length <= 200000) { handed = d.armored; showHanded(); }
+  }
   linkCard.hidden = true;
   form.hidden = false;
 });
+
+// Mail keeps the sealed record, as after any setup Mail opened; if it cannot,
+// Connect to Mail offers to hand it over by hand.
+async function keepInMail(record) {
+  const d = await mailRelay.ask('relay-sealed', {address: addFor, record});
+  if (d.ok) return;
+  const box = document.getElementById('connect');
+  box.hidden = false;
+  box.querySelector('button').onclick = e => { if (e.isTrusted) connect(record); };
+}
 
 // The key's mark, shown here once with what it is for.
 function showDone(addresses, mark, closing = !!handed || !!createFor) {
@@ -614,8 +650,11 @@ async function setUp() {
     const {record, mark} = await adopt(found, addresses, pin);
     // The Mail app keeps the sealed key with the mailbox, for frames and for
     // the owner's other devices; without the passkey it opens nothing.
-    if (relayId) relay.postMessage({type: 'sealed', id: relayId, record});  // to the tab the Mail app opened, which hands it over
-    awaitKept(record);
+    if (mailRelay) keepInMail(record);
+    else {
+      if (relayId) relay.postMessage({type: 'sealed', id: relayId, record});  // to the tab the Mail app opened, which hands it over
+      awaitKept(record);
+    }
     form.reset();
     if (handed) form.hidden = true;  // its work is done; what is left is the mark
     showDone(addresses, mark);
@@ -631,4 +670,19 @@ async function setUp() {
 // comes first (Connect to Mail); otherwise the code for your phone, with the
 // recovery code a press away.
 if (relayId && !createFor) (async () => { if (handed || !(await offerConnect())) offerLink(); })();
+if (addFor && mailRelay) (async () => {
+  const hash = await addressHash(addFor);
+  const ours = (await currentKeys().catch(() => [])).find(k => (k.hashes || []).includes(hash));
+  const here = ours ? (await all().catch(() => [])).filter(r => ours.subkeys.includes(r.keyId)) : [];
+  if (here.length) {
+    // Made or added in this browser before: Mail takes it, nothing to scan.
+    form.hidden = true;
+    await keepInMail(here[here.length - 1]);
+    done.textContent = `Ready. Your key of ${addFor} was in this browser already: your encrypted mail opens here now, in the Mail app. You can close this tab.`;
+    done.hidden = false;
+    list();
+    return;
+  }
+  offerLink();
+})();
 list();

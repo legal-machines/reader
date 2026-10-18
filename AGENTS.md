@@ -42,6 +42,7 @@ Never weaken one of these without the owner's explicit decision.
 2. **No network beyond the CSP of each page.**
    - Pages have `default-src 'none'`; only `dns.html` reaches DNS-over-HTTPS (Cloudflare, Google), for DKIM keys.
    - Only `wkd.html` reaches the Web Key Directory.
+   - Only `setup.html` and `link.html` frame Mail's relay (`/keys/relay` of our two mail sites, `relay.mjs`), for Add your key to this device and Link a device opened by a phone's camera; the relay hands them only what Mail's tab would.
    - No third-party scripts, styles or fonts, but two files kept here as released, unmodified (THIRD-PARTY.md); updating one means its official release, checked:
      - `openpgp.min.mjs`, OpenPGP.js;
      - `jsqr.js`, jsQR, which reads Link a device's code where the browser has no reader of its own, on `link.html` alone.

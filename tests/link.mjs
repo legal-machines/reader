@@ -4,7 +4,7 @@
 // Plain node: node tests/link.mjs
 import {createRequire} from 'node:module';
 import {qr} from '../qr.mjs';
-import {newOffer, readOffer, sealFor, openFrom, packKey, unpackKey, b64u} from '../link.mjs';
+import {newOffer, offerUrl, readOffer, sealFor, openFrom, packKey, unpackKey, b64u} from '../link.mjs';
 
 const jsQR = createRequire(import.meta.url)('../jsqr.js');
 let failures = 0, checks = 0;
@@ -76,6 +76,21 @@ const good = {v: 1, keyId: record.keyId, info: record.info, addresses: ['a@legal
 check(!bad(good), 'a key without the part that signs is taken');
 check(bad({...good, keyId: 'zz'}) && bad({...good, scalar: b64u(new Uint8Array(31))}) && bad({...good, addresses: []}) && bad({...good, info: {...good.info, keyId: 'ffffffffffffffff'}}),
       'a key of the wrong shape is refused');
+
+// The code as a new device shows it: an address of Seal's link page, which a
+// phone's own camera opens; it reads as the offer it carries, and nothing
+// else that looks like an address does.
+{
+  const url = offerUrl(offer, 'https://seal.legalmachines.org');
+  check(url === 'https://seal.legalmachines.org/link.html#' + offer.text, 'the code is the link page with the offer after the #');
+  check(read(url).got === url && read(url).version <= 7, `the address as a code reads back (version ${read(url).version}), for any phone's camera`);
+  const fromUrl = readOffer(url);
+  check(fromUrl && fromUrl.channel === offer.channel && b64u(fromUrl.pub) === b64u(offer.pub), 'the address reads as its offer');
+  check(readOffer('  ' + url + '  ')?.channel === offer.channel, 'with spaces around it too');
+  for (const wrong of ['https://seal.legalmachines.org/setup.html#' + offer.text, 'https://seal.legalmachines.org/link.html', 'https://seal.legalmachines.org/link.html#' + offer.text + 'x',
+                       'https://seal.legalmachines.org/link.html?' + offer.text, 'https://[bad/link.html#' + offer.text, 'javascript:alert(1)//link.html#' + offer.text])
+    check(readOffer(wrong) === null, `not a code: ${wrong.slice(0, 48)}`);
+}
 
 console.log(`${checks - failures} of ${checks} checks passed`);
 process.exit(failures ? 1 : 0);

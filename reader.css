@@ -186,4 +186,5 @@ body.in-frame{background:transparent}
 .link-camera{position:relative;overflow:hidden;aspect-ratio:1;max-width:360px;margin:0 auto var(--s-3);border-radius:var(--r-lg);background:#000}
 .link-camera video{display:block;width:100%;height:100%;object-fit:cover}
 .link-frame-mark{position:absolute;inset:14%;border:3px solid rgba(255,255,255,.9);border-radius:var(--r-md);box-shadow:0 0 0 999px rgba(0,0,0,.28)}
+.link-choice{display:grid;gap:var(--s-2);margin:0 0 var(--s-3)}.link-choice .tonal{justify-content:flex-start;width:100%}
 .link-note{min-height:1.4em;text-align:center}.link-pin{max-width:220px}.link-card .error{margin:0 0 var(--s-3)}

@@ -11,6 +11,7 @@ import {MAIL_SITES} from './sites.mjs';
 import {all, unseal, valid, forgetWithdrawn} from './store.mjs';
 import {keyOf, currentKeys} from './seal.mjs';
 import {packKey, readOffer, sealFor} from './link.mjs';
+import {openRelay} from './relay.mjs';
 import {escape} from './mime.mjs';
 import {icon} from './icons.mjs';
 
@@ -23,6 +24,12 @@ if (window.top !== window) {
 await currentKeys().then(forgetWithdrawn).catch(() => {});
 const view = document.getElementById('link');
 let mailOrigin = null, records = [], stream = null, timer = 0, offer = null, busy = false;
+// Opened by a phone's own camera (the new device's code is an address of this
+// page, its offer after the #), with no Mail tab behind it: Mail is reached
+// through its relay, signed in on this phone, and the key goes to the mailbox
+// signed in here whose published key this phone holds.
+let mailRelay = null, me = '', here = [];
+const fromCamera = !window.opener && location.hash.startsWith('#SEAL1.') ? readOffer(location.hash.slice(1)) : null;
 const tell = m => { if (mailOrigin && window.opener) window.opener.postMessage(m, mailOrigin); };
 
 const card = (title, text, actions = '', extra = '') =>
@@ -87,7 +94,9 @@ function confirm(failure = '') {
   view.innerHTML = card('Add your key to that device?',
     'It will open your encrypted mail with a passkey of its own, as this one does. Add it only to a device of yours, and only when its code is shown on a page at ' +
     `<b>${escape(location.host)}</b>, in a tab of its own: a code shown anywhere else could be someone else's.`,
-    '<button class="text" type="button" data-scan>Scan again</button><button class="filled" type="button" data-send>' + icon('key') + '<span>Add my key there</span></button>',
+    // From the camera, the phone's own camera reads again: here, only Cancel.
+    (mailRelay ? '<button class="text" type="button" data-close>Cancel</button>' : '<button class="text" type="button" data-scan>Scan again</button>') +
+    '<button class="filled" type="button" data-send>' + icon('key') + '<span>Add my key there</span></button>',
     (pin ? '<label class="field link-pin"><span>Your PIN</span><input type="password" inputmode="numeric" autocomplete="off"></label>' : '') +
     (failure ? `<p class="error" role="alert">${escape(failure)}</p>` : ''));
   bind();
@@ -99,19 +108,64 @@ async function send(e) {
   e.currentTarget.disabled = true;
   try {
     // A touch of your passkey opens the key here, once, for this.
-    const {record, pkcs8, signPkcs8} = await unseal(records, view.querySelector('.link-pin input')?.value || '');
+    const own = records.filter(r => here.some(h => h.credentialId === r.credentialId));
+    const {record, pkcs8, signPkcs8} = await unseal(own.length ? own : records, view.querySelector('.link-pin input')?.value || '');
     const plain = packKey(record, pkcs8, signPkcs8);
     new Uint8Array(pkcs8).fill(0);
     if (signPkcs8) new Uint8Array(signPkcs8).fill(0);
     const blob = await sealFor(offer, plain);
     plain.fill(0);
     view.innerHTML = card('Sending…', 'Your key goes to the new device, encrypted for it alone.');
-    tell({type: 'link-send', channel: offer.channel, blob});
+    if (mailRelay) {
+      const d = await mailRelay.ask('relay-send', {address: me, channel: offer.channel, blob});
+      if (d.ok) sent();
+      else confirm(d.error === 'signed-out' ? 'Mail is signed out on this phone: sign in, then scan again.' : d.error || 'Mail could not pass your key on. Try again.');
+    } else tell({type: 'link-send', channel: offer.channel, blob});
   } catch (err) {
     confirm(err.name === 'NotAllowedError' ? 'Cancelled or not allowed here.' : err.message);
   } finally {
     busy = false;
   }
+}
+
+function sent() {
+  view.innerHTML = card('Sent', 'Finish on the new device: it asks for its own passkey there (Touch ID, Face ID, Windows Hello or Google Password Manager), and its encrypted mail opens. You can close this tab.',
+    '<button class="filled" type="button" data-close>Done</button>');
+  bind();
+}
+
+// From the camera: which mailbox signed in here sends its key.
+async function standalone() {
+  view.innerHTML = card('Add your key to the new device', 'One moment…');
+  mailRelay = openRelay();
+  const d = mailRelay ? await mailRelay.ask('relay-accounts') : {accounts: []};
+  const accounts = Array.isArray(d.accounts) ? d.accounts : [];
+  if (!accounts.length) {
+    view.innerHTML = card('Sign in to Mail on this phone', 'Your key goes to the new device through your mailbox. Sign in to Mail here, then point the camera at the code again.',
+      mailRelay ? `<a class="filled" href="${escape(mailRelay.site)}/login" target="_blank" rel="noopener">Sign in to Mail</a>` : '');
+    return;
+  }
+  here = (await all().catch(() => [])).filter(valid);
+  const usable = [];
+  for (const a of accounts) {
+    const ours = await keyOf(String(a.user || '')).catch(() => null);
+    if (!ours) continue;
+    const byId = new Map();
+    for (const r of [...(Array.isArray(a.records) ? a.records.filter(valid).slice(0, 20) : []), ...here])
+      if (ours.subkeys?.includes(r.keyId)) byId.set(r.credentialId, here.find(h => h.credentialId === r.credentialId) || r);
+    if (byId.size) usable.push({user: a.user, records: [...byId.values()]});
+  }
+  if (!usable.length) {
+    view.innerHTML = card('Your key is not on this phone', 'Scan the code with the device where your encrypted mail opens: the one you made your key on, or one you added it to.',
+      '<button class="text" type="button" data-close>Close</button>');
+    bind();
+    return;
+  }
+  const pick = u => { me = u.user; records = u.records; offer = fromCamera; confirm(); };
+  if (usable.length === 1) return pick(usable[0]);
+  view.innerHTML = card('Which mailbox?', 'Several of your mailboxes are signed in on this phone. Send the key of the one the new device signed in to.', '',
+    `<div class="link-choice">${usable.map((u, i) => `<button class="tonal" type="button" data-pick="${i}">${escape(u.user)}</button>`).join('')}</div>`);
+  for (const b of view.querySelectorAll('[data-pick]')) b.addEventListener('click', e => { if (e.isTrusted) pick(usable[Number(b.dataset.pick)]); });
 }
 
 function bind() {
@@ -144,9 +198,7 @@ addEventListener('message', async e => {
     }
     scan();
   } else if (d.type === 'link-sent') {
-    view.innerHTML = card('Sent', 'Finish on the new device: it asks for its own passkey there (Windows Hello, Touch ID, a fingerprint or Google Password Manager), and its encrypted mail opens. You can close this tab.',
-      '<button class="filled" type="button" data-close>Done</button>');
-    bind();
+    sent();
   } else if (d.type === 'link-failed') {
     confirm(typeof d.error === 'string' ? d.error.slice(0, 200) : 'Mail could not pass your key on. Try again.');
   }
@@ -155,6 +207,7 @@ addEventListener('message', async e => {
 // Only from the Mail app's Link a device, which hands over the mailbox's
 // sealed keys and carries what goes to the new device.
 if (window.opener) window.opener.postMessage({type: 'reader-ready'}, '*');  // carries nothing
+else if (fromCamera) standalone();
 else {
-  view.innerHTML = card('Link a device', 'Open this from Mail: tap your picture, then Link a device.');
+  view.innerHTML = card('Link a device', 'On the new device, choose Add your key to this device: it shows a code. Point this phone\'s camera at it.');
 }

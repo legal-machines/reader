@@ -6,7 +6,7 @@
 <meta name="color-scheme" content="light dark">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self'; img-src 'self' data: blob:; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src https://mail.legalmachines.org https://mail.dzyza.com; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self'; img-src 'self' data: blob:; form-action 'none'; base-uri 'none'">
 <title>Set up Seal</title>
 <link rel="stylesheet" href="reader.css">
 <link rel="icon" href="data:,">
@@ -27,8 +27,8 @@
     <div class="actions" id="already-actions"><button class="text" type="button" id="already-other">Add another key</button></div>
   </section>
   <section class="card" id="link" hidden>
-    <h2>Add your key from your phone</h2>
-    <p>On your phone, or any device where your encrypted mail opens: open Mail, tap your picture, choose Link a device and point the camera at this code.</p>
+    <h2>Scan this code with your phone</h2>
+    <p>Use the camera of the phone where your encrypted mail opens. Seal opens there: confirm, and your key comes to this device.</p>
     <div class="qr-box"></div>
     <p class="hint link-status" role="status">Waiting for your phone. The code changes every few minutes; nothing secret is in it.</p>
     <div class="actions" id="link-ready" hidden><button class="filled" type="button" id="link-lock">Lock it to this device</button></div>

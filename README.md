@@ -99,7 +99,10 @@ the seal holds.
   of a key published for one of our mailboxes (`keys.mjs`: the key ID, the
   public point that half must give, and the addresses it serves), and seals
   it under a passkey of its own; from then on it opens your mail without the
-  phone. A passkey is made on the device itself (Touch ID, Face ID, Windows
+  phone. The code is an address of Seal's link page with the offer after the
+  #, so the phone's own camera opens Seal there; without a Mail tab behind
+  them, both pages reach the mailbox through Mail's relay (`/keys/relay`,
+  which only Seal's pages may frame; `relay.mjs`). A passkey is made on the device itself (Touch ID, Face ID, Windows
   Hello, Google Password Manager), never on a phone nearby, and Unlock asks
   only for the passkeys this device made: a device without one is offered
   Add your key to this device instead of a dialog that looks for a phone.

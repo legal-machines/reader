@@ -34,6 +34,7 @@ let unlocked = false, busy = false, failure = '', alarm = false;
 // Unlock asks only for them, so the device's own Touch ID, Face ID or Windows
 // Hello answers, never a dialog for a phone nearby that may not hold one.
 let here = new Set();
+let me = '';  // the mailbox of the page, as Mail names it
 raised().then(at => { if (at) { alarm = true; draw(); } });
 
 const tell = message => { if (parentOrigin) parent.postMessage(message, parentOrigin); };
@@ -72,7 +73,14 @@ function draw() {
   view.querySelector('form.hub-unlock')?.addEventListener('submit', submit);
   view.querySelector('#lock')?.addEventListener('click', async () => { await vault.lock(); });
   view.querySelector('#in-tab')?.addEventListener('click', () => tell({type: 'hub-tab'}));
-  view.querySelector('#add-here')?.addEventListener('click', e => { if (e.isTrusted) tell({type: 'hub-add-here'}); });
+  // Add your key to this device: Seal's own tab, opened here where the press
+  // is (a page around a frame may not open a tab on a press it only heard
+  // of); Mail is told only to wait for it.
+  view.querySelector('#add-here')?.addEventListener('click', e => {
+    if (!e.isTrusted) return;
+    if (me) window.open(`${location.origin}/setup.html#add=${encodeURIComponent(me)}`, '_blank', 'noopener');
+    tell({type: 'hub-add-here'});
+  });
   view.querySelector('#try-elsewhere')?.addEventListener('click', e => { if (e.isTrusted) submit(e, true); });
   view.querySelector('form.hub-unlock button')?.addEventListener('pointerenter', () => openpgpLib(), {once: true});
   tell({type: 'hub-state', unlocked, shown: !!html});
@@ -252,6 +260,7 @@ addEventListener('message', async e => {
     // reached Mail): it counts here at once, and its sealed record goes to
     // Mail, as after a setup Mail opened. Mail learns nothing it would not
     // have had then: the record opens only with this browser's passkey.
+    if (typeof d.me === 'string' && d.me.length <= 254 && /^[^@\s]+@[^@\s]+$/.test(d.me)) me = d.me.toLowerCase();
     if (typeof d.me === 'string' && d.me.length <= 254) {
       const ours = await keyOf(d.me.toLowerCase()).catch(() => null);
       peopleKeyId = ours?.subkeys?.[0] || null;

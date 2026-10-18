@@ -31,9 +31,25 @@ export async function newOffer() {
   return {channel, pub, priv: pair.privateKey, text: `SEAL1.${channel}.${b64u(pub)}`};
 }
 
-// A code's text as the trusted device reads it, or null for anything else.
+// The code as a new device shows it: an address of this site's link page with
+// the offer after the #, so that a phone's own camera opens Seal there by
+// itself (the fragment reaches no server).
+export const offerUrl = (offer, origin) => `${origin}/link.html#${offer.text}`;
+
+// A code's text as the trusted device reads it, or null for anything else:
+// the offer itself, or an address of a link page that carries it.
 export function readOffer(text) {
-  const m = /^SEAL1\.([A-Za-z0-9_-]{22})\.([A-Za-z0-9_-]{43})$/.exec(String(text).trim());
+  let t = String(text).trim();
+  if (/^https?:\/\//i.test(t)) {
+    try {
+      const u = new URL(t);
+      if (u.pathname !== '/link.html') return null;
+      t = u.hash.slice(1);
+    } catch (e) {
+      return null;
+    }
+  }
+  const m = /^SEAL1\.([A-Za-z0-9_-]{22})\.([A-Za-z0-9_-]{43})$/.exec(t);
   if (!m) return null;
   const pub = unb64u(m[2]);
   return unb64u(m[1]).length === 16 && pub.length === 32 ? {channel: m[1], pub} : null;
