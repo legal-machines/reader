@@ -170,9 +170,6 @@ async function list() {
       `<p class="key-meta">Added ${escape(when(r.created))}${r.pinSalt ? ', with a PIN' : ''}</p>` +
       `<p class="key-meta">Key ${escape(String(r.keyId).toUpperCase().replace(/(.{4})(?=.)/g, '$1 '))}</p>` +
       (times[r.keyId] > 1 ? `<p class="key-note">This key is here ${times[r.keyId]} times, each time with a passkey of its own. One is enough: remove the ones you do not use.</p>` : '') +
-      // Only in a tab no page opened (a page holding this one could word it its own way).
-      (!window.opener && mailFor(r) ? `<div class="actions"><button class="text" type="button" data-connect="${escape(r.credentialId)}" ` +
-        `title="If Mail asks to set up this browser although your key is here">Connect to Mail</button></div>` : '') +
       `</div><button class="icon-button danger" type="button" data-remove="${escape(r.credentialId)}" data-who="${who}" title="Remove from this browser" aria-label="Remove ${who} from this browser">${icon('delete')}</button></div>`;
   }).join('');
   showAlarm(records);
@@ -187,10 +184,6 @@ async function list() {
     b.setAttribute('aria-label', 'Your mark');
     b.nextElementSibling.textContent = 'Your mark';
     b.dataset.shown = '';
-  }));
-  box.querySelectorAll('[data-connect]').forEach(b => b.addEventListener('click', e => {
-    const r = records.find(x => x.credentialId === b.dataset.connect);
-    if (e.isTrusted && r) connect(r);
   }));
   box.querySelectorAll('[data-remove]').forEach(b => b.addEventListener('click', e => {
     if (!e.isTrusted) return;
@@ -649,7 +642,9 @@ async function setUp() {
     const addresses = found.userIds.map(u => (/<([^>]+)>/.exec(u) || [, u])[1].toLowerCase());
     const {record, mark} = await adopt(found, addresses, pin);
     // The Mail app keeps the sealed key with the mailbox, for frames and for
-    // the owner's other devices; without the passkey it opens nothing.
+    // the owner's other devices; without the passkey it opens nothing. A tab
+    // of Seal's own (no Mail behind it) reaches Mail through its relay too.
+    if (!mailRelay && !relayId && !window.opener && mailFor(record)) { addFor = String(record.addresses[0]).toLowerCase(); mailRelay = openRelay(); }
     if (mailRelay) keepInMail(record);
     else {
       if (relayId) relay.postMessage({type: 'sealed', id: relayId, record});  // to the tab the Mail app opened, which hands it over

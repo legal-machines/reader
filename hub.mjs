@@ -35,6 +35,11 @@ let unlocked = false, busy = false, failure = '', alarm = false;
 // Hello answers, never a dialog for a phone nearby that may not hold one.
 let here = new Set();
 let me = '';  // the mailbox of the page, as Mail names it
+// Which passkeys this browser made or opened the key with, as Mail remembers
+// them (tags of their IDs): Safari keeps this frame apart from Seal's own
+// tab, so the records a device made there are not in this frame's sight.
+let ownHints = [], usedCredential = '';
+let drawn = null;  // what the frame shows now
 raised().then(at => { if (at) { alarm = true; draw(); } });
 
 const tell = message => { if (parentOrigin) parent.postMessage(message, parentOrigin); };
@@ -69,21 +74,27 @@ function draw() {
       `<div class="hub-text"><b>${headline}</b><span class="hub-support">${hint}</span></div>` +
       unlockForm() + `</div>`;
   }
-  view.innerHTML = html;
-  view.querySelector('form.hub-unlock')?.addEventListener('submit', submit);
-  view.querySelector('#lock')?.addEventListener('click', async () => { await vault.lock(); });
-  view.querySelector('#in-tab')?.addEventListener('click', () => tell({type: 'hub-tab'}));
-  // Add your key to this device: Seal's own tab, opened here where the press
-  // is (a page around a frame may not open a tab on a press it only heard
-  // of); Mail is told only to wait for it.
-  view.querySelector('#add-here')?.addEventListener('click', e => {
-    if (!e.isTrusted) return;
-    if (me) window.open(`${location.origin}/setup.html#add=${encodeURIComponent(me)}`, '_blank', 'noopener');
-    tell({type: 'hub-add-here'});
-  });
-  view.querySelector('#try-elsewhere')?.addEventListener('click', e => { if (e.isTrusted) submit(e, true); });
-  view.querySelector('form.hub-unlock button')?.addEventListener('pointerenter', () => openpgpLib(), {once: true});
-  tell({type: 'hub-state', unlocked, shown: !!html});
+  // Drawn again only when something changed: the frame draws itself at once
+  // and again when the vault answers, and a press on Unlock in between went
+  // to a button no longer there.
+  if (html !== drawn) {
+    drawn = html;
+    view.innerHTML = html;
+    view.querySelector('form.hub-unlock')?.addEventListener('submit', submit);
+    view.querySelector('#lock')?.addEventListener('click', async () => { await vault.lock(); });
+    view.querySelector('#in-tab')?.addEventListener('click', () => tell({type: 'hub-tab'}));
+    // Add your key to this device: Seal's own tab, opened here where the press
+    // is (a page around a frame may not open a tab on a press it only heard
+    // of); Mail is told only to wait for it.
+    view.querySelector('#add-here')?.addEventListener('click', e => {
+      if (!e.isTrusted) return;
+      if (me) window.open(`${location.origin}/setup.html#add=${encodeURIComponent(me)}`, '_blank', 'noopener');
+      tell({type: 'hub-add-here'});
+    });
+    view.querySelector('#try-elsewhere')?.addEventListener('click', e => { if (e.isTrusted) submit(e, true); });
+    view.querySelector('form.hub-unlock button')?.addEventListener('pointerenter', () => openpgpLib(), {once: true});
+  }
+  tell({type: 'hub-state', unlocked, shown: !!html, ...(unlocked && usedCredential ? {credential: usedCredential} : {})});
   report();
 }
 
@@ -111,7 +122,9 @@ async function submit(e, anywhere = false) {
   if (e.target.querySelector) (e.target.querySelector('button') || e.target).disabled = true;
   try {
     openpgpLib();  // loads while the passkey is asked
-    await vault.unlock(anywhere || !ownHere().length ? needed() : ownHere(), document.getElementById('pin')?.value || '', minutes);
+    const opened = await vault.unlock(anywhere || !ownHere().length ? needed() : ownHere(), document.getElementById('pin')?.value || '', minutes);
+    // The passkey that opened it is this device's: Mail remembers it, and Unlock asks for it alone.
+    if (opened?.credentialId) { usedCredential = opened.credentialId; here.add(opened.credentialId); }
     unlocked = true;
     missing.clear();
     await openAll();
@@ -124,6 +137,7 @@ async function submit(e, anywhere = false) {
               (err.name === 'SecurityError' || err.name === 'NotAllowedError' ? ' <button class="text" type="button" id="in-tab">Open in a tab</button>' : '');
   } finally {
     busy = false;
+    drawn = null;  // its button was turned off in place: drawn afresh, even when the same words come back
     draw();
   }
 }
@@ -280,7 +294,9 @@ addEventListener('message', async e => {
       const older = (await all().catch(() => [])).filter(r => valid(r) && r.addresses.some(a => String(a).toLowerCase() === me) && !records.some(m => m.credentialId === r.credentialId));
       records = [...records, ...older].slice(0, 20);
     }
-    here = new Set((await all().catch(() => [])).filter(r => valid(r) && r.rp === location.hostname).map(r => r.credentialId));
+    ownHints = Array.isArray(d.own) ? d.own.filter(t => typeof t === 'string' && /^[A-Za-z0-9_-]{8,16}$/.test(t)).slice(-12) : [];
+    here = new Set([...(await all().catch(() => [])).filter(r => valid(r) && r.rp === location.hostname).map(r => r.credentialId),
+                     ...records.filter(r => ownHints.includes(String(r.credentialId).slice(0, 16))).map(r => r.credentialId)]);
     minutes = [0, 5, 15, 30, 60].includes(d.minutes) ? d.minutes : 15;
     mode = ['thread', 'list', 'panel', 'quiet'].includes(d.mode) ? d.mode : 'quiet';
     count = Number.isInteger(d.count) ? Math.min(d.count, 999) : 0;

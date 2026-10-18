@@ -113,10 +113,22 @@ export async function newPasskey(label) {
     extensions: {prf: {eval: {first: salt}}},
   }});
   const result = made.getClientExtensionResults().prf;
-  if (result?.enabled === false) throw new Error('This passkey cannot lock a key. Make it again and keep it in Google Password Manager (Chrome) or iCloud Keychain (Safari); Safari 18, Chrome and Edge can.');
   const credentialId = b64u(made.rawId);
-  // Some browsers give the PRF output only when the passkey is used.
-  const out = result?.results?.first ? new Uint8Array(result.results.first) : (await prf([{credentialId, salt: b64u(salt)}])).out;
+  // Some browsers give the PRF output only when the passkey is used, and some
+  // say at its making that it has none though it answers when used (Chrome
+  // and Edge with Windows Hello, Windows 11 25H2): it is asked once more
+  // before the answer is no.
+  let out = result?.results?.first ? new Uint8Array(result.results.first) : null;
+  if (!out) {
+    try { out = (await prf([{credentialId, salt: b64u(salt)}])).out; }
+    catch (e) { if (e.name === 'NotAllowedError') throw e; }
+  }
+  if (!out) {
+    // A passkey that cannot lock a key is of no use here: the browser is
+    // told so, and one that knows the Signal API takes it out of its list.
+    try { await PublicKeyCredential.signalUnknownCredential?.({rpId: location.hostname, credentialId}); } catch (e) {}
+    throw new Error('This device\'s passkey cannot lock a key. On Windows, save the passkey in Google Password Manager (Chrome) or update Windows; on a Mac, iPhone or iPad, use Safari 18 or later, or Chrome with iCloud Keychain.');
+  }
   return {credentialId, salt: b64u(salt), out};
 }
 
