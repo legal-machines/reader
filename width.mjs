@@ -10,3 +10,20 @@ export function widths(vw) {
   root.toggle('wide', w >= 841);
 }
 widths();
+
+// A frame that came without its styles shows its icons as large as it is
+// wide. That happens when a newer Seal's worker takes over while the frame
+// loads: the older worker, which served the page, finds its copy of the
+// files gone and has no stylesheet to give. Loaded again, it comes whole from
+// the newer worker; once a minute at most, so that nothing can loop.
+{
+  const whole = [...document.querySelectorAll('link[rel=stylesheet]')].every(l => { try { return l.sheet?.cssRules.length > 0; } catch (e) { return false; } });
+  if (!whole) {
+    let last = 0;
+    try { last = Number(sessionStorage.getItem('seal-restyled')) || 0; } catch (e) {}
+    if (Date.now() - last > 60000) {
+      try { sessionStorage.setItem('seal-restyled', String(Date.now())); } catch (e) {}
+      setTimeout(() => location.reload(), 300);
+    }
+  }
+}
