@@ -1027,25 +1027,12 @@ background:var(--c-surface-2);color:var(--c-text);text-decoration:none;corner-sh
 @media (prefers-color-scheme:dark){.wc.night{background:#000}}
 
 .wline{flex:none;align-self:stretch;width:2px;margin:6px 3px;background:repeating-linear-gradient(to bottom,#e5322d 0 4px,transparent 4px 7px)}
-.wface{flex:none;width:24px;height:24px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.2))}.wface.big{width:44px;height:44px}
+.wface{flex:none;width:24px;height:24px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.2))}
 .wf-dial{fill:#fff;stroke:rgba(0,0,0,.06)}.wface.night .wf-dial{fill:#1c1c1e;stroke:none}
 .wf-tick{stroke:#8e8e93;stroke-width:1;stroke-linecap:round}.wf-tick.major{stroke:#1c1c1e;stroke-width:1.8}.wface.night .wf-tick.major{stroke:#f5f5f7}
 .wf-h,.wf-m{stroke:#1c1c1e;stroke-linecap:round}.wf-h{stroke-width:3.4}.wf-m{stroke-width:2.2}.wface.night :is(.wf-h,.wf-m){stroke:#f5f5f7}
 .wf-pin{fill:#ff9500}
-.wpop{position:absolute;top:calc(100% + 8px);right:0;z-index:60;display:none;width:400px;padding:var(--s-4);border-radius:var(--r-xl);background:var(--c-surface);box-shadow:var(--e-3);
 color:var(--c-text);cursor:default}
-@media (hover:hover){.wclock:hover .wpop{display:grid;gap:var(--s-3)}}.wclock:focus-visible .wpop{display:grid;gap:var(--s-3)}
-.wp-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 var(--s-3);padding:0 var(--s-1)}
-.wp-head time{font-size:36px;font-weight:300;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums}.wp-head small{color:var(--c-text-2);font-size:var(--t-xs)}
-.wp-date{padding:var(--s-2) var(--s-3);border-radius:var(--r-lg);background:color-mix(in srgb,var(--c-brand-clock) 10%,var(--c-surface));font-size:var(--t-sm);font-weight:var(--w-medium);line-height:1.45}
-.wp-cities{display:grid;gap:var(--s-2)}
-.wp-city{display:grid;grid-template-columns:44px minmax(0,1fr);align-items:center;gap:var(--s-2) var(--s-3);padding:var(--s-3);border-radius:var(--r-lg);background:var(--c-surface-2)}
-.wp-text{display:grid;gap:2px;min-width:0}.wp-top{display:flex;align-items:baseline;gap:var(--s-2)}
-.wp-top b{font-weight:var(--w-medium)}.wp-top em{color:var(--c-text-3);font-size:var(--t-3xs);font-style:normal;font-weight:var(--w-bold);letter-spacing:.08em}
-.wp-top time{margin-left:auto;font-size:var(--t-xl);font-weight:var(--w-regular);font-variant-numeric:tabular-nums}
-.wp-text small{overflow:hidden;color:var(--c-text-2);font-size:var(--t-2xs);text-overflow:ellipsis;white-space:nowrap}
-.wstrip{grid-column:1 / -1;display:block;width:100%;height:8px;border-radius:4px;corner-shape:round}
-.ws-work{fill:color-mix(in srgb,var(--c-good) 45%,var(--c-surface))}.ws-edge{fill:var(--c-surface-3)}.ws-night{fill:color-mix(in srgb,#20234a 82%,var(--c-surface))}.ws-now{fill:#ff9500}
 @media (max-width:1280px){.wclock .extra{display:none}}@media (max-width:840px),(max-height:500px) and (hover:none){.wclock{display:none}}
 
 .bell{position:relative}.bell .badge{position:absolute;top:4px;right:2px;min-width:16px;height:16px;padding:0 var(--s-1);border-radius:var(--r-full);background:var(--c-danger);
