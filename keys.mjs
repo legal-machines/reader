@@ -2,4 +2,25 @@
 // end-to-end messages written in the reader are encrypted to, one a key. Our
 // addresses are here only as the SHA-256 of each (lower case, hex): hashes;
 // a key carries one user ID, an address our sites show anyway.
-export const KEYS = [];
+export const KEYS = [
+ {
+  "domain": "legalmachines.org",
+  "fingerprint": "73F88A93E0E81736AD7550C0CF27A4DAC598BB6A",
+  "created": "2026-10-18",
+  "expires": "2029-10-17",
+  "subkeys": [
+   "b2153b6783327489"
+  ],
+  "x25519": {
+   "b2153b6783327489": "h6rinB5Umyo7J3cnTLEdpdsL0LcIGn6BBSO0m9RU4m0="
+  },
+  "keys": [
+   "73f88a93e0e81736ad7550c0cf27a4dac598bb6a",
+   "99391202fb6ef09ec0fe222eb2153b6783327489"
+  ],
+  "hashes": [
+   "900acc0fdf6f04f90925c2d430dc68611eb9c8ca34adcde14e8c8462778f4484"
+  ],
+  "wkd": true
+ }
+];
