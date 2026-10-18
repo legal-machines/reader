@@ -67,7 +67,8 @@ import urllib.request
 READERS = {"legalmachines.org": ("seal.legalmachines.org", "legal-machines/reader"),
            "dzyza.com": ("seal.dzyza.com", "legal-machines/reader2")}
 MAIL_SITES = ["https://mail.legalmachines.org", "https://mail.dzyza.com"]
-MAIL_FILES = ["/static/app.js", "/static/app.css"]
+# Mail's and, on Calendar's and Boards' pages, theirs: all from the same origin.
+MAIL_FILES = ["/static/app.js", "/static/app.css", "/static/work.js", "/static/work.css"]
 NAMESERVERS = {"ns1.desec.io.", "ns2.desec.org."}
 PAGES_NAME = "legal-machines.github.io."
 PAGES_IPS = ["185.199.108.153", "185.199.109.153", "185.199.110.153", "185.199.111.153"]
@@ -375,6 +376,11 @@ def check_mail(expected):
     problems = []
     for site, want in expected["mail"].items():
         for path in MAIL_FILES:
+            if path not in want:
+                # A file the last deploy's expected.json does not name yet
+                # (it came with this watch): not checked, and said so.
+                unverified.append(f"{site}{path} is not in watch/expected.json yet")
+                continue
             try:
                 body = fetch(site + path)[0]
             except (OSError, urllib.error.URLError):
