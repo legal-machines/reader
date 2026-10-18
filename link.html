@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<!-- Link a device, on the device that holds the key: the camera reads the new device's code here and
+     nothing goes anywhere but to the Mail tab that opened this one, encrypted for that device (link.mjs).
+     The camera's picture stays in this page (media-src for it alone). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; worker-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob: mediastream:; form-action 'none'; base-uri 'none'">
+<title>Link a device</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="reader.css">
+<!-- jsQR 1.4.0, unmodified (THIRD-PARTY.md), for browsers without a QR reader of their own. -->
+<script src="jsqr.js" defer></script>
+<script type="module" src="link-page.mjs"></script>
+</head>
+<body class="page link"><main class="setup" id="link"></main></body>
+</html>

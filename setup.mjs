@@ -3,7 +3,7 @@
 // device PIN, and only the sealed copy is kept (store.mjs).
 
 import * as openpgp from './openpgp.min.mjs';
-import {extract, pkcs8Of} from './sealed-core.mjs';
+import {extract, pkcs8Of, signPkcs8Of} from './sealed-core.mjs';
 import {all, keep, newPasskey, remove} from './store.mjs';
 import {known, markOf, remember, setExplained, tile} from './mark.mjs';
 import {hold, lock} from './vault.mjs';
@@ -12,7 +12,9 @@ import {clear as clearAlarm, raise, raised} from './alarm.mjs';
 import {escape} from './mime.mjs';
 import {icon} from './icons.mjs';
 import {MAIL_SITES} from './sites.mjs';
-import {currentKeys} from './seal.mjs';
+import {addressHash, currentKeys} from './seal.mjs';
+import {newOffer, openFrom, unb64u, unpackKey} from './link.mjs';
+import {svg} from './qr.mjs';
 
 if (window.top !== window) {
   // Never inside another page: the key file and the PIN are typed only here,
@@ -77,8 +79,21 @@ if (window.opener) {
       if (k) window.opener.postMessage({type: 'reader-newkey', publicKey: k.publicKey, lockedKey: k.lockedKey, fingerprint: k.fingerprint}, mailOrigin);
       window.opener.postMessage({type: 'reader-sealed', record: m.data.record}, mailOrigin);
     };
+    // Link a device: the new tab's channel goes to the Mail app, which brings
+    // back what your other device sends over it (encrypted for the new tab
+    // alone), and that goes on to the new tab.
+    const CHANNEL = /^[A-Za-z0-9_-]{22}$/;
+    relay.addEventListener('message', m => {
+      if (m.data?.type === 'link-wait' && m.data.id === id && CHANNEL.test(m.data.channel) && mailOrigin && window.opener)
+        window.opener.postMessage({type: 'reader-link-wait', channel: m.data.channel}, mailOrigin);
+    });
+    addEventListener('message', e => {
+      if (e.source !== window.opener || e.origin !== mailOrigin || e.data?.type !== 'reader-link-blob') return;
+      if (CHANNEL.test(e.data.channel) && typeof e.data.blob === 'string' && e.data.blob.length < 40000)
+        relay.postMessage({type: 'link-blob', id, channel: e.data.channel, blob: e.data.blob});
+    });
     window.open(`${location.origin}${location.pathname}#handoff=${id}`, '_blank', 'noopener');
-    card.querySelector('p').textContent = 'Finish in the new tab. This one closes once your key is added there.';
+    card.querySelector('p').textContent = 'Finish in the new tab, and keep this one open until then: it closes once your key is added there.';
     e.target.hidden = true;
   });
 } else if (/^#handoff=[0-9a-f]{32}$/.test(location.hash)) {
@@ -279,7 +294,7 @@ function awaitKept(record) {
 // this tab, which no page holds.
 async function offerConnect() {
   const here = (await all()).filter(r => mailFor(r));
-  if (!here.length) return;
+  if (!here.length) return false;
   const card = document.getElementById('already'), row = document.getElementById('already-actions');
   card.querySelector('.already-who').textContent = [...new Set(here.flatMap(r => r.addresses))].join(', ');
   for (const r of here.slice().reverse()) {
@@ -297,7 +312,77 @@ async function offerConnect() {
   });
   form.hidden = true;
   card.hidden = false;
+  return true;
 }
+
+// ---- Link a device, on the new device: this tab's code for your phone (or
+// any device where your key opens) to scan in Mail (Link a device, link.mjs).
+// What it sends comes back through the Mail app, which cannot open it; here
+// it is taken only as the private half of a key published for one of our
+// mailboxes (keys.mjs), and locked to this device with a passkey of its own.
+const linkCard = document.getElementById('link');
+let linkOffer = null, linked = null, linkTimer = 0;
+async function offerLink() {
+  linkOffer = await newOffer();
+  linkCard.querySelector('.qr-box').innerHTML = svg(linkOffer.text, 'Code to scan with your phone');
+  relay.postMessage({type: 'link-wait', id: relayId, channel: linkOffer.channel});
+  linkCard.hidden = false;
+  form.hidden = true;
+  // Mail keeps a channel ten minutes: a fresh code before then.
+  clearTimeout(linkTimer);
+  linkTimer = setTimeout(() => { if (!linked) offerLink(); }, 9 * 60000);
+}
+const linkStatus = (text, error = false) => {
+  const s = linkCard.querySelector(error ? '.error' : '.link-status');
+  s.textContent = text;
+  s.hidden = false;
+  if (!error) linkCard.querySelector('.error').hidden = true;
+};
+relay.addEventListener('message', m => {
+  if (m.data?.type === 'link-blob' && m.data.id === relayId && linkOffer && m.data.channel === linkOffer.channel && !linked) fromLink(m.data.blob);
+});
+async function fromLink(blob) {
+  try {
+    const k = unpackKey(await openFrom(linkOffer, blob));
+    const published = (await currentKeys()).find(x => (x.subkeys || []).includes(k.keyId));
+    if (!published?.x25519?.[k.keyId] || !(published.keys || []).includes(k.info.fingerprint))
+      throw new Error('This key is not published for one of our mailboxes.');
+    // The private half must give the published public one.
+    const probe = await crypto.subtle.importKey('pkcs8', pkcs8Of(k.scalar), {name: 'X25519'}, true, ['deriveBits']);
+    const x = unb64u((await crypto.subtle.exportKey('jwk', probe)).x), want = Uint8Array.from(atob(published.x25519[k.keyId]), c => c.charCodeAt(0));
+    if (x.length !== 32 || want.length !== 32 || x.some((b, i) => b !== want[i])) throw new Error('What came is not the private half of your published key.');
+    for (const a of k.addresses) if (!published.hashes.includes(await addressHash(a))) throw new Error('What came names an address its key does not serve.');
+    const sign = k.seed && k.signer && (published.keys || []).includes(k.signer.fingerprint) ? {pkcs8: signPkcs8Of(k.seed), keyId: k.signer.keyId, fingerprint: k.signer.fingerprint} : null;
+    k.seed?.fill(0);
+    linked = {found: {scalar: k.scalar, info: k.info, sign}, addresses: k.addresses};
+    clearTimeout(linkTimer);
+    linkCard.querySelector('.qr-box').hidden = true;
+    linkStatus(`Your key of ${k.addresses.join(', ')} came. Lock it to this device: from now on its own passkey opens your encrypted mail here.`);
+    document.getElementById('link-ready').hidden = false;
+  } catch (err) {
+    linkStatus(err.message, true);
+  }
+}
+document.getElementById('link-lock').addEventListener('click', async e => {
+  if (!e.isTrusted || !linked) return;
+  e.target.disabled = true;
+  try {
+    const {record, mark} = await adopt(linked.found, linked.addresses, '');
+    relay.postMessage({type: 'sealed', id: relayId, record});  // to the tab the Mail app opened, which hands it over
+    awaitKept(record);
+    linkCard.hidden = true;
+    showDone(linked.addresses, mark);
+    linked = {done: true};
+  } catch (err) {
+    linkStatus(err.name === 'NotAllowedError' ? 'The passkey was not made (cancelled or not allowed).' : err.message, true);
+    e.target.disabled = false;
+  }
+});
+document.getElementById('link-other').addEventListener('click', e => {
+  if (!e.isTrusted) return;
+  linkCard.hidden = true;
+  form.hidden = false;
+});
 
 // The key's mark, shown here once with what it is for.
 function showDone(addresses, mark, closing = !!handed || !!createFor) {
@@ -528,5 +613,8 @@ async function setUp() {
   }
 }
 
-if (relayId && !handed && !createFor) offerConnect();
+// From the Mail app's Add to this browser: a key of this mailbox here already
+// comes first (Connect to Mail); otherwise the code for your phone, with the
+// recovery code a press away.
+if (relayId && !createFor) (async () => { if (handed || !(await offerConnect())) offerLink(); })();
 list();

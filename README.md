@@ -84,6 +84,24 @@ the seal holds.
   IndexedDB; a passkey synced by iCloud Keychain or Google Password Manager
   opens it on the owner's other devices. Opened, the key becomes a
   non-extractable WebCrypto X25519 key in the memory of one page.
+* **A new device, from your phone (Link a device).** On a computer or phone
+  where your key is not yet, Mail's Add to this browser opens this site in a
+  tab of its own (`setup.html`), which shows a QR code: a public key made
+  for this once (X25519, kept only in that tab's memory) and a channel name.
+  On a device where your encrypted mail opens, Link a device in Mail (the
+  menu under your picture) opens `link.html`, also a tab of its own: its
+  camera reads the code (the browser's own reader, or jsQR), a touch of your
+  passkey opens your key, and it goes to the new device encrypted to that
+  public key (X25519, HKDF-SHA-256, AES-GCM, bound to the channel and both
+  public halves; `link.mjs`). Mail carries it, for that mailbox alone, a few
+  minutes, read once, and cannot open it: the public key it would need came
+  only through the camera. The new device takes it only as the private half
+  of a key published for one of our mailboxes (`keys.mjs`: the key ID, the
+  public point that half must give, and the addresses it serves), and seals
+  it under a passkey of its own; from then on it opens your mail without the
+  phone. In Chrome on Windows, keep that passkey in Google Password Manager
+  if Windows Hello cannot lock a key. The camera is this site's alone: Mail's
+  pages may use none.
 * **One touch for a while, not one per message.** A touch of the passkey
   (and the PIN, if there is one) unlocks every encrypted message at once:
   the key goes into a service worker of this site (`sw.js`, `vault.mjs`)
@@ -370,6 +388,11 @@ service worker on that device. Exactly what that allows:
   come after it) and who the message is from and for (the For line shows
   both as Send will use them, and Send refuses a list changed in the two
   seconds before the press). Read the For line and the text before Send.
+* Tell your new device's code from someone else's: Link a device sends
+  your key to whichever device showed the code you scanned. Scan only a code
+  shown at seal.<domain>, in a tab of its own, on a device of yours (the
+  mail server could draw a code of its own on a page of Mail, as it could
+  draw a field for the recovery code).
 * Stop a page from asking for screen sharing: a person who allows it shows
   that page everything, the mark included. Never share the screen with the
   Mail app.
@@ -395,6 +418,8 @@ Files: `sealed-core.mjs` (ECDH session key, RFC 6637), `store.mjs` (sealing
 and passkeys), `vault.mjs` and `sw.js` (the key while unlocked), `hub.mjs`
 (Unlock and opening), `decrypt.mjs`, `mime.mjs`, `mark.mjs`, `embed.mjs`
 (a letter), `row.mjs` (a line of a list), `title.mjs` (the subject),
+`link.mjs`, `link-page.mjs`, `link.html` and `qr.mjs` (Link a device; `jsqr.js`, jsQR 1.4.0,
+unmodified, reads its code where the browser cannot),
 `compose.mjs`, `send.mjs` and `sign.mjs` (writing), `tab.mjs` (Seal's frames in a
 tab), `seal.mjs` (the sender's seal and key lookup by hash), `dkim.mjs`
 (the signature of a sender's domain), `dns.html` (its keys) and `wkd.html` (our keys from the Web Key Directory), the only pages with network, `contacts.mjs` and
@@ -402,7 +427,7 @@ tab), `seal.mjs` (the sender's seal and key lookup by hash), `dkim.mjs`
 `keys.html` (our public keys, from `make-keys.py`), `notices.mjs` (from
 `make-notices.py`), `setup.mjs`, `width.mjs`, `publish.sh` (both sites, with
 `make-styles.py` and `make-pins.py`), `tests/` (plain `node` and `python3`, nothing
-to install: `node tests/learning.mjs`, `node tests/key-verdict.mjs`,
+to install: `node tests/learning.mjs`, `node tests/key-verdict.mjs`, `node tests/link.mjs`,
 `python3 tests/test_watch.py`), and
 OpenPGP.js 6.3.2, unmodified (`openpgp.min.mjs`, LGPL-3.0,
 https://openpgpjs.org).

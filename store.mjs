@@ -97,7 +97,7 @@ export async function newPasskey(label) {
     extensions: {prf: {eval: {first: salt}}},
   }});
   const result = made.getClientExtensionResults().prf;
-  if (result?.enabled === false) throw new Error('This browser or device cannot lock a key with a passkey (Safari 18, Chrome or Edge can).');
+  if (result?.enabled === false) throw new Error('This passkey cannot lock a key. Make it again and choose where it is kept: in Chrome, Google Password Manager; Safari 18, Chrome and Edge can.');
   const credentialId = b64u(made.rawId);
   // Some browsers give the PRF output only when the passkey is used.
   const out = result?.results?.first ? new Uint8Array(result.results.first) : (await prf([{credentialId, salt: b64u(salt)}])).out;

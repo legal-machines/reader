@@ -25,6 +25,8 @@ const hex = bytes => [...bytes].map(b => b.toString(16).padStart(2, '0')).join('
 // The private key as WebCrypto wants it (PKCS #8), from the 32-byte scalar in
 // RFC 7748 order.
 export const pkcs8Of = scalar => concat(PKCS8_X25519, scalar);
+// The key that signs as WebCrypto wants it, from its 32-byte Ed25519 seed (Link a device).
+export const signPkcs8Of = seed => concat(PKCS8_ED25519, seed);
 
 // What is kept of a decryption key: everything needed to rebuild the wrapping
 // key's parameters, but no secret.

@@ -66,6 +66,7 @@ function draw() {
   view.querySelector('form.hub-unlock')?.addEventListener('submit', submit);
   view.querySelector('#lock')?.addEventListener('click', async () => { await vault.lock(); });
   view.querySelector('#in-tab')?.addEventListener('click', () => tell({type: 'hub-tab'}));
+  view.querySelector('#add-here')?.addEventListener('click', e => { if (e.isTrusted) tell({type: 'hub-add-here'}); });
   view.querySelector('form.hub-unlock button')?.addEventListener('pointerenter', () => openpgpLib(), {once: true});
   tell({type: 'hub-state', unlocked, shown: !!html});
   report();
@@ -94,7 +95,10 @@ async function submit(e) {
     await openAll();
   } catch (err) {
     failure = escape(err.name === 'NotAllowedError' ? 'Cancelled or not allowed here.' : err.name === 'SecurityError' ? 'This browser does not allow passkeys here.' : err.message) +
-              (err.name === 'SecurityError' || err.name === 'NotAllowedError' ? ' <button class="text" type="button" id="in-tab">Open in a tab</button>' : '');
+              (err.name === 'SecurityError' || err.name === 'NotAllowedError' ? ' <button class="text" type="button" id="in-tab">Open in a tab</button>' : '') +
+              // A device whose passkeys do not open the key (a new computer):
+              // Mail's Add to this browser, from a phone with Link a device.
+              (err.name === 'NotAllowedError' ? ' <button class="text" type="button" id="add-here">Add your key to this device</button>' : '');
   } finally {
     busy = false;
     draw();

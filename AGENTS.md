@@ -37,12 +37,14 @@ Never weaken one of these without the owner's explicit decision.
 1. **Private keys stay in the browser.**
    - Keys are made here, in the browser.
    - They are kept sealed under the passkey's PRF output (and an optional PIN) and used only as non-extractable WebCrypto keys.
-   - Nothing sends a private key, a passkey output or a recovery code anywhere, the mail server included.
+   - Nothing sends a private key, a passkey output or a recovery code anywhere, the mail server included, with one exception the owner decided on 2026-10-18:
+     Link a device (`link.mjs`) sends your key to a new device of yours, encrypted to a key that device shows in a QR code and the camera reads, through your own mailbox; the mail server carries it and cannot open it, and the new device takes it only as the private half of a key published in `keys.mjs`.
 2. **No network beyond the CSP of each page.**
    - Pages have `default-src 'none'`; only `dns.html` reaches DNS-over-HTTPS (Cloudflare, Google), for DKIM keys.
    - Only `wkd.html` reaches the Web Key Directory.
-   - No third-party scripts, styles or fonts.
-   - `openpgp.min.mjs` is OpenPGP.js as released, unmodified (THIRD-PARTY.md); updating it means its official release, checked.
+   - No third-party scripts, styles or fonts, but two files kept here as released, unmodified (THIRD-PARTY.md); updating one means its official release, checked:
+     - `openpgp.min.mjs`, OpenPGP.js;
+     - `jsqr.js`, jsQR, which reads Link a device's code where the browser has no reader of its own, on `link.html` alone.
 3. **What Seal trusts about a sender's key.**
    - A key is learned only when the sender's domain's DKIM signature passes, is aligned with From, and also signs Content-Type (and Content-Transfer-Encoding and MIME-Version where present), each as often as it appears.
    - A first key is kept only from a message signed with it; otherwise it is offered with its fingerprint for the owner to check.
@@ -74,6 +76,7 @@ Never weaken one of these without the owner's explicit decision.
 - Tests, all of which must pass before a publish:
   - `node tests/learning.mjs`;
   - `node tests/key-verdict.mjs`;
+  - `node tests/link.mjs` (Link a device: its codes, and the key reaching only the device whose code was read);
   - `python3 -m unittest tests/test_watch.py`.
   A change to what Seal trusts comes with a test.
 - Never rewrite the history of `main`: the watch accepts files of the last few
