@@ -14,11 +14,11 @@
 </head>
 <body class="page">
 <main class="setup">
-  <h1>Read encrypted mail in this browser</h1>
-  <p>Your key file is opened here, in this browser, and nothing leaves it: this page cannot send anything anywhere. The key is then locked to this device with a passkey (Touch ID, a fingerprint or the screen lock) and a PIN you choose, and kept only in this browser.</p>
+  <h1 id="page-title">Read encrypted mail in this browser</h1>
+  <p id="page-intro">Your key is opened here, in this browser, and nothing leaves it: this page cannot send anything anywhere. It is then locked to this device with a passkey (Touch ID, a fingerprint or the screen lock), and a PIN too if you choose one, and kept only in this browser.</p>
   <section class="card" id="continue" hidden>
-    <h2>Continue in a tab of its own</h2>
-    <p>The mail page opened this tab and could still change what it shows. Your key's passphrase goes only into a tab no page can reach: Continue opens one, at this same address.</p>
+    <h2>Continue in a new tab</h2>
+    <p>Seal works with your key only in a tab that no other page can reach, Mail included. Continue opens one, at this same address; this tab closes by itself when you are done there.</p>
     <div class="actions"><button class="filled" type="button" id="continue-button">Continue</button></div>
   </section>
   <section class="card" id="already" hidden>
@@ -86,10 +86,10 @@
   </section>
   <form class="card" id="setup" autocomplete="off">
     <h2>Add a key</h2>
-    <p class="handed" id="handed" hidden>Your key came from your mailbox, locked with its passphrase. Enter the passphrase to add it to this browser.</p>
+    <p class="handed" id="handed" hidden>Your key came from your mailbox, locked with the recovery code on the sheet you printed when you made it. Type that code to add the key to this browser.</p>
     <label class="field file" id="file-field"><span>Your secret key file (.asc)</span>
       <span class="file-box"><input type="file" id="file" accept=".asc,.gpg,.key,.txt,application/pgp-keys" required aria-describedby="file-status"><small class="file-status" id="file-status">Or open "Your encryption key" in Mail</small></span></label>
-    <label class="field"><span>The key's passphrase</span><input type="password" id="passphrase" required></label>
+    <label class="field"><span id="passphrase-label">The key's passphrase</span><input type="password" id="passphrase" required></label>
     <label class="check"><input type="checkbox" id="use-pin"><span>Also ask a PIN with every message</span></label>
     <div id="pin-fields" hidden>
       <label class="field"><span>A PIN for this device (at least 6 characters)</span><input type="password" id="pin" minlength="6" inputmode="numeric"></label>

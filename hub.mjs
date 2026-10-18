@@ -94,11 +94,12 @@ async function submit(e) {
     missing.clear();
     await openAll();
   } catch (err) {
-    failure = escape(err.name === 'NotAllowedError' ? 'Cancelled or not allowed here.' : err.name === 'SecurityError' ? 'This browser does not allow passkeys here.' : err.message) +
-              (err.name === 'SecurityError' || err.name === 'NotAllowedError' ? ' <button class="text" type="button" id="in-tab">Open in a tab</button>' : '') +
+    failure = escape(err.name === 'NotAllowedError' ? 'Not unlocked: cancelled, or this device has no passkey for your key yet.' : err.name === 'SecurityError' ? 'This browser does not allow passkeys here.' : err.message) +
               // A device whose passkeys do not open the key (a new computer):
-              // Mail's Add to this browser, from a phone with Link a device.
-              (err.name === 'NotAllowedError' ? ' <button class="text" type="button" id="add-here">Add your key to this device</button>' : '');
+              // Mail's Add to this browser, from a phone with Link a device;
+              // first, as it is what a new device needs.
+              (err.name === 'NotAllowedError' ? ' <button class="text" type="button" id="add-here">Add your key to this device</button>' : '') +
+              (err.name === 'SecurityError' || err.name === 'NotAllowedError' ? ' <button class="text" type="button" id="in-tab">Open in a tab</button>' : '');
   } finally {
     busy = false;
     draw();

@@ -37,8 +37,16 @@ const showHanded = () => {
   document.getElementById('file-field').hidden = true;
   document.getElementById('file').required = false;
   document.getElementById('handed').hidden = false;
+  // The key from the mailbox is locked with the recovery code, not a passphrase of one's own.
+  document.getElementById('passphrase-label').textContent = 'Recovery code (on your printed sheet)';
+  document.getElementById('passphrase').autocomplete = 'off';
 };
 let handed = null, mailOrigin = null, relayId = null, createFor = null;
+// Making a key is its own task: the page says so, and its card says the rest.
+const making = () => {
+  document.getElementById('page-title').textContent = 'Your end-to-end key';
+  document.getElementById('page-intro').hidden = true;
+};
 // An address of one of our domains, as the Mail app names its mailbox.
 const OURS = /^[a-z0-9._%+-]{1,64}@(legalmachines\.org|dzyza\.com)$/;
 if (window.opener) {
@@ -52,6 +60,7 @@ if (window.opener) {
       const c = e.data.create;
       if (c && typeof c.address === 'string' && OURS.test(c.address.toLowerCase()))
         createFor = {address: c.address.toLowerCase(), name: typeof c.name === 'string' ? c.name.replace(/[\x00-\x1f<>]/g, '').slice(0, 80) : ''};
+      if (createFor) making();
       return;
     }
     if (e.data?.type !== 'reader-key' || typeof e.data.armored !== 'string' || e.data.armored.length > 200000) return;
@@ -93,17 +102,20 @@ if (window.opener) {
         relay.postMessage({type: 'link-blob', id, channel: e.data.channel, blob: e.data.blob});
     });
     window.open(`${location.origin}${location.pathname}#handoff=${id}`, '_blank', 'noopener');
-    card.querySelector('p').textContent = 'Finish in the new tab, and keep this one open until then: it closes once your key is added there.';
+    card.querySelector('p').textContent = 'Go on in the new tab. Keep this one open: it closes by itself once your key is added there.';
     e.target.hidden = true;
   });
 } else if (/^#handoff=[0-9a-f]{32}$/.test(location.hash)) {
   relayId = location.hash.slice(9);
+  // Sent here by Mail for one thing (a key made, or added to this device):
+  // the copy for Thunderbird stays on Seal's own page, out of the way.
+  document.getElementById('other-app').hidden = true;
   try {
     const h = JSON.parse(localStorage.getItem(HANDOFF) || 'null');
     localStorage.removeItem(HANDOFF);
     if (h && h.id === relayId && Date.now() - h.at < 10 * 60000) {
       if (typeof h.armored === 'string') { handed = h.armored; showHanded(); }
-      else if (h.create && OURS.test(h.create.address)) createFor = h.create;
+      else if (h.create && OURS.test(h.create.address)) { createFor = h.create; making(); }
     }
   } catch (err) {}
   history.replaceState(null, '', location.pathname);
