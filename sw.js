@@ -293,8 +293,13 @@ self.addEventListener('install', e => e.waitUntil((async () => {
   }
   await self.skipWaiting();
 })()));
+// Activating: the copies of older versions go, but for the one just before:
+// a page that worker served moments ago may still ask it for a file (Safari
+// hands requests to the worker that served the page), and a copy gone from
+// under it left that page without its styles. The next version removes it.
 self.addEventListener('activate', e => e.waitUntil((async () => {
-  for (const name of await caches.keys()) if (name.startsWith('reader-') && name !== CACHE) await caches.delete(name);
+  const older = (await caches.keys()).filter(name => name.startsWith('reader-') && name !== CACHE);
+  for (const name of older.slice(0, -1)) await caches.delete(name);
 })()));
 // Every request to this site is answered here: a file of the reader from
 // the checked copy, checked again as it is served (anything on this site
@@ -303,10 +308,18 @@ self.addEventListener('activate', e => e.waitUntil((async () => {
 const checked = new Map();  // name -> verified bytes, while this worker runs
 async function pinned(name) {
   if (checked.has(name)) return checked.get(name);
-  const r = await (await caches.open(CACHE)).match(name);
-  if (!r) return null;
-  const body = await r.arrayBuffer();
-  if (hex(await crypto.subtle.digest('SHA-256', body)) !== PINS[name]) return null;
+  const cache = await caches.open(CACHE);
+  const r = await cache.match(name);
+  let body = r ? await r.arrayBuffer() : null;
+  if (!body || hex(await crypto.subtle.digest('SHA-256', body)) !== PINS[name]) {
+    // The copy is gone or changed (a browser may drop part of its caches):
+    // fetched again, past the browser's cache, and kept only if it is the
+    // pinned file, so nothing but the reader's own code is ever served.
+    const fresh = await fetch(name, {cache: 'no-cache'}).catch(() => null);
+    body = fresh?.ok ? await fresh.arrayBuffer() : null;
+    if (!body || hex(await crypto.subtle.digest('SHA-256', body)) !== PINS[name]) return null;
+    await cache.put(name, new Response(body.slice(0), {headers: {'Content-Type': TYPES[name.split('.').pop()] || 'application/octet-stream'}})).catch(() => {});
+  }
   checked.set(name, body);
   return body;
 }
@@ -319,7 +332,7 @@ self.addEventListener('fetch', e => {
     // Origin-Agent-Cluster: a hint to keep the reader's pages in a process of
     // their own, apart from the mail page that frames them (same site).
     ? new Response(body.slice(0), {headers: {'Content-Type': TYPES[name.split('.').pop()] || 'application/octet-stream', 'Origin-Agent-Cluster': '?1'}})
-    : new Response('', {status: 503})));
+    : new Response('', {status: 503})).catch(() => new Response('', {status: 503})));
 });
 // Whether you raised the alarm on setup.html (alarm.mjs keeps it).
 function alarmRaised() {

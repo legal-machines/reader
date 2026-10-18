@@ -141,6 +141,9 @@ the seal holds.
 * **Seal keeps its own code.** `sw.js` carries the SHA-256 of every
   file of Seal (written by `make-pins.py` at publishing), installs
   only when the site serves exactly those, keeps them, and serves Seal's pages from that copy; only a page it served may use the key.
+  A file its copy lost, or holds changed, it fetches again and serves
+  only if it has that same SHA-256; the copy of the version before stays
+  until the next one, for pages that worker served just before.
   Code served later by someone else would need a new `sw.js`, and a new
   worker starts with an empty vault: nothing opens without a new touch.
 * **Mail learns sizes, coarsely.** A letter is laid out at one of a few
