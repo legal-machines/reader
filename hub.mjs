@@ -285,6 +285,10 @@ addEventListener('message', async e => {
     mode = ['thread', 'list', 'panel', 'quiet'].includes(d.mode) ? d.mode : 'quiet';
     count = Number.isInteger(d.count) ? Math.min(d.count, 999) : 0;
     if (!await canOpen()) { tell({type: 'hub-state', unlocked: false, shown: false, old: true}); return; }
+    // Drawn at once, as locked: on a browser new to Seal its worker installs
+    // first (every file of Seal, checked), and the frame stayed empty for
+    // seconds, a page with nothing to press. The vault's answer redraws it.
+    draw();
     const s = await vault.state();
     unlocked = s.unlocked;
     if (unlocked && count) openpgpLib();
