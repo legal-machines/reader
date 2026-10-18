@@ -7,7 +7,7 @@
 --c-selected:#d3e3fd;--c-row-hover:#e7eefa;--c-on-selected:#041e49;--c-read:#f2f6fc;--c-hover:rgba(68,71,70,.08);--c-press:rgba(68,71,70,.1);--c-outline:#747775;--c-outline-variant:#c4c7c5;
 --c-star:#e8a600;--c-important:#e8a600;--c-danger:#b3261e;--c-danger-soft:#f9dedc;--c-on-danger-soft:#410e0b;--c-on-danger:#fff;--c-good:#146c2e;--c-good-soft:#c4eed0;--c-on-good-soft:#072711;--c-warn-soft:#ffdf99;--c-on-warn-soft:#261a00;
 --c-inverse:#303030;--c-on-inverse:#f2f2f2;--c-inverse-accent:#a8c7fa;--c-frame:#fff;--c-scrim:rgba(0,0,0,.32);
---c-brand:#0b3a8a;--c-on-brand:#fff;--c-brand-calendar:#0b6b5f;--c-brand-boards:#6a3fb0;--c-brand-clock:#c2410c;--c-warn:#f9ab00;--c-social:#1a73e8;--c-promotions:#188038;--c-updates:#e37400;--c-updates-badge:#b45309;--c-all:#5f6368;--c-forums:#9334e6;--c-on-badge:#fff;
+--c-brand:#0b3a8a;--c-on-brand:#fff;--c-brand-calendar:#0b6b5f;--c-brand-boards:#6a3fb0;--c-brand-clock:#c2410c;--c-brand-time:#a3245e;--c-warn:#f9ab00;--c-social:#1a73e8;--c-promotions:#188038;--c-updates:#e37400;--c-updates-badge:#b45309;--c-all:#5f6368;--c-forums:#9334e6;--c-on-badge:#fff;
 --cat-0:#0b57d0;--cat-1:#146c2e;--cat-2:#8b5000;--cat-3:#ba1a1a;--cat-4:#7b4fad;--cat-5:#a8326f;--cat-6:#006a60;--cat-7:#4d616c;--cat-8:#4a5bb5;--cat-9:#6750a4;--cat-10:#00639b;--cat-11:#006876;--cat-12:#386a20;--cat-13:#5b6300;--cat-14:#785a00;--cat-15:#a23f00;--cat-16:#775654;--cat-17:#5f6368;
 --c-tone-0:#1a5fd0;--c-tone-1:#18794e;--c-tone-2:#b3510f;--c-tone-3:#c5221f;--c-tone-4:#7e3ab8;--c-tone-5:#b0346f;--c-tone-6:#0a7a83;--c-tone-7:#5b6b7a;--c-on-tone:#fff;
 --f-sans:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;--f-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
@@ -26,7 +26,7 @@
 --c-star:#fdd663;--c-important:#fdd663;--c-danger:#f2b8b5;--c-danger-soft:#8c1d18;--c-on-danger-soft:#f9dedc;--c-on-danger:#601410;--c-good:#6dd58c;--c-good-soft:#0f5223;--c-on-good-soft:#c4eed0;--c-warn-soft:#5c4300;--c-on-warn-soft:#ffdf99;
 --c-inverse:#e3e3e3;--c-on-inverse:#303030;--c-inverse-accent:#0b57d0;--e-1:0 1px 3px rgba(0,0,0,.6);--e-2:0 2px 8px rgba(0,0,0,.6);--e-3:0 4px 12px rgba(0,0,0,.65);
 --cat-0:#a8c7fa;--cat-1:#6dd58c;--cat-2:#ffb870;--cat-3:#ffb4ab;--cat-4:#dbb8ff;--cat-5:#ffb0cd;--cat-6:#53dbc9;--cat-7:#b4cad6;--cat-8:#bac3ff;--cat-9:#d0bcff;--cat-10:#92ccff;--cat-11:#4fd8eb;--cat-12:#9cd67d;--cat-13:#c4d074;--cat-14:#f6be38;--cat-15:#ffb693;--cat-16:#e7bdb8;--cat-17:#c4c7c5;
---c-brand:#2a64d6;--c-brand-calendar:#12806f;--c-brand-boards:#7b52c8;--c-brand-clock:#e8742a;--c-warn:#fdd663;--c-social:#8ab4f8;--c-promotions:#81c995;--c-updates:#fcad70;--c-updates-badge:#fcad70;--c-all:#c4c7c5;--c-forums:#d7aefb;--c-on-badge:#131314}}
+--c-brand:#2a64d6;--c-brand-calendar:#12806f;--c-brand-boards:#7b52c8;--c-brand-clock:#e8742a;--c-brand-time:#d6609a;--c-warn:#fdd663;--c-social:#8ab4f8;--c-promotions:#81c995;--c-updates:#fcad70;--c-updates-badge:#fcad70;--c-all:#c4c7c5;--c-forums:#d7aefb;--c-on-badge:#131314}}
 
 
 *,*::before,*::after{corner-shape:superellipse(1.6)}
@@ -123,6 +123,7 @@ svg.brand-badge{display:block;flex:none;width:auto;height:30px;aspect-ratio:432.
 svg.brand-badge rect{fill:transparent}svg.brand-badge path{fill:var(--c-on-brand)}
 svg.brand-badge[data-app=calendar]{aspect-ratio:811.4/192;border-radius:4.93%/20.83%;background:var(--c-brand-calendar)}
 svg.brand-badge[data-app=clock]{aspect-ratio:546.1/192;border-radius:7.32%/20.83%;background:var(--c-brand-clock)}
+svg.brand-badge[data-app=time]{aspect-ratio:488/192;border-radius:8.2%/20.83%;background:var(--c-brand-time)}
 svg.brand-badge[data-app=boards]{aspect-ratio:667.5/192;border-radius:5.99%/20.83%;background:var(--c-brand-boards)}
 .brand-text{font-size:var(--t-2xl);font-weight:var(--w-bold);color:var(--c-brand);white-space:nowrap}
 .search{display:flex;align-items:center;gap:var(--s-3);height:var(--h-lg);padding:0 var(--s-4);border-radius:var(--r-xl);background:var(--c-surface-3);
@@ -1012,7 +1013,7 @@ transition:background-color var(--fast) var(--ease);corner-shape:round}
 .app-link .app-glyph{width:28px;height:28px;border-radius:var(--r-sm)}.app-link .app-glyph svg.i{width:18px;height:18px}
 @media (max-width:840px),(max-height:500px) and (hover:none){.me .bell{display:inline-grid}}
 .app-glyph{display:inline-grid;place-items:center;flex:none;width:40px;height:40px;border-radius:var(--r-md);background:var(--c-brand)}
-.app-glyph svg.i{width:24px;height:24px;fill:var(--c-on-brand)}.app-glyph[data-app=calendar]{background:var(--c-brand-calendar)}.app-glyph[data-app=boards]{background:var(--c-brand-boards)}.app-glyph[data-app=clock]{background:var(--c-brand-clock)}
+.app-glyph svg.i{width:24px;height:24px;fill:var(--c-on-brand)}.app-glyph[data-app=calendar]{background:var(--c-brand-calendar)}.app-glyph[data-app=boards]{background:var(--c-brand-boards)}.app-glyph[data-app=clock]{background:var(--c-brand-clock)}.app-glyph[data-app=time]{background:var(--c-brand-time)}
 
 .wclock{position:relative;display:flex;flex:none;align-items:center;gap:2px;height:40px;margin-right:var(--s-2);padding:0 3px;border-radius:var(--r-full);
 background:var(--c-surface-2);color:var(--c-text);text-decoration:none;corner-shape:round}
