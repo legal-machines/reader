@@ -127,7 +127,7 @@ export async function newPasskey(label) {
     // A passkey that cannot lock a key is of no use here: the browser is
     // told so, and one that knows the Signal API takes it out of its list.
     try { await PublicKeyCredential.signalUnknownCredential?.({rpId: location.hostname, credentialId}); } catch (e) {}
-    throw new Error('This device\'s passkey cannot lock a key. On Windows, save the passkey in Google Password Manager (Chrome) or update Windows; on a Mac, iPhone or iPad, use Safari 18 or later, or Chrome with iCloud Keychain.');
+    throw new Error('This passkey cannot lock a key: keep it in Google Password Manager (Chrome) or iCloud Keychain (Safari 18 or later).');
   }
   return {credentialId, salt: b64u(salt), out};
 }
