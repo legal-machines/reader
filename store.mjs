@@ -50,8 +50,10 @@ export const remove = credentialId => run('readwrite', s => s.delete(credentialI
 // subkeys of the three then published), and any key this browser kept from
 // before the clean start of 2026-10-19 that is not published now (the one
 // made on the night between, withdrawn too): they leave this browser too.
-// Mail encrypted to them opens nowhere after this; the owner chose so.
-const WITHDRAWN = ['c37f5020f22f77c7', '730512bac645c26f', '9b79155ec15adf36'];
+// Mail encrypted to them opens nowhere after this; the owner chose so. And
+// dzyza@'s key of that night (b2153b67…), withdrawn at his word on
+// 2026-10-19 for a new one.
+const WITHDRAWN = ['c37f5020f22f77c7', '730512bac645c26f', '9b79155ec15adf36', 'b2153b6783327489'];
 const RESET = '2026-10-18T21:21:57Z';  // the clean start of 2026-10-19: every key made before it goes
 export async function forgetWithdrawn(published) {
   const now = new Set((published || []).flatMap(k => k.subkeys || []));
