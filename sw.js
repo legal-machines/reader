@@ -60,7 +60,7 @@ const PINS = {
  "seal.mjs": "f42cabbd7561d2a236be0b8113a6798f68daba359273bc4cba3fbf89baa97651",
  "sealed-core.mjs": "5b7db8e82b61097fdde2726fac265497b004ef1ed9c3348543961fc71122d0ab",
  "send.html": "5855758efa4d1366293e71b8e99db05657a0465d1388a8ddb7af477a688bd740",
- "send.mjs": "59fd661bdd1e920ed9db2ff25763c2497ac3a8e27c0994e0cad9faac972fa518",
+ "send.mjs": "9bdfe70dabb4e67c92cebb9209579474ef3de7353e9ed65278fd5f945374fea4",
  "setup.html": "c7cde297379ee5c7bc399f7881a892f32891a8113e26a885cf8c8c89b75fcb5d",
  "setup.mjs": "8602243d980e902dac63a7c659e0c85a5732bf47d5bea2df1cdc551c582f5280",
  "sign.mjs": "aad05ddc4d2559811fd3e17ef34fdad3fe1f9dd5abc2d08786ed2f0b58bbf146",
