@@ -26,13 +26,14 @@
 #
 # The SHA-256 of a short address can be found by trying names, so the hashes
 # keep the list out of sight, not secret. MAIL_REPO: the mail repository
-# (default ~/Desktop/Projects/mail).
+# (default: the one beside this repository, else ~/Desktop/Projects/mail).
 import base64, datetime, hashlib, html, json, os, re, sys
 
 PUBLIC = {"legalmachines.org": "inbox@legalmachines.org", "dzyza.com": "inbox@dzyza.com"}
 ZBASE32 = "ybndrfg8ejkmcpqxot1uwisza345h769"
 here = os.path.dirname(os.path.abspath(__file__))
-src = os.path.join(os.environ.get("MAIL_REPO") or os.path.expanduser("~/Desktop/Projects/mail"), "server", "openpgp")
+beside = os.path.join(here, "..", "mail")  # as make-styles.py finds it, on the Mac and in WSL alike
+src = os.path.join(os.environ.get("MAIL_REPO") or (beside if os.path.isdir(beside) else os.path.expanduser("~/Desktop/Projects/mail")), "server", "openpgp")
 
 
 def binary(armored):

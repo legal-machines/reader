@@ -1,3 +1,8 @@
+# LF on every checkout, Windows' too: the pins and SHA256SUMS are hashes of
+# these files as they are here.
+* text=auto eol=lf
+*.png binary
+*.wasm binary
 .github export-ignore
 watch export-ignore
 .gitattributes export-ignore

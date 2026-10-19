@@ -10,7 +10,12 @@ cd "$(dirname "$0")"
 # Everything on GitHub must be here, in Seal and in the mail repository whose
 # keys go into keys.mjs: keys-approve.py publishes from copies of its own, and
 # a publish from a folder behind GitHub would take its keys out of Seal.
-mail_repo="${MAIL_REPO:-$HOME/Desktop/Projects/mail}"
+# The mail repository: MAIL_REPO, else the one beside this one (as deploy.sh
+# finds this one beside it, on the Mac and in the Windows PC's WSL alike),
+# else where the Mac keeps it. Handed on to make-keys.py and make-notices.py.
+mail_repo="${MAIL_REPO:-$(cd .. && pwd)/mail}"
+[ -d "$mail_repo/.git" ] || mail_repo="$HOME/Desktop/Projects/mail"
+export MAIL_REPO="$mail_repo"
 for repo in . "$mail_repo"; do
   if ! git -C "$repo" fetch -q origin main || ! git -C "$repo" merge-base --is-ancestor origin/main HEAD; then
     echo "$repo is behind GitHub's main (or GitHub could not be reached): git pull there first, then publish." >&2

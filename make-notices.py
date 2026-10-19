@@ -4,11 +4,13 @@
 # for notices.mjs. The reader writes them itself: the mail server hands the
 # composer only the signature, so it cannot put words of its own into the
 # notice that tells a recipient how the message was protected.
-# MAIL_REPO: the mail repository (default ~/Desktop/Projects/mail).
+# MAIL_REPO: the mail repository (default: the one beside this repository,
+# else ~/Desktop/Projects/mail).
 import json, os
 
 here = os.path.dirname(os.path.abspath(__file__))
-src = os.path.join(os.environ.get("MAIL_REPO") or os.path.expanduser("~/Desktop/Projects/mail"), "server", "domains")
+beside = os.path.join(here, "..", "mail")  # as make-styles.py finds it, on the Mac and in WSL alike
+src = os.path.join(os.environ.get("MAIL_REPO") or (beside if os.path.isdir(beside) else os.path.expanduser("~/Desktop/Projects/mail")), "server", "domains")
 
 
 def text(path):
