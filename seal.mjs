@@ -26,12 +26,15 @@ const sw = typeof navigator === 'object' ? navigator.serviceWorker : undefined;
 if (sw) {
   sw.addEventListener('controllerchange', () => {
     const n = ++turn;
-    fresh = import(`./keys.mjs?seal=${n}`).then(m => {
+    // Five seconds at most: a module the browser does not hand over while a
+    // newer Seal takes over would leave every letter waiting for the keys;
+    // meanwhile the list this page came with serves.
+    fresh = Promise.race([import(`./keys.mjs?seal=${n}`).then(m => {
       if (n !== turn || !Array.isArray(m.KEYS)) return;
       KEYS = m.KEYS;
       known = null;
       for (const f of keysChanged) try { f(); } catch (e) {}
-    }).catch(() => {});
+    }).catch(() => {}), new Promise(done => setTimeout(done, 5000))]);
   });
   sw.getRegistration?.().then(r => r?.update()).catch(() => {});
 }
