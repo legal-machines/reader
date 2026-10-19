@@ -4,6 +4,26 @@
 // a key carries one user ID, an address our sites show anyway.
 export const KEYS = [
  {
+  "domain": "dzyza.com",
+  "fingerprint": "C8063D1606C8CF32421020EEADBCFAE626C3F822",
+  "created": "2026-10-19",
+  "expires": "2029-10-18",
+  "subkeys": [
+   "6d3afc820e34112e"
+  ],
+  "x25519": {
+   "6d3afc820e34112e": "VfK7sDUDfysci1suimPy0ZClCZIreupUO/GTbyquihU="
+  },
+  "keys": [
+   "c8063d1606c8cf32421020eeadbcfae626c3f822",
+   "a793c962ea3e8c24b578f92d6d3afc820e34112e"
+  ],
+  "hashes": [
+   "2af3ef453c4a27493703a81daaf5a01e76290e8db22a7c025670db863d998736"
+  ],
+  "armored": "-----BEGIN PGP PUBLIC KEY BLOCK-----\n\nmDMEatV3ihYJKwYBBAHaRw8BAQdAjNtkE/L2xEKAS4NGTqfRV8so6tqswE8ti5fM\nqaNcII20IUFsZXhhbmRlciBEenl6YSA8aW5ib3hAZHp5emEuY29tPojZBBMWCgCL\nBYJq1XeKBYkFo5qAAwsJBwkQrbz65ibD+CJFFAAAAAAAHAAgc2FsdEBub3RhdGlv\nbnMub3BlbnBncGpzLm9yZ6KrkvDvqke3VCMPgBIxos8wPS3srKjH9yrDtMl52snM\nBRUKCA4MBBYAAgECGQECmwMCHgEWIQTIBj0WBsjPMkIQIO6tvPrmJsP4IgAAYmoB\nAKpKES2c4zOl1vwWfNn8RsEImgnr1ucq1auxAacEwf9VAQC7ATv4gg7lMihia7Jn\nRPZ8yY1bY+WF19u3pdHRLVHBC7g4BGrVd4oSCisGAQQBl1UBBQEBB0BV8ruwNQN/\nKxyLWy6KY/LRkKUJkit66lQ78ZNvKq6KFQMBCAeIxAQYFgoAdgWCatV3igWJBaOa\ngAkQrbz65ibD+CJFFAAAAAAAHAAgc2FsdEBub3RhdGlvbnMub3BlbnBncGpzLm9y\nZ5xl4LIyUlNFw9dBSJseFCSH4xciy8t6w/7zuHo624MXApsMFiEEyAY9FgbIzzJC\nECDurbz65ibD+CIAAN6QAP9QG568f8cTzIuiG3FMKYq+NNXkIgifJVbBR/9VNgcj\nOAD/c4hmAfty3v1iNu//k6+PF6u4C3aYwqONomkjhqbtNwM=\n=51x2\n-----END PGP PUBLIC KEY BLOCK-----\n"
+ },
+ {
   "domain": "legalmachines.org",
   "fingerprint": "B462E536391D116DAE2A0A0FB5882636AE458B44",
   "created": "2026-10-19",

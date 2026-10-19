@@ -1,8 +1,16 @@
 {
  "domains": {
   "dzyza.com": {
-   "keys": {},
-   "wkd": {}
+   "keys": {
+    "C8063D1606C8CF32421020EEADBCFAE626C3F822": {
+     "subkeys": [
+      "A793C962EA3E8C24B578F92D6D3AFC820E34112E"
+     ]
+    }
+   },
+   "wkd": {
+    "bn1ic1u3sxkskaz9brpkeb56uk6o3zb6": "C8063D1606C8CF32421020EEADBCFAE626C3F822"
+   }
   },
   "legalmachines.org": {
    "keys": {
@@ -17,5 +25,5 @@
    }
   }
  },
- "updated": "2026-10-19T00:39:27Z"
+ "updated": "2026-10-19T01:53:21Z"
 }
