@@ -74,7 +74,9 @@ body.compose-frame{height:100vh;overflow:hidden}
 /* A frame shorter than the composer (a phone's keyboard up, Mail's frame at
    its least) scrolls the lines above the text away, as Mail's own composer
    does: compose.mjs keeps the text, your mark and the formatting bar in view. */
-:root body.compose-frame .pane.composer{height:100vh;min-height:0;padding:0;border-radius:0;background:transparent;overflow:hidden auto;scrollbar-width:none}
+/* No corners of its own either: Mail's styles give every pane Safari's G2
+   corners as a mask, which here rounded the frame where it meets Mail's lines. */
+:root body.compose-frame .pane.composer{height:100vh;min-height:0;padding:0;border-radius:0;-webkit-mask-box-image:none;background:transparent;overflow:hidden auto;scrollbar-width:none}
 :root body.compose-frame .pane.composer::-webkit-scrollbar{display:none}
 .compose-frame .editor-tools[hidden]{display:flex!important}
 .fields.tail{padding-top:0;border-top-left-radius:0;border-top-right-radius:0}
