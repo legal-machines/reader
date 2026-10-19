@@ -25,6 +25,26 @@ export const KEYS = [
  },
  {
   "domain": "legalmachines.org",
+  "fingerprint": "31475D30FD02CAC791835E68542FE5A78809168A",
+  "created": "2026-10-19",
+  "expires": "2029-10-18",
+  "subkeys": [
+   "de5be2db0c2efa90"
+  ],
+  "x25519": {
+   "de5be2db0c2efa90": "Tnmh1SaoZstZM02tRko7Qwbug030Mt0nXYF6T41bNwo="
+  },
+  "keys": [
+   "31475d30fd02cac791835e68542fe5a78809168a",
+   "fa533eb0e1085d6ef74e0111de5be2db0c2efa90"
+  ],
+  "hashes": [
+   "315adc446bebb29d6d20c3c0ff5c93cb789d6c6081b5a114af34645963eb033c"
+  ],
+  "wkd": true
+ },
+ {
+  "domain": "legalmachines.org",
   "fingerprint": "3E238149C7BF1B35010D703E6150FACA540AFCA0",
   "created": "2026-10-19",
   "expires": "2029-10-18",
@@ -60,6 +80,26 @@ export const KEYS = [
   ],
   "hashes": [
    "900acc0fdf6f04f90925c2d430dc68611eb9c8ca34adcde14e8c8462778f4484"
+  ],
+  "wkd": true
+ },
+ {
+  "domain": "legalmachines.org",
+  "fingerprint": "DCB772989B9E1ABB2740FAC53C9292119B9DF195",
+  "created": "2026-10-19",
+  "expires": "2029-10-18",
+  "subkeys": [
+   "fec5aa3f2ef73ce8"
+  ],
+  "x25519": {
+   "fec5aa3f2ef73ce8": "rgQ1C0s4p7PRnSacbbykXt9dUJe3waeqqC6CMMC13Fc="
+  },
+  "keys": [
+   "dcb772989b9e1abb2740fac53c9292119b9df195",
+   "0fa9bb63eddb593f41a5113bfec5aa3f2ef73ce8"
+  ],
+  "hashes": [
+   "70a8521df706c9fc48d1c3f1ee757ca87c57436c7b6998819f8741489fb9e9ba"
   ],
   "wkd": true
  }
