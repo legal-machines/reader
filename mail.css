@@ -1027,11 +1027,6 @@ background:var(--c-surface-2);color:var(--c-text);text-decoration:none;corner-sh
 
 .wc.night{background:#1c1c1e;color:#f5f5f7}.wc.night b{color:#aeaeb2}.wc.night sup{color:#ffb340}.wc.night .wface{filter:none}.wc.night .wf-dial{stroke:#48484a;stroke-width:1.5}
 @media (prefers-color-scheme:dark){.wc.night{background:#000}}
-
-.wline{position:relative;display:grid;flex:none;place-items:center;align-self:stretch;width:12px;margin:0 1px}
-.wline::before{content:"";position:absolute;inset:3px 5.5px;background:linear-gradient(to bottom,transparent,var(--wline) 28% 38%,transparent 38% 62%,var(--wline) 62% 72%,transparent);
---wline:color-mix(in srgb,var(--c-text) 30%,transparent)}
-.wline svg{position:relative;width:11px;height:11px;fill:#ff9500}
 .wface{flex:none;width:24px;height:24px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.2))}
 .wf-dial{fill:#fff;stroke:rgba(0,0,0,.06)}.wface.night .wf-dial{fill:#1c1c1e;stroke:none}
 .wf-tick{stroke:#8e8e93;stroke-width:1;stroke-linecap:round}.wf-tick.major{stroke:#1c1c1e;stroke-width:1.8}.wface.night .wf-tick.major{stroke:#f5f5f7}
