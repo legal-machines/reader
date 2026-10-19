@@ -29,6 +29,15 @@ let changedAt = 0;  // when Mail last changed who it goes to
 // and start a header of Mail's choosing inside the sealed message.
 const ADDRESS = /^[a-z0-9._%+-]{1,64}@[a-z0-9-]{1,63}(\.[a-z0-9-]{1,63})+$/;
 const tell = m => { if (parentOrigin) parent.postMessage(m, parentOrigin); };
+// A step of sending that does not answer in time (a vault still starting
+// after Seal was updated, a passkey sheet that never came) ends the press
+// with words that say which, never a pale button that does nothing.
+const within = (step, ms, words) => {
+  let timer;
+  return Promise.race([step, new Promise((_, no) => { timer = setTimeout(() => no(new Error(words)), ms); })]).finally(() => clearTimeout(timer));
+};
+const AGAIN = 'Nothing was sent: press Send again. If it stays so, reload the page.';
+let label = button.textContent;
 // The button's own size, whatever room the frame has now; nothing while
 // Mail keeps the frame hidden (End to end off), which lays it out at nothing.
 const report = () => {
@@ -89,15 +98,17 @@ button.addEventListener('click', async e => {
   if (Date.now() - changedAt < 2000) { tell({type: 'reader-error', message: 'Who it goes to just changed. Check the For line, then press Send again.'}); return; }
   busy = true;
   button.disabled = true;
+  button.textContent = 'Sending…';
+  report();
   const to = [...people.to], cc = [...people.cc], bcc = [...people.bcc];  // as they stood at the press
   try {
-    if (await raised()) throw new Error(alarmText());
+    if (await within(raised(), 10000, 'Seal did not answer. ' + AGAIN)) throw new Error(alarmText());
     const everyone = [...to, ...cc, ...bcc].map(a => a.toLowerCase());
     if (!everyone.length) throw new Error('Add a recipient.');
     if (!ADDRESS.test(from) || everyone.some(a => !ADDRESS.test(a))) throw new Error('An address here is not a plain email address: nothing was sent.');
     // Our keys (keys.mjs, by the hash of each address), and the keys of
     // people outside that Seal learned from their signed mail (contacts.mjs).
-    const known = new Map(await Promise.all([...new Set([...everyone, from])].map(async a => [a, await keyFor(a)])));
+    const known = new Map(await within(Promise.all([...new Set([...everyone, from])].map(async a => [a, await keyFor(a)])), 15000, 'The keys could not be looked up. ' + AGAIN));
     const own = known.get(from);
     if (!own?.internal) throw new Error('End to end goes only from a mailbox here with a key.');
     const changed = everyone.filter(a => known.get(a)?.changed);
@@ -116,7 +127,8 @@ button.addEventListener('click', async e => {
     // This browser's own copy of a record stands over Mail's, which could
     // leave a part out (the key that signs).
     try { for (const r of await all()) if (valid(r) && r.keyId === fromId) { const at = mine.findIndex(m => m.credentialId === r.credentialId); if (at >= 0) mine[at] = r; else mine.push(r); } } catch (e) {}
-    let st = await vault.state();
+    const unlocked = () => within(vault.state(), 15000, 'Seal is still starting after an update. ' + AGAIN);
+    let st = await unlocked();
     const opened = st.keyIds.includes(fromId);
     if (!mine.length && !opened) throw new Error('Sending end to end needs your own key in this browser. Add it on the Security page, then press Send.');
     // Your OpenPGP signature on it, which the recipient's app checks with
@@ -133,16 +145,17 @@ button.addEventListener('click', async e => {
       if (!opened || (toOutside && !st.signers?.[fromId])) {
         const use = signing.length ? signing : mine;
         if (use.some(r => r.pinSalt) && !pin.value) { pinField.hidden = false; report(); pin.focus(); throw new Error('Enter your PIN, then press Send.'); }
-        await vault.unlock(use, pin.value, minutes);
+        // The passkey's sheet waits up to two minutes for a touch (store.mjs).
+        await within(vault.unlock(use, pin.value, minutes), 130000, 'Touch ID did not answer. ' + AGAIN);
         pin.value = '';
         pinField.hidden = true;
-        st = await vault.state();
+        st = await unlocked();
       }
       derive = vault.deriver(fromId);
     }
     const signer = st.signers?.[fromId] || null;
     if (toOutside && !signer) throw new Error('Your key that signs could not be opened in this browser: nothing was sent. Add your key to this browser again (Security, Add my key to this browser).');
-    const openpgp = await openpgpLib();
+    const openpgp = await within(openpgpLib(), 20000, 'Seal could not load its encryption. ' + AGAIN);
     const text = await ask(to, cc);
     // Our keys that keys.mjs lists without the key itself come from the Web
     // Key Directory, each only as the key it names (wkd.mjs).
@@ -151,7 +164,7 @@ button.addEventListener('click', async e => {
       return openpgp.readKey({armoredKey: k.armored || await armoredFor(openpgp, a, k.entry)});
     };
     // Signed and encrypted at the right time, whatever this device's clock says.
-    await measure();
+    await within(measure(), 10000, 'Seal did not answer. ' + AGAIN);
     const at = now();
     // One message for the people it names (To and Cc), and one of its own
     // for each Bcc: a copy for many would name every key it is encrypted to
@@ -178,8 +191,8 @@ button.addEventListener('click', async e => {
         sessionKey.data.fill(0);
       }
     };
-    const armored = await encrypt(text, named), copies = {};
-    for (const a of hidden) copies[a] = await encrypt(`Bcc: ${a}\r\n` + text, [a]);
+    const armored = await within(encrypt(text, named), 30000, 'The message could not be encrypted in time. ' + AGAIN), copies = {};
+    for (const a of hidden) copies[a] = await within(encrypt(`Bcc: ${a}\r\n` + text, [a]), 30000, 'The message could not be encrypted in time. ' + AGAIN);
     tell({type: 'reader-encrypted', armored, bcc: copies});
   } catch (err) {
     tell({type: 'reader-error', message: err.name === 'NotAllowedError' ? 'Sending end to end needs your key: Touch ID was cancelled.'
@@ -187,6 +200,8 @@ button.addEventListener('click', async e => {
   } finally {
     busy = false;
     button.disabled = false;
+    button.textContent = label;
+    report();
   }
 });
 
@@ -210,7 +225,8 @@ addEventListener('message', e => {
     share();
   } else if (d.type === 'send-label' && typeof d.label === 'string') {
     // Send now, or Schedule send once a time is picked in Mail's menu.
-    button.textContent = d.label === 'schedule' ? 'Schedule send' : 'Send now';
+    label = d.label === 'schedule' ? 'Schedule send' : 'Send now';
+    if (!busy) button.textContent = label;
     report();
   }
 });
