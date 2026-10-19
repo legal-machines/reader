@@ -8,46 +8,67 @@ import {unseal} from './store.mjs';
 import {markOf, markSecret, remember} from './mark.mjs';
 import {alarmText, raised} from './alarm.mjs';
 
-let worker = null, ready = null;
+let worker = null, ready = null, registration = null, updating = null;
+let none = false;  // no service worker may run here: the key stays in the page that opened it
 const page = new Map();  // keyId -> {key, info, signKey, signer}, when the vault is not used
 const listeners = new Set();
 
-// A newer Seal taking over (its service worker, after a publish) leaves the
-// worker this page talked to gone, and the new one holds no key: the page
-// starts over with it, and hears the vault is locked.
-if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('controllerchange', () => {
-  worker = null;
-  ready = null;
-  for (const f of listeners) f(false);
-});
+// At most ms, then null: the browser's own service-worker calls may never
+// answer. Safari's register() and update() can wait for good once a check
+// for a newer Seal was cut short (a page left while it fetched sw.js), while
+// getRegistration() still answers; Unlock and Send waited with them, and a
+// touch of the passkey seemed to do nothing.
+const within = (promise, ms) => Promise.race([promise, new Promise(done => setTimeout(() => done(null), ms))]);
 
+if ('serviceWorker' in navigator) {
+  // A newer Seal taking over (its service worker, after a publish) leaves the
+  // worker this page talked to gone, and the new one holds no key: the page
+  // talks to the new one from then on, and hears the vault is locked.
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    worker = null;
+    for (const f of listeners) f(false, 'replaced');
+  });
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data?.type === 'vault-locked' || e.data?.type === 'vault-unlocked') for (const f of listeners) f(e.data.type === 'vault-unlocked');
+  });
+}
+
+// The registration, looked up once a page (registered in a browser new to
+// Seal), and checked for a newer Seal: a newly published reader (and its
+// new pins) reaches this browser on the next page, not a day later; the
+// browser fetches sw.js past its cache.
 function start() {
   return ready ||= (async () => {
-    if (!('serviceWorker' in navigator)) return null;
+    if (!('serviceWorker' in navigator)) { none = true; return null; }
     try {
-      const reg = await navigator.serviceWorker.register('sw.js', {scope: './'});
-      // A newly published reader (and its new pins) reaches this browser on
-      // the next page, not a day later; the browser fetches sw.js past its cache.
-      reg.update().catch(() => {});
-      const active = reg.active || await new Promise((resolve, reject) => {
-        const w = reg.installing || reg.waiting;
-        if (!w) return reject(new Error('no worker'));
-        w.addEventListener('statechange', () => { if (w.state === 'activated') resolve(reg.active || w); else if (w.state === 'redundant') reject(new Error('redundant')); });
-        setTimeout(() => reject(new Error('slow')), 4000);
-      });
-      navigator.serviceWorker.addEventListener('message', e => {
-        if (e.data?.type === 'vault-locked' || e.data?.type === 'vault-unlocked') for (const f of listeners) f(e.data.type === 'vault-unlocked');
-      });
-      navigator.serviceWorker.startMessages?.();
-      return (worker = active);
+      registration = await within(navigator.serviceWorker.getRegistration('./'), 2000) ||
+                     await within(navigator.serviceWorker.register('sw.js', {scope: './'}), 4000);
     } catch (e) {
+      none = true;  // refused: no service worker runs here (a private window of Firefox, say)
       return null;
     }
+    if (!registration) return null;  // no answer in time: the vault is there, but out of reach
+    updating = registration.update().catch(() => {});
+    navigator.serviceWorker.startMessages?.();
+    // A browser new to Seal: its first worker installs (every file, checked).
+    if (!registration.active) await within(new Promise(done => {
+      const w = registration.installing || registration.waiting;
+      if (!w) return done();
+      w.addEventListener('statechange', () => { if (w.state === 'activated' || w.state === 'redundant') done(); });
+    }), 4000);
+    return current();
   })();
+}
+// The worker in charge now: the registration's active one, a newer Seal's
+// once it took over (the one it replaced answers nothing).
+function current() {
+  if (!worker || worker.state === 'redundant') worker = registration?.active || null;
+  return worker && worker.state !== 'redundant' ? worker : null;
 }
 
 async function ask(message, transfer = []) {
-  const w = worker || await start();
+  await start();
+  const w = current();
   if (!w) return null;
   return new Promise(resolve => {
     const channel = new MessageChannel();
@@ -75,14 +96,41 @@ export async function state() {
 export async function unlock(records, pin, minutes) {
   if (await raised()) throw new Error(alarmText());  // before any passkey is asked
   const {record, pkcs8, signPkcs8} = await unseal(records, pin);
+  // The passkey first, while the press still counts for the browser; then,
+  // when a newer Seal is installing (a publish reaching this browser as the
+  // page opened), the key waits for it to take over and goes into its vault.
+  // Put into the worker it replaces, the key went with that worker a moment
+  // after the touch, and Unlock seemed to do nothing.
+  if (minutes > 0) await settled().catch(() => {});
   await hold(record, pkcs8, minutes, signPkcs8);
   return record;
+}
+
+// A check for a newer Seal this page started, and a newer worker installing:
+// waited for, 2 seconds (once a page) and 20 at most (the new one fetches
+// every file of Seal and checks each); then the worker in charge is asked.
+async function settled() {
+  await start();
+  if (!registration) return;
+  if (updating) { await within(updating, 2000); updating = null; }
+  const next = registration.installing || registration.waiting;
+  if (!next) return;
+  await within(new Promise(done => {
+    const look = () => { if (next.state === 'activated' || next.state === 'redundant') done(); };
+    next.addEventListener('statechange', look);
+    look();
+  }), 20000);
 }
 
 // A key just unsealed (its PKCS #8 bytes, wiped here) into the vault, or
 // into this page; its mark is remembered in this browser.
 // signPkcs8: the key that signs, where the record holds one (its signer
 // names it); kept beside the key, and used only by Send (sw.js).
+// Into this page alone only where no worker may serve it: no service worker
+// runs here, "Each time" (minutes 0), or a page the worker did not serve (in
+// a browser new to Seal, before its worker took over). A worker out of reach
+// in time, or one that kept nothing, and the key goes from here too: nothing
+// opens, and Unlock says to press it again.
 export async function hold(record, pkcs8, minutes, signPkcs8 = null) {
   const wipe = () => { new Uint8Array(pkcs8).fill(0); if (signPkcs8) new Uint8Array(signPkcs8).fill(0); };
   if (await raised()) { wipe(); throw new Error(alarmText()); }
@@ -95,9 +143,10 @@ export async function hold(record, pkcs8, minutes, signPkcs8 = null) {
     if (copy.byteLength) new Uint8Array(copy).fill(0);
     if (signCopy?.byteLength) new Uint8Array(signCopy).fill(0);
   }
+  const alone = minutes === 0 || none || keep?.served === false;
   try {
-    // Kept in this page as well where the worker did not serve it.
-    if (!keep?.keyIds?.includes(record.keyId) || keep.served === false || !navigator.serviceWorker?.controller) {
+    if (!alone && !keep?.keyIds?.includes(record.keyId)) throw new Error(keep?.alarm ? alarmText() : 'The key did not stay open: press Unlock once more.');
+    if (alone) {
       const key = await crypto.subtle.importKey('pkcs8', pkcs8, {name: 'X25519'}, false, ['deriveBits']);
       const signKey = signer ? await crypto.subtle.importKey('pkcs8', signPkcs8, {name: 'Ed25519'}, false, ['sign']).catch(() => null) : null;
       const before = page.get(record.keyId);  // a key that signs held already stays when this record brings none
@@ -203,6 +252,7 @@ export const used = (inner = false) => ask({type: 'use', inner});
 // How far GitHub's clock is from this device's, in ms, or null (clock.mjs).
 export const timeOffset = async () => { const r = await ask({type: 'time'}); return Number.isFinite(r?.offset) ? r.offset : null; };
 export const seen = () => ask({type: 'seen'});
-// Told when the key is locked or opened, here or in another page of the reader.
+// Told when the key is locked or opened, here or in another page of the
+// reader: f(open), and f(false, 'replaced') when a newer Seal took over.
 export const watch = f => { listeners.add(f); };
 export const warm = () => start();

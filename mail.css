@@ -130,6 +130,18 @@ svg.brand-badge[data-app=boards]{aspect-ratio:667.5/192;border-radius:5.99%/20.8
 transition:background-color var(--fast) var(--ease)}
 .search:focus-within{background:var(--c-surface);outline:2px solid var(--c-primary-soft);outline-offset:-2px}.search svg.i{fill:var(--c-text-2)}
 .search input{flex:1;min-width:0;height:100%;border:0;outline:0;background:transparent;font-size:var(--t-lg)}
+
+.top form.search{position:relative}
+.search-drop{position:absolute;top:calc(100% + var(--s-1));left:0;right:0;z-index:70;display:grid;grid-template-columns:minmax(0,1fr);gap:2px;max-height:min(480px,70vh);padding:var(--s-2);overflow-y:auto;
+border-radius:var(--r-lg);background:var(--c-surface);box-shadow:var(--e-3)}
+.search-drop[hidden]{display:none}.search-drop .pop-title{margin:var(--s-1) var(--s-3) var(--s-1)}:root.wide .search-drop{min-width:min(480px,calc(100vw - var(--w-nav) - 2 * var(--s-4)))}
+
+.sugg{display:flex;align-items:center;gap:var(--s-3);min-height:40px;border-radius:var(--r-sm)}.sugg .sugg-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sugg small{flex:none;max-width:40%;overflow:hidden;color:var(--c-text-3);text-overflow:ellipsis;white-space:nowrap}
+.sugg.active,.sugg-all.active{background:var(--c-selected);color:var(--c-on-selected)}.sugg-all{color:var(--c-primary)}
+.sugg-none{margin:var(--s-2) var(--s-3);color:var(--c-text-3)}
+.sugg svg.i{flex:none;width:20px;height:20px;fill:var(--c-text-2)}.sugg .avatar{flex:none}
+.sugg-group + .sugg-group{margin-top:var(--s-2)}
 .me{display:flex;align-items:center;justify-content:flex-end;gap:var(--s-1);padding-left:var(--s-4)}.me form{display:contents}
 .me-link{display:inline-grid;margin-left:var(--s-2);border-radius:var(--r-full);transition:outline-color var(--fast) var(--ease);corner-shape:round}
 @media (hover:hover){.me-link:hover{outline:4px solid var(--c-hover)}}
@@ -1003,12 +1015,14 @@ body.bare main.card{padding:var(--s-7) var(--s-5);border-radius:var(--r-lg)}body
 
 @media (max-width:600px){
 
-.top .search{position:relative;justify-self:start;justify-content:center;gap:0;width:var(--tap);height:var(--tap);padding:0;border-radius:var(--r-full);background:transparent;corner-shape:round}
+.top .search{position:relative;justify-self:start;justify-content:flex-start;gap:0;width:var(--tap);height:var(--tap);margin-left:calc(-1 * var(--s-2));padding:0 0 0 2px;border-radius:var(--r-full);background:transparent;corner-shape:round}
 .top .search input{position:absolute;inset:0;width:100%;opacity:0;cursor:pointer}
 .top .search:is(:focus-within,:where(:has(input:not(:placeholder-shown)))){justify-self:stretch;justify-content:flex-start;gap:var(--s-3);width:auto;padding:0 var(--s-4);background:var(--c-surface-3)}
 .top .search:focus-within{background:var(--c-surface)}
 .top .search:is(:focus-within,:where(:has(input:not(:placeholder-shown)))) input{position:static;opacity:1;cursor:text}
 .top:has(.search:focus-within,.search input:not(:placeholder-shown)) .app-links{display:none}
+
+.top .search-drop{position:fixed;top:calc(var(--h-top) - var(--s-1));left:var(--s-2);right:var(--s-2);max-height:calc(100dvh - var(--h-top) - var(--s-4))}
 .app-link,.me .bell{position:relative}.app-link::after,.me .bell::after{content:"";position:absolute;inset:-4px -2px}}
 
 @media (max-width:840px),(max-height:500px) and (hover:none){.faces .avatar.face,.bell .badge,.flow-label{font-size:var(--t-xs)}.signature-editor{font-size:var(--t-lg)}.copy{width:var(--tap);height:var(--tap)}}

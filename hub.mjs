@@ -16,7 +16,7 @@ import {escape} from './mime.mjs';
 import {icon} from './icons.mjs';
 import * as vault from './vault.mjs';
 import {alarmText, raised} from './alarm.mjs';
-import {canOpen, glance, openWith, openpgpLib, recipientsOf} from './decrypt.mjs';
+import {canOpen, glance, openWith, openpgpLib, recipients, recipientsOf} from './decrypt.mjs';
 import * as contacts from './contacts.mjs';
 const {keyFor} = contacts;
 
@@ -29,7 +29,7 @@ const waiting = new Map();    // slot -> {armored, from, ids}
 // for Unlock, of that key, rather than end as a key this browser lacks.
 const missing = new Set();
 let parentOrigin = null, channel = null, records = [], minutes = 15, mode = 'quiet', count = 0;
-let unlocked = false, busy = false, failure = '', alarm = false;
+let unlocked = false, busy = false, failure = '', alarm = false, touched = 0;
 // The passkeys this device made itself (their records are in this browser):
 // Unlock asks only for them, so the device's own Touch ID, Face ID or Windows
 // Hello answers, never a dialog for a phone nearby that may not hold one.
@@ -109,7 +109,7 @@ function unlockForm() {
       (failure ? `<p class="hub-error" role="alert">${failure}</p>` : '') + `</div>`;
   const pin = needed().some(r => r.pinSalt);
   return `<form class="hub-unlock">` +
-    `<button class="tonal" type="submit"${busy ? ' disabled' : ''}>${icon('lock_open')}<span>Unlock</span></button>` +
+    `<button class="tonal" type="submit"${busy ? ' disabled' : ''}>${icon('lock_open')}<span>${busy ? 'Unlocking…' : 'Unlock'}</span></button>` +
     (pin ? '<label class="field hub-pin"><span>PIN</span><input type="password" id="pin" inputmode="numeric" autocomplete="off"></label>' : '') +
     (failure ? `<p class="hub-error" role="alert">${failure}</p>` : '') + `</form>`;
 }
@@ -119,15 +119,24 @@ async function submit(e, anywhere = false) {
   if (busy) return;
   busy = true;
   failure = '';
-  if (e.target.querySelector) (e.target.querySelector('button') || e.target).disabled = true;
+  if (e.target.querySelector) {
+    const button = e.target.querySelector('button') || e.target;
+    button.disabled = true;
+    // Said on the button in place: a redraw here would lose the press.
+    if (button.closest('form.hub-unlock') && button.querySelector('span')) button.querySelector('span').textContent = 'Unlocking…';
+  }
   try {
     openpgpLib();  // loads while the passkey is asked
     const opened = await vault.unlock(anywhere || !ownHere().length ? needed() : ownHere(), document.getElementById('pin')?.value || '', minutes);
+    touched = Date.now();
     // The passkey that opened it is this device's: Mail remembers it, and Unlock asks for it alone.
     if (opened?.credentialId) { usedCredential = opened.credentialId; here.add(opened.credentialId); }
     unlocked = true;
     missing.clear();
     await openAll();
+    // Never a touch that ends as if nothing happened: what is still shut says why.
+    if (!unlocked) failure = 'The key did not stay open: press Unlock once more.';
+    else if (missing.size) failure = 'That passkey opened another key of yours: this message needs another one.';
   } catch (err) {
     failure = escape(err.name === 'NotAllowedError' ? 'Not unlocked: cancelled, or this device has no passkey for your key yet.' : err.name === 'SecurityError' ? 'This browser does not allow passkeys here.' : err.message) +
               // A device whose passkeys do not open the key (a new computer):
@@ -232,10 +241,16 @@ async function syncPeople() {
 let peopleTimer = 0;
 try { new BroadcastChannel('seal-people').onmessage = e => { if (e.data?.type !== 'changed') return; clearTimeout(peopleTimer); peopleTimer = setTimeout(syncPeople, 1500); }; } catch (e) {}
 
-vault.watch(open => {
+vault.watch((open, why) => {
   if (open) syncPeople();
   if (open && (!unlocked || missing.size)) { missing.clear(); openAll().then(draw); }
-  if (!open && unlocked) { unlocked = false; forget(); draw(); }
+  if (!open && unlocked) {
+    unlocked = false;
+    // A newer Seal took over just after the touch: its vault starts empty.
+    if (why === 'replaced' && Date.now() - touched < 30000) failure = 'Seal was updated just now: press Unlock once more.';
+    forget();
+    draw();
+  }
 });
 
 // Keeping the vault: every 20 seconds it hears that a page of Mail is open
@@ -317,7 +332,11 @@ addEventListener('message', async e => {
       // The whole message, where Mail hands it over too: for the signature of
       // the sender's domain (decrypt.mjs, dkim.mjs).
       const raw = it.raw instanceof Uint8Array && it.raw.length <= 40e6 ? it.raw : undefined;
-      waiting.set(it.slot, {armored: it.armored, raw, from: typeof it.from === 'string' ? it.from.slice(0, 320).toLowerCase() : ''});
+      // The keys it is for, read at once from its first packets: Unlock then
+      // asks only for passkeys of a key the page's messages need.
+      let ids;
+      try { ids = recipients(it.armored); } catch (e) {}
+      waiting.set(it.slot, {armored: it.armored, raw, from: typeof it.from === 'string' ? it.from.slice(0, 320).toLowerCase() : '', ids});
     }
     if (unlocked) await openAll();
     draw();
