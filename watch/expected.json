@@ -1,18 +1,18 @@
 {
- "updated": "2026-10-19T22:20:34Z",
+ "updated": "2026-10-19T22:21:19Z",
  "mail": {
   "https://mail.legalmachines.org": {
-   "/static/app.js": "a4ddca37207db9ff1a5005c20cd50fd85af8bd416ba2af7d4c2567ab851879f3",
-   "/static/app.css": "50d99d4e95e66383e4ade46ec42558575a8e50611c2285359b701fc31b04a887",
-   "/static/work.js": "a24672bc414e0b0da4d07a11669da918dae329481aa7ccac9afd75a60dc11dba",
-   "/static/work.css": "8ef1698ff9647a3d42cf9500c79897beb4fa0cd8a6e6f0e74ebf6c81a8f4cdc8",
+   "/static/app.js": "3390ae9d79969ffd3d5207e6906caa666bec2f0c8f47ae47ad31dd58974bc666",
+   "/static/app.css": "3d88b2ad40bd9719b92c056518f373daf25bb7f29080a3d26e0e75ac372c70a3",
+   "/static/work.js": "a71b86cf5aa59d2c90d249ebfc56f4c19fbce85bf4a5a22d5d3c216ebc385727",
+   "/static/work.css": "423e1231972c9192ac7a4b8ad82f59884342b3d7c1ac2f43ccacbbd8c010e1ed",
    "csp": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; frame-src 'self' https://seal.legalmachines.org https://seal.dzyza.com; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
   },
   "https://mail.dzyza.com": {
-   "/static/app.js": "a4ddca37207db9ff1a5005c20cd50fd85af8bd416ba2af7d4c2567ab851879f3",
-   "/static/app.css": "50d99d4e95e66383e4ade46ec42558575a8e50611c2285359b701fc31b04a887",
-   "/static/work.js": "a24672bc414e0b0da4d07a11669da918dae329481aa7ccac9afd75a60dc11dba",
-   "/static/work.css": "8ef1698ff9647a3d42cf9500c79897beb4fa0cd8a6e6f0e74ebf6c81a8f4cdc8",
+   "/static/app.js": "3390ae9d79969ffd3d5207e6906caa666bec2f0c8f47ae47ad31dd58974bc666",
+   "/static/app.css": "3d88b2ad40bd9719b92c056518f373daf25bb7f29080a3d26e0e75ac372c70a3",
+   "/static/work.js": "a71b86cf5aa59d2c90d249ebfc56f4c19fbce85bf4a5a22d5d3c216ebc385727",
+   "/static/work.css": "423e1231972c9192ac7a4b8ad82f59884342b3d7c1ac2f43ccacbbd8c010e1ed",
    "csp": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; frame-src 'self' https://seal.legalmachines.org https://seal.dzyza.com; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
   }
  },
