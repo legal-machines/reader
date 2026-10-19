@@ -941,9 +941,9 @@ gap:0 var(--s-3);align-items:baseline;height:auto;padding:var(--s-3) var(--s-4)}
 .who{grid-area:who;min-width:0;padding:0;font-size:var(--t-lg);line-height:1.35}.row time{grid-area:time;width:auto;visibility:visible!important}
 .msg{display:contents}
 
-.subject{grid-area:subject;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:var(--h-md);line-height:1.4}
-.preview{grid-area:preview;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0;padding-right:var(--h-md);line-height:1.4;color:var(--c-text-3)}
-.row > .star{position:absolute;right:var(--s-2);bottom:var(--s-1);width:var(--tap);height:var(--tap)}
+.subject{grid-area:subject;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.4}
+.preview{grid-area:preview;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin:0;line-height:1.4;color:var(--c-text-3)}
+.row > .star{display:none}
 .thread{padding:var(--s-3) var(--s-4) var(--s-6)}.subject-line{flex-wrap:wrap;row-gap:0;padding:0;margin-bottom:var(--s-2)}.subject-line h1{flex:1 0 100%;font-size:var(--t-2xl)}.subject-line .reader-title{flex:1 0 100%!important}
 .subject-line .imp,.subject-line .icon-button{width:var(--tap);height:var(--tap)}.subject-line .imp{margin:0 -6px 0 -14px}.subject-line > :last-child{margin-right:-14px}
 details.mail{padding:var(--s-2) var(--s-3)}.mail-body{padding-left:0}
