@@ -187,7 +187,7 @@ body.rail .folders .label,body.rail .count,body.rail .group,body.rail .nav-end,b
 body.rail .compose-button{width:52px;padding:0;justify-content:center}
 body.rail .folders a{width:48px;margin-left:2px;padding:0;justify-content:center;border-radius:var(--r-full);corner-shape:round}
 
-body.rail .top{grid-template-columns:auto minmax(0,1fr) auto;column-gap:var(--s-6)}}
+body.rail .top,body.lone .top{grid-template-columns:auto minmax(0,1fr) auto;column-gap:var(--s-4)}body.rail .top .me,body.lone .top .me{padding-left:2px}}
 
 
 .content{min-width:0;padding:0 var(--s-4) var(--s-4) 0}
@@ -527,6 +527,12 @@ dialog.picture-editor::backdrop{background:var(--c-scrim)}
 dialog.ask h2{margin:0 0 var(--s-4);font-size:var(--t-3xl);line-height:32px;font-weight:var(--w-regular)}
 .ask-field{width:100%;height:var(--h-xl);margin:0 0 var(--s-6);padding:0 var(--s-4);border:1px solid var(--c-surface-4);border-radius:var(--r-xs);outline:0;background:transparent;color:var(--c-text);font:inherit;font-size:var(--t-lg)}
 .ask-field:focus{border-color:var(--c-primary);box-shadow:inset 0 0 0 1px var(--c-primary)}
+
+dialog.ask.report{width:min(480px,calc(100vw - 48px))}
+.ask-field.report-text{display:block;height:auto;min-height:132px;margin:0 0 var(--s-2);padding:var(--s-3) var(--s-4);line-height:1.5;resize:vertical}
+.report-shot{display:flex;flex-wrap:wrap;align-items:center;gap:0 var(--s-2);min-height:40px;margin:0 0 var(--s-4) calc(-1 * var(--s-3))}
+.report-shot-name{min-width:0;color:var(--c-text-2);font-size:var(--t-sm);overflow-wrap:anywhere}
+.account-menu .report-item{display:none}
 .composer-actions .send{padding:0 var(--s-6)}
 .file{position:relative;overflow:hidden}.file:focus-within{outline:2px solid var(--c-primary);outline-offset:2px}.file input{position:absolute;inset:0;opacity:0;cursor:pointer}
 .pane.composer{position:relative}
@@ -876,7 +882,7 @@ body{padding-bottom:env(safe-area-inset-bottom)}
 .logo-cell{min-width:auto;padding-left:0}
 .line:has(.recipients){flex-wrap:wrap}.suggest{position:static;flex:1 0 100%;width:auto;margin:0 calc(var(--s-1) - var(--s-2)) var(--s-2) calc(var(--s-1) - var(--s-4));max-height:calc(3 * 56px + var(--s-2))}.suggestion{min-height:56px}.suggestion .avatar{width:40px;height:40px;font-size:var(--t-lg)}.logo{display:none}
 .menu{width:var(--tap);height:var(--tap)}
-.me .icon-button{display:none}.me{padding-left:0}.me-link{place-items:center;width:var(--tap);height:var(--tap);margin:0}.me .avatar{margin:0}
+.me .icon-button{display:none}.me{padding-left:0}.account-menu .report-item{display:flex}.me-link{place-items:center;width:var(--tap);height:var(--tap);margin:0}.me .avatar{margin:0}
 .app{grid-template-columns:1fr}
 
 .nav{position:fixed;inset:0 auto 0 0;z-index:50;width:min(300px,86vw);height:auto;padding:0 0 calc(var(--s-4) + env(safe-area-inset-bottom)) var(--s-2);
