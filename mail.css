@@ -1027,6 +1027,12 @@ body.bare main.card{padding:var(--s-7) var(--s-5);border-radius:var(--r-lg)}body
 
 @media (max-width:840px),(max-height:500px) and (hover:none){.faces .avatar.face,.bell .badge,.flow-label{font-size:var(--t-xs)}.signature-editor{font-size:var(--t-lg)}.copy{width:var(--tap);height:var(--tap)}}
 
+@media (max-height:500px) and (hover:none){
+:root{--h-top:48px}
+.top{position:static;padding-top:0;padding-bottom:0}.top .search{height:var(--h-md)}
+.list-head,.settings-nav{top:0}
+.fab{justify-content:center;width:var(--h-xl);padding:0}.fab span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}}
+
 
 .app-links{display:flex;align-items:center;gap:var(--s-1)}
 .app-link{display:inline-grid;place-items:center;flex:none;width:var(--h-md);height:var(--h-md);border-radius:var(--r-full);text-decoration:none;
