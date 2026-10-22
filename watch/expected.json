@@ -1,18 +1,18 @@
 {
- "updated": "2026-10-22T12:42:20Z",
+ "updated": "2026-10-22T12:42:55Z",
  "mail": {
   "https://mail.legalmachines.org": {
    "/static/app.js": "f5c0f6ad15855997af719d20d15e387b4505a1c841d937bd41529c6997634831",
    "/static/app.css": "38996ebd2d2893d540595503109c4db15f15163d29b43bf3deadaf33bbdc73c1",
    "/static/work.js": "4fb3d11e8ac6a1dc0eef9921f8643287a39dc7dbc9e084a19853417622157bf1",
-   "/static/work.css": "b1e1aa8bc0bd56ba37e26828fc25d1ed127a7ae70a2e5ecb0fd9dab357743209",
+   "/static/work.css": "7516735fdde2b3943a5d5164e7267531ebd7a06aa6b2c5387452c5b2adea0ffa",
    "csp": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; frame-src 'self' https://seal.legalmachines.org https://seal.dzyza.com; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
   },
   "https://mail.dzyza.com": {
    "/static/app.js": "f5c0f6ad15855997af719d20d15e387b4505a1c841d937bd41529c6997634831",
    "/static/app.css": "38996ebd2d2893d540595503109c4db15f15163d29b43bf3deadaf33bbdc73c1",
    "/static/work.js": "4fb3d11e8ac6a1dc0eef9921f8643287a39dc7dbc9e084a19853417622157bf1",
-   "/static/work.css": "b1e1aa8bc0bd56ba37e26828fc25d1ed127a7ae70a2e5ecb0fd9dab357743209",
+   "/static/work.css": "7516735fdde2b3943a5d5164e7267531ebd7a06aa6b2c5387452c5b2adea0ffa",
    "csp": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; frame-src 'self' https://seal.legalmachines.org https://seal.dzyza.com; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
   }
  },
