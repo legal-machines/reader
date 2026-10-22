@@ -557,6 +557,19 @@ dialog.ask.report{width:min(480px,calc(100vw - 48px))}
 background:color-mix(in srgb,var(--c-primary-soft) 70%,transparent);color:var(--c-on-primary-soft);font-size:var(--t-lg);font-weight:var(--w-medium);pointer-events:none}
 .drop-hint span{display:inline-flex;align-items:center;gap:var(--s-2)}
 
+
+.person-card{position:fixed;z-index:70;display:grid;gap:var(--s-3);width:300px;max-width:calc(100vw - 2 * var(--s-4));padding:var(--s-4);border-radius:var(--r-lg);
+background:var(--c-surface);color:var(--c-text);box-shadow:var(--e-3);font-size:var(--t-md)}
+.person-card .pc-head{display:flex;align-items:center;gap:var(--s-3);min-width:0}.person-card .pc-head .avatar{flex:none;width:48px;height:48px;font-size:var(--t-xl)}
+.person-card .pc-who{display:grid;min-width:0}.person-card .pc-who b{overflow:hidden;font-weight:var(--w-medium);text-overflow:ellipsis;white-space:nowrap}
+.person-card .pc-who small{overflow:hidden;color:var(--c-text-2);font-size:var(--t-sm);text-overflow:ellipsis;white-space:nowrap}
+.person-card .pc-facts{margin:0;color:var(--c-text-2);font-size:var(--t-sm)}
+.person-card .pc-actions{display:flex;flex-wrap:wrap;gap:var(--s-2)}.person-card .pc-actions form{display:contents}
+.person-card .pc-actions :is(a,button){display:inline-flex;align-items:center;gap:var(--s-1);min-height:36px;padding:0 var(--s-3);border:0;border-radius:var(--r-full);
+background:var(--c-surface-2);color:var(--c-text);font:inherit;font-size:var(--t-sm);text-decoration:none;cursor:pointer}
+.person-card .pc-actions svg{width:18px;height:18px;fill:currentColor}
+@media (hover:hover){.person-card .pc-actions :is(a,button):hover{background:var(--c-hover)}}
+@media (hover:hover){[data-person]{cursor:default}.mention[data-person]{cursor:pointer}}
 .drop-veil{position:fixed;z-index:60;display:grid;place-items:center;padding:var(--s-4);border:2px dashed var(--c-primary);border-radius:var(--r-lg);
 background:color-mix(in srgb,var(--c-primary-soft) 80%,transparent);color:var(--c-on-primary-soft);font-size:var(--t-lg);font-weight:var(--w-medium);text-align:center;pointer-events:none}
 
