@@ -67,8 +67,8 @@ import urllib.request
 READERS = {"legalmachines.org": ("seal.legalmachines.org", "legal-machines/reader"),
            "dzyza.com": ("seal.dzyza.com", "legal-machines/reader2")}
 MAIL_SITES = ["https://mail.legalmachines.org", "https://mail.dzyza.com"]
-# Mail's and, on Calendar's and Boards' pages, theirs: all from the same origin.
-MAIL_FILES = ["/static/app.js", "/static/app.css", "/static/work.js", "/static/work.css"]
+# Mail's and, on Calendar's, Boards' and Decks' pages, theirs: all from the same origin.
+MAIL_FILES = ["/static/app.js", "/static/app.css", "/static/work.js", "/static/work.css", "/static/deck.js", "/static/deck.css"]
 NAMESERVERS = {"ns1.desec.io.", "ns2.desec.org."}
 PAGES_NAME = "legal-machines.github.io."
 PAGES_IPS = ["185.199.108.153", "185.199.109.153", "185.199.110.153", "185.199.111.153"]
