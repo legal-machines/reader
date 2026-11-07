@@ -1,13 +1,13 @@
 {
- "updated": "2026-11-07T08:09:34Z",
+ "updated": "2026-11-07T08:10:10Z",
  "mail": {
   "https://mail.legalmachines.org": {
    "/static/app.js": "74136ad0d7f073872fb32c2f9fdde3fb9b046295ae109d908db30d3907b71b6f",
    "/static/app.css": "78fee471487a45479a8bb346a3fd5d0cbfd00cb5c9a3b63a5c6c2424a3490fec",
    "/static/work.js": "9d0378dd588500c0efea91fbd173149ecb040832497d9bb9784232f10f7f9e33",
    "/static/work.css": "4c066c6ed558c654b8efa04c756b5bcb44e39c01d85a1179651510ffad3cff5d",
-   "/static/deck.js": "bdf495e5b73e6fefb9e716f8e545fd7f4aedcd02c01f698d2b9e9850d7fcf34e",
-   "/static/deck.css": "959be0523115a7b4047414430e480ff50b2df0a0bade122871b6b304ce8709ab",
+   "/static/deck.js": "dd920d7f81c4582db186146adc46b0374666d8162841e19833c414f00f0309a2",
+   "/static/deck.css": "a5f802eb7b13dfc76fb3da17a461c423cfb7ed93097aef22661e774672749cac",
    "csp": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; frame-src 'self' https://seal.legalmachines.org https://seal.dzyza.com; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
   },
   "https://mail.dzyza.com": {
@@ -15,8 +15,8 @@
    "/static/app.css": "78fee471487a45479a8bb346a3fd5d0cbfd00cb5c9a3b63a5c6c2424a3490fec",
    "/static/work.js": "9d0378dd588500c0efea91fbd173149ecb040832497d9bb9784232f10f7f9e33",
    "/static/work.css": "4c066c6ed558c654b8efa04c756b5bcb44e39c01d85a1179651510ffad3cff5d",
-   "/static/deck.js": "bdf495e5b73e6fefb9e716f8e545fd7f4aedcd02c01f698d2b9e9850d7fcf34e",
-   "/static/deck.css": "959be0523115a7b4047414430e480ff50b2df0a0bade122871b6b304ce8709ab",
+   "/static/deck.js": "dd920d7f81c4582db186146adc46b0374666d8162841e19833c414f00f0309a2",
+   "/static/deck.css": "a5f802eb7b13dfc76fb3da17a461c423cfb7ed93097aef22661e774672749cac",
    "csp": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; frame-src 'self' https://seal.legalmachines.org https://seal.dzyza.com; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
   }
  },
