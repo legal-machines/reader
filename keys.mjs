@@ -222,5 +222,25 @@ export const KEYS = [
    "70a8521df706c9fc48d1c3f1ee757ca87c57436c7b6998819f8741489fb9e9ba"
   ],
   "wkd": true
+ },
+ {
+  "domain": "legalmachines.org",
+  "fingerprint": "E3C8F93C4E5AFC48285A407A14A144306868DE57",
+  "created": "2026-11-11",
+  "expires": "2029-11-10",
+  "subkeys": [
+   "540ef3e9baf7b487"
+  ],
+  "x25519": {
+   "540ef3e9baf7b487": "ZKIRRVqGPFgyiTVGAsCRJQehN1VC5PJEQJnrRkglkXE="
+  },
+  "keys": [
+   "e3c8f93c4e5afc48285a407a14a144306868de57",
+   "23ce34282365b95fe73d10e2540ef3e9baf7b487"
+  ],
+  "hashes": [
+   "bd3f725db45f4dc6b974546da34298d30a97bf6ddf5a273d3ab36bc1a91c8e14"
+  ],
+  "wkd": true
  }
 ];
