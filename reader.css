@@ -156,7 +156,7 @@ p,li{text-wrap:pretty}
 .sheet-facts dd{margin:0;overflow-wrap:anywhere}
 .sheet-facts .fingerprint{margin:0;font-size:15px}
 .recovery-code{font:600 22px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.06em}
-.sheet-notes{margin:0 0 var(--s-4);padding-left:1.2em;color:var(--c-text-2);font-size:14px;line-height:20px}
+.sheet-notes{margin:0 0 var(--s-4);padding-left:0;list-style:none;color:var(--c-text-2);font-size:14px;line-height:20px}
 .sheet-notes li{margin:0 0 var(--s-2);text-wrap:pretty}
 @media (max-width:560px){.sheet-facts{grid-template-columns:1fr}.sheet-facts dd{margin-bottom:var(--s-2)}}
 /* On paper only the sheet, in black on white. */

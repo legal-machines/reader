@@ -462,7 +462,12 @@ if (createFor && !window.opener) {
   form.hidden = true;
   document.getElementById('create-address').textContent = createFor.address;
 }
-let lockedCopy = null, madeFor = null, madeMark = null, olderHere = [];
+let lockedCopy = null, madeFor = null, madeMark = null, madeFingerprint = null, olderHere = [];
+// The sheet holds the only copy of the recovery code: while it is open,
+// the browser asks before this page is left or reloaded (a print dialog
+// in Safari once left the owner with the page back at its start and the
+// code gone, 2026-11-12).
+const keepSheet = e => { e.preventDefault(); e.returnValue = ''; };
 document.getElementById('create-button').addEventListener('click', async e => {
   if (!e.isTrusted || !createFor) return;
   createError.hidden = true;
@@ -491,7 +496,7 @@ document.getElementById('create-button').addEventListener('click', async e => {
     const fingerprint = (await openpgp.readKey({armoredKey: publicKey})).getFingerprint().toUpperCase();
     if (relayId) relay.postMessage({type: 'sealed', id: relayId, record, newKey: {publicKey, lockedKey: locked, fingerprint}});
     awaitKept(record);
-    lockedCopy = locked; madeFor = createFor.address; madeMark = mark;
+    lockedCopy = locked; madeFor = createFor.address; madeMark = mark; madeFingerprint = fingerprint;
     document.getElementById('sheet-address').textContent = createFor.address;
     document.getElementById('sheet-fingerprint').innerHTML = fingerprint.match(/.{4}/g).reduce((a, g, i) => a + (i === 5 ? '</span><span>' : i ? ' ' : '') + g, '<span>') + '</span>';
     document.getElementById('sheet-code').textContent = printed(code);
@@ -503,6 +508,7 @@ document.getElementById('create-button').addEventListener('click', async e => {
     document.getElementById('sheet-site').textContent = `${location.host}, in a tab of its own; and Mail, at ${createFor.address.split('@')[1]}`;
     createCard.hidden = true;
     sheet.hidden = false;
+    addEventListener('beforeunload', keepSheet);
     sheet.scrollIntoView({block: 'start'});
   } catch (err) {
     createError.textContent = err.name === 'NotAllowedError' ? 'The passkey was not made (cancelled or not allowed).' : err.message;
@@ -511,6 +517,21 @@ document.getElementById('create-button').addEventListener('click', async e => {
   }
 });
 document.getElementById('sheet-print').addEventListener('click', () => print());
+// The sheet as a file, for printing later when the print dialog fails:
+// kept on this computer only, by the owner's choice (nothing is sent).
+document.getElementById('sheet-save-code').addEventListener('click', () => {
+  const code = document.getElementById('sheet-code').textContent;
+  if (!code || !madeFor || !madeFingerprint) return;
+  const groups = madeFingerprint.match(/.{4}/g), fp = groups.slice(0, 5).join(' ') + '  ' + groups.slice(5).join(' ');
+  const text = ['Your end-to-end key', '', `Address        ${madeFor}`, `Fingerprint    ${fp}`, `Recovery code  ${code}`,
+    `Made           ${document.getElementById('sheet-date').textContent}`, '',
+    'Print this, keep the paper where you keep your passport, then delete this file.', ''].join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], {type: 'text/plain'}));
+  a.download = `recovery-code-${madeFor}.txt`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
 // The older keys of the address, removed on your word: their records here,
 // and their passkeys reported as unknown, which a browser that knows the
 // WebAuthn Signal API takes out of its list of passkeys.
@@ -602,6 +623,7 @@ document.getElementById('sheet-save').addEventListener('click', () => {
 document.getElementById('sheet-kept').addEventListener('change', e => { document.getElementById('sheet-done').disabled = !e.target.checked; });
 document.getElementById('sheet-done').addEventListener('click', () => {
   // The code leaves the page: the sheet goes, and with it the only copy here.
+  removeEventListener('beforeunload', keepSheet);
   document.getElementById('sheet-code').textContent = '';
   sheet.hidden = true;
   lockedCopy = null;
