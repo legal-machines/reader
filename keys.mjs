@@ -185,26 +185,6 @@ export const KEYS = [
  },
  {
   "domain": "legalmachines.org",
-  "fingerprint": "A82E34D5E4AEC96E3FD404BD67217292A57963C8",
-  "created": "2026-11-05",
-  "expires": "2029-11-04",
-  "subkeys": [
-   "b5e4db49d1d072c4"
-  ],
-  "x25519": {
-   "b5e4db49d1d072c4": "s2qaOzXJvDRC7kbdGnTx0yeKwEIvHmmdZ0sehiObHXE="
-  },
-  "keys": [
-   "a82e34d5e4aec96e3fd404bd67217292a57963c8",
-   "24e7640d75f6513dcc13a326b5e4db49d1d072c4"
-  ],
-  "hashes": [
-   "bd3f725db45f4dc6b974546da34298d30a97bf6ddf5a273d3ab36bc1a91c8e14"
-  ],
-  "wkd": true
- },
- {
-  "domain": "legalmachines.org",
   "fingerprint": "B462E536391D116DAE2A0A0FB5882636AE458B44",
   "created": "2026-10-19",
   "expires": "2029-10-18",
