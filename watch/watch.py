@@ -641,7 +641,7 @@ def tell_postmasters(problems, keys_wrong=False):
                 ("\nA key problem means that people get a key other than ours, or none, from our server: until it clears, check "
                  "fingerprints only against seal.<domain>/keys.html.\n" if keys_wrong else "") +
                 "\nUntil this clears, the webmail opens no encrypted message and adds no key by itself; each message offers "
-                "Open anyway. Look at the domain's registrar (REG.RU), deSEC and the GitHub repositories legal-machines/reader "
+                "Open anyway. Look at the domain's registrar, deSEC and the GitHub repositories legal-machines/reader "
                 "and legal-machines/reader2 before opening encrypted mail. This note repeats once a day while a problem lasts.\n")
     else:
         subject = "Seal: all clear again"
