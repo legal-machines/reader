@@ -1,0 +1,22 @@
+/* A line of a list in the Mail app (row.html): the subject and the start of
+   an encrypted message, drawn where Mail drew "Encrypted message", in the
+   place, size and colors Mail measured for them. */
+/* Its own few tokens (it loads no other stylesheet), the Mail app's values. */
+:root{--c-good:#146c2e;--fade:24px;--gap:8px;--gap-sm:4px;--icon-xs:14px}
+@media (prefers-color-scheme:dark){:root{--c-good:#6dd58c}}
+html,body{margin:0;padding:0;background:transparent;overflow:hidden;height:100%}
+body{position:relative;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;
+  -webkit-user-select:none;user-select:none;cursor:default}
+/* Two lines (a list on a phone, or the wide list): each part where Mail's stood. */
+.part{position:absolute;display:flex;align-items:center;gap:var(--gap-sm);overflow:hidden;white-space:nowrap;
+  -webkit-mask-image:linear-gradient(to left,transparent,#000 var(--fade));mask-image:linear-gradient(to left,transparent,#000 var(--fade))}
+.part:empty{display:none}
+/* One line (the compact list, a folded message): the subject, then the text. */
+.flow #line{position:absolute;display:flex;align-items:center;overflow:hidden;white-space:nowrap;
+  -webkit-mask-image:linear-gradient(to left,transparent,#000 var(--fade));mask-image:linear-gradient(to left,transparent,#000 var(--fade))}
+.flow .part{position:static;flex:none;-webkit-mask-image:none;mask-image:none;overflow:visible}
+.flow #p{margin-left:var(--gap)}
+.flow #s:empty + #p{margin-left:0}
+.part svg{flex:none;width:var(--icon-xs);height:var(--icon-xs);fill:currentColor}
+.lock{color:var(--c-good)}
+.text{overflow:hidden}

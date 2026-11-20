@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src https://mail.legalmachines.org https://mail.dzyza.com; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self'; img-src 'self' data: blob:; form-action 'none'; base-uri 'none'">
+<title>Set up Seal</title>
+<link rel="stylesheet" href="reader.css">
+<link rel="icon" href="data:,">
+<script type="module" src="setup.mjs"></script>
+</head>
+<body class="page">
+<main class="setup">
+  <h1 id="page-title">Read encrypted mail in this browser</h1>
+  <p id="page-intro">Your key is opened here, in this browser, and nothing leaves it: this page cannot send anything anywhere. It is then locked to this device with a passkey (Touch ID, a fingerprint or the screen lock), and a PIN too if you choose one, and kept only in this browser.</p>
+  <section class="card" id="continue" hidden>
+    <h2>Continue in a new tab</h2>
+    <p>Seal works with your key only in a tab that no other page can reach, Mail included. Continue opens one, at this same address; this tab closes by itself when you are done there.</p>
+    <div class="actions"><button class="filled" type="button" id="continue-button">Continue</button></div>
+  </section>
+  <section class="card" id="already" hidden>
+    <h2>Your key is here already</h2>
+    <p>This browser keeps the key of <b class="already-who"></b>, but Mail cannot see what Seal keeps, so it asks for the key until you connect it, once. Connect to Mail opens a tab of Mail; press Connect there.</p>
+    <div class="actions" id="already-actions"><button class="text" type="button" id="already-other">Add another key</button></div>
+  </section>
+  <section class="card" id="link" hidden>
+    <h2>Scan this code with your phone</h2>
+    <p>Use the camera of the phone where your encrypted mail opens. Seal opens there: confirm, and your key comes to this device.</p>
+    <div class="qr-box"></div>
+    <p class="hint link-status" role="status">Waiting for your phone. The code changes every few minutes; nothing secret is in it.</p>
+    <div class="actions" id="link-ready" hidden><button class="filled" type="button" id="link-lock">Lock it to this device</button></div>
+    <p class="error" role="alert" hidden></p>
+    <div class="actions"><button class="text" type="button" id="link-other">Use the recovery code instead</button></div>
+  </section>
+  <section class="card" id="keys" hidden><h2>Keys in this browser</h2><div class="key-list" role="list"></div></section>
+  <section class="card" id="alarm" hidden>
+    <h2>Something looks wrong?</h2>
+    <div class="alarm-off">
+      <p>Your mark, a square of four pictures, shows only while you type in Seal's own composer, and its pictures are always the ones that Show my mark brings up next to your key above. If a message you were writing showed none, or other ones, the page around it was not Seal: stop typing there.</p>
+      <p>Report it here. Encrypted mail locks in this browser at once and stays locked until you clear the report on this page, and a private note opens on GitHub for the team.</p>
+      <div class="actions"><button class="filled danger" type="button" id="raise">Lock and report</button></div>
+    </div>
+    <div class="alarm-on" hidden>
+      <p><b>Reported <span class="alarm-when"></span>.</b> Encrypted mail is locked in this browser: it opens nothing and sends nothing end to end until you clear the report.</p>
+      <div class="actions"><button class="text" type="button" id="report-again">Open the report again</button><button class="text" type="button" id="clear-alarm">Clear the report</button></div>
+    </div>
+  </section>
+  <section class="card" id="create" hidden>
+    <h2>Create your end-to-end key</h2>
+    <p class="create-for">For <b id="create-address"></b></p>
+    <p>The key is made here, in this browser; the mail server never sees it. It is locked to this device with a passkey (Touch ID, a fingerprint or the screen lock), and you get a recovery code to print. With the code, your other devices can add the key too.</p>
+    <label class="check"><input type="checkbox" id="create-use-pin"><span>Also ask a PIN with every message</span></label>
+    <div id="create-pin-fields" hidden>
+      <label class="field"><span>A PIN for this device (at least 6 characters)</span><input type="password" id="create-pin" minlength="6" inputmode="numeric"></label>
+      <label class="field"><span>The PIN again</span><input type="password" id="create-pin2" minlength="6" inputmode="numeric"></label>
+    </div>
+    <div class="actions"><button class="filled" type="button" id="create-button">Create my key</button></div>
+    <p class="error" role="alert" hidden></p>
+  </section>
+  <section class="card sheet" id="sheet" hidden>
+    <h2>Your end-to-end key</h2>
+    <dl class="sheet-facts">
+      <dt>Address</dt><dd id="sheet-address"></dd>
+      <dt>Fingerprint</dt><dd class="fingerprint" id="sheet-fingerprint"></dd>
+      <dt>Recovery code</dt><dd class="recovery-code" id="sheet-code"></dd>
+      <dt>Made</dt><dd id="sheet-date"></dd>
+      <dt>Where it opens</dt><dd id="sheet-site"></dd>
+    </dl>
+    <ul class="sheet-notes">
+      <li>Print this page, save it to print, or write the code down now. It is shown only this once.</li>
+      <li>With this code and the message "Your encryption key" in your mailbox, any of your devices can add the key. Without the code nobody can open the key in that message, the people who run the mail server included.</li>
+      <li>Keep the paper where you keep your passport. Not in a photo, a cloud note or a chat.</li>
+      <li>Before anyone can write to you end to end, an administrator publishes the key. They check it with you first, so they publish this key and not another: by a link that opens Seal's check in this browser, or by the fingerprint above, read by phone.</li>
+    </ul>
+    <p class="warn no-print" id="sheet-clock" hidden></p>
+    <div class="no-print" id="sheet-older" hidden>
+      <p class="hint">This browser also keeps an older key of this address. Keep it while you still have mail encrypted to it; remove it once you do not.</p>
+      <div class="actions"><button class="text" type="button" id="sheet-older-remove">Remove the older keys from this browser</button></div>
+    </div>
+    <div class="actions no-print"><button class="tonal" type="button" id="sheet-print">Print</button><button class="tonal" type="button" id="sheet-save-code">Save to print</button><button class="text" type="button" id="sheet-save">Save the locked key file</button></div>
+    <label class="check no-print"><input type="checkbox" id="sheet-kept"><span>I printed this code or wrote it down</span></label>
+    <div class="actions no-print"><button class="filled" type="button" id="sheet-done" disabled>Done</button></div>
+  </section>
+  <form class="card" id="setup" autocomplete="off">
+    <h2>Add a key</h2>
+    <p class="handed" id="handed" hidden>Your key came from your mailbox, locked with the recovery code on the sheet you printed when you made it. Type that code to add the key to this browser.</p>
+    <label class="field file" id="file-field"><span>Your secret key file (.asc)</span>
+      <span class="file-box"><input type="file" id="file" accept=".asc,.gpg,.key,.txt,application/pgp-keys" required aria-describedby="file-status"><small class="file-status" id="file-status">Or open "Your encryption key" in Mail</small></span></label>
+    <label class="field"><span id="passphrase-label">The key's passphrase</span><input type="password" id="passphrase" required></label>
+    <label class="check"><input type="checkbox" id="use-pin"><span>Also ask a PIN with every message</span></label>
+    <div id="pin-fields" hidden>
+      <label class="field"><span>A PIN for this device (at least 6 characters)</span><input type="password" id="pin" minlength="6" inputmode="numeric"></label>
+      <label class="field"><span>The PIN again</span><input type="password" id="pin2" minlength="6" inputmode="numeric"></label>
+    </div>
+    <p class="hint">Messages open with Touch ID, your fingerprint or the screen lock. A PIN adds a second step: without it the key does not open, even for someone who knows your computer's password.</p>
+    <div class="actions"><button class="filled" type="submit">Lock with a passkey</button></div>
+    <p class="error" role="alert" hidden></p>
+  </form>
+  <form class="card" id="other-app" autocomplete="off">
+    <h2>Your key in Thunderbird or another mail app</h2>
+    <p>Thunderbird, GnuPG and most other mail apps open a key locked the classic way. Choose the file encryption-key.asc from the message "Your encryption key" in your mailbox and type the recovery code from your sheet: Seal saves a copy locked with the same code, which those apps open. Nothing leaves this browser.</p>
+    <label class="field"><span>The key file (.asc)</span><input type="file" id="other-file" accept=".asc,.gpg,.key,.txt,application/pgp-keys" required></label>
+    <p class="hint" id="other-info" hidden></p>
+    <label class="field"><span>The recovery code from the sheet of this key</span><input type="password" id="other-code" required></label>
+    <div class="actions"><button class="tonal" type="submit">Save a copy</button></div>
+    <p class="error" role="alert" hidden></p>
+    <p class="hint" id="other-done" role="status" hidden>Saved. In Thunderbird: Account Settings, End-To-End Encryption, Add Key, Import an existing OpenPGP Key. Choose the copy and type the recovery code.</p>
+  </form>
+  <div class="done card" role="status" hidden></div>
+  <section class="card" id="connect" hidden>
+    <h2>Connect your key to Mail</h2>
+    <p>Mail has not taken your key yet, so it does not open your encrypted messages in this browser. Connect it: a tab of Mail opens, and your key is kept there once you press Connect.</p>
+    <div class="actions"><button class="filled" type="button">Connect to Mail</button></div>
+  </section>
+</main>
+  <dialog class="confirm" id="remove-dialog" aria-labelledby="remove-title">
+    <form method="dialog"><h2 id="remove-title" tabindex="-1" autofocus>Remove this key?</h2><p class="confirm-text"></p>
+      <div class="actions"><button class="text" value="cancel">Cancel</button><button class="text danger" value="remove">Remove</button></div></form>
+  </dialog>
+</body>
+</html>

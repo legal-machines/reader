@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<!-- No network at all beyond this site's own files. Styles inline: the editor's own formatting. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; form-action 'none'; base-uri 'none'">
+<title>Seal: write</title>
+<link rel="stylesheet" href="mail.css">
+<link rel="stylesheet" href="frame.css">
+<link rel="modulepreload" href="compose.mjs">
+<link rel="modulepreload" href="sites.mjs">
+<link rel="modulepreload" href="width.mjs">
+<link rel="modulepreload" href="mime.mjs">
+<link rel="modulepreload" href="icons.mjs">
+<link rel="modulepreload" href="keys.mjs">
+<link rel="modulepreload" href="mark.mjs">
+<link rel="modulepreload" href="vault.mjs">
+<link rel="modulepreload" href="store.mjs">
+<link rel="modulepreload" href="seal.mjs">
+<link rel="modulepreload" href="decrypt.mjs">
+<link rel="modulepreload" href="sealed-core.mjs">
+<link rel="modulepreload" href="tab.mjs">
+<script type="module" src="compose.mjs"></script>
+</head>
+<body class="embed compose-frame">
+<form class="pane composer" id="compose" autocomplete="off">
+  <div class="fields tail"><div class="line sealed-for" id="sealed-for"><span class="line-label">For</span><span class="sealed-list empty" id="sealed-who">Add who it is for above</span></div><div class="line" data-line="subject"><label for="subject">Subject</label><input id="subject" type="text" enterkeyhint="next"><span class="e2e-label" id="e2e-label"></span></div></div>
+  <div class="editor-box"><div class="editor" id="editor" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Message"></div>
+    <div class="mark-dock" id="mark-dock" data-shown="false" aria-live="polite"></div></div>
+  <div class="attachments" id="files"></div>
+  <div class="drop-hint" hidden><span></span></div>
+  <div class="editor-tools" role="toolbar" aria-label="Formatting" id="tools"></div>
+  <input type="file" id="pictures" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden>
+  <input type="file" id="attach" multiple hidden>
+  <div class="link-card pop-card" id="link-card" hidden><label class="field"><span>Link</span><input type="url" id="link-address" value="https://"></label>
+    <div class="actions"><button class="text" type="button" id="link-cancel">Cancel</button><button class="filled" type="button" id="link-insert">Insert</button></div></div>
+</form>
+</body>
+</html>

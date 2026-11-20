@@ -1,0 +1,178 @@
+/* The reader's pages in the Mail app (index.html, hub.html, title.html,
+   compose.html) are drawn with the Mail app's own stylesheet (mail.css,
+   copied from its source by make-styles.py), which also has the encrypted
+   text (.cipher). This file only takes away the
+   app's page around them, and adds what is the reader's alone. */
+html,body{min-height:0;background:transparent}
+body{margin:0;padding:0;min-height:0}
+.letter > .reader-alert:first-child{margin:0 0 var(--s-3)}
+.unlock .field{max-width:320px;margin:var(--s-3) 0 0}
+.unlock .alert{margin:var(--s-3) 0 0}
+.unlock .alert .text{margin-left:var(--s-1)}
+/* The message: the encrypted text gives way to the letter (embed.mjs):
+   Material 3 fade through, on opacity and transform only. */
+.stage{position:relative}
+.stage.pending{opacity:0}
+#view > .cipher.held{position:absolute;top:0;left:0;right:0;pointer-events:none}
+#view > .cipher.leaving{animation:fade-out var(--d-short2) var(--ease-standard-accel) forwards}
+.stage.arriving{transform-origin:50% 0;animation:fade-through-in var(--d-short4) var(--ease-emphasized-decel) var(--d-short2) both}
+@keyframes fade-out{to{opacity:0}}
+@keyframes fade-through-in{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){#view > .cipher.leaving,.stage.arriving{animation:none}}
+#view{position:relative}
+/* The hub: one Unlock for every encrypted message on the page, as a
+   Material 3 two-line list item on a container surface. A PIN and an
+   error, when there are any, take a row of their own under it. */
+body.hub #hub:empty{display:none}
+.hub-bar{display:grid;grid-template-columns:var(--h-md) minmax(0,1fr) auto;align-items:center;column-gap:var(--s-4);min-height:calc(var(--h-xl) + var(--s-4));padding:var(--s-2) var(--s-6) var(--s-2) var(--s-4);
+  border-radius:var(--r-md);background:var(--c-surface-2)}
+.hub-icon{display:grid;place-items:center;width:var(--h-md);height:var(--h-md);border-radius:var(--r-full);background:var(--c-good-soft)}
+.hub-icon svg.i{width:var(--icon);height:var(--icon);fill:var(--c-on-good-soft)}
+.hub-text{display:flex;flex-direction:column;min-width:0}
+.hub-text b{overflow:hidden;color:var(--c-text);font-size:var(--t-lg);font-weight:var(--w-regular);line-height:24px;text-overflow:ellipsis;white-space:nowrap}
+.hub-support{display:flex;align-items:center;gap:var(--s-1);overflow:hidden;color:var(--c-text-2);font-size:var(--t-md);line-height:20px;text-overflow:ellipsis;white-space:nowrap}
+
+.hub-unlock{display:contents}
+.hub-unlock > button{grid-column:3;grid-row:1}
+.hub-unlock > button{padding:0 var(--s-6) 0 var(--s-4)}
+.hub-unlock > button svg.i{width:var(--icon-sm);height:var(--icon-sm)}
+.hub-add{grid-column:3;grid-row:1;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:var(--s-1) var(--s-2)}
+.hub-add > .tonal{padding:0 var(--s-6) 0 var(--s-4)}.hub-add > button svg.i{width:var(--icon-sm);height:var(--icon-sm)}
+.hub-add > .hub-error{flex-basis:100%;margin:0;text-align:right}
+:root.phone .hub-add{grid-column:1 / -1;grid-row:2;justify-content:flex-start;margin-top:var(--s-1)}:root.phone .hub-add > .hub-error{text-align:left}
+.hub-status .hub-add{grid-column:auto;grid-row:auto;justify-content:flex-start}.hub-status .hub-add > .hub-error{text-align:left}
+.hub-pin{grid-column:2 / 4;grid-row:2;width:min(200px,100%);margin:var(--s-2) 0 var(--s-1)}
+.hub-pin input{height:var(--h-md)}
+.hub-error{grid-column:2 / 4;margin:var(--s-1) 0;color:var(--c-danger);font-size:var(--t-xs)}
+.hub-error .text{height:auto;padding:0 var(--s-1);font-size:var(--t-xs)}
+:root.phone .hub-bar{column-gap:var(--s-3);padding:var(--s-2) var(--s-3) var(--s-2) var(--s-4)}
+:root.phone .hub-unlock > button{padding:0 var(--s-4) 0 var(--s-3)}
+.hub-panel{display:flex;flex-direction:column;gap:var(--s-3)}
+.hub-note{margin:0;color:var(--c-text-2)}
+.hub-status{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-2) var(--s-3)}
+.hub-status .hub-unlock{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s-2)}
+.hub-status .hub-unlock > *{grid-column:auto;grid-row:auto}
+.hub-status > span{display:inline-flex;align-items:center;gap:var(--s-2);color:var(--c-text-2)}
+.hub-status > span svg.i{width:var(--icon-sm);height:var(--icon-sm)}
+/* The subject frame: the conversation's title line, as the Mail app has it. */
+body.title-frame{overflow:hidden}
+.title-frame h1{overflow-wrap:anywhere}
+#measure{position:absolute;top:0;left:0;visibility:hidden;white-space:nowrap;font-size:var(--t-2xl);font-weight:var(--w-regular)}
+/* The reader's own tab. */
+body.page{background:var(--c-bg)}
+body.page #view{max-width:760px;margin:0 auto;padding:var(--s-6) var(--s-4)}
+body.page .letter{padding:var(--s-5) var(--s-6);border-radius:var(--r-lg);background:var(--c-surface)}
+.letter-head{display:flex;align-items:center;justify-content:space-between;gap:var(--s-2);margin-bottom:var(--s-3)}
+.badge{display:inline-flex;align-items:center;gap:var(--s-1);padding:2px var(--s-2);border-radius:var(--r-sm);background:var(--c-good-soft);color:var(--c-on-good-soft);font-size:var(--t-xs);font-weight:var(--w-medium)}
+.badge svg.i{width:var(--icon-sm);height:var(--icon-sm)}
+.letter h2{margin:0 0 var(--s-1);font-size:var(--t-2xl);font-weight:var(--w-regular)}
+.meta{margin:0 0 var(--s-4);color:var(--c-text-2);font-size:var(--t-xs)}
+/* Writing end to end (compose.html): Mail's composer from the Subject line
+   down, inside the composer of the mail page, which keeps the lines above. */
+body.compose-frame{height:100vh;overflow:hidden}
+/* Stronger than the app's rules for narrow windows, which size its own pane. */
+/* A frame shorter than the composer (a phone's keyboard up, Mail's frame at
+   its least) scrolls the lines above the text away, as Mail's own composer
+   does: compose.mjs keeps the text, your mark and the formatting bar in view. */
+/* No corners of its own either: Mail's styles give every pane Safari's G2
+   corners as a mask, which here rounded the frame where it meets Mail's lines. */
+:root body.compose-frame .pane.composer{height:100vh;min-height:0;padding:0;border-radius:0;-webkit-mask-box-image:none;background:transparent;overflow:hidden auto;scrollbar-width:none}
+:root body.compose-frame .pane.composer::-webkit-scrollbar{display:none}
+.compose-frame .editor-tools[hidden]{display:flex!important}
+.fields.tail{padding-top:0;border-top-left-radius:0;border-top-right-radius:0}
+.e2e-label{display:inline-flex;align-items:center;gap:var(--s-1);flex:none;padding-right:var(--s-2);color:var(--c-good);font-size:var(--t-xs);font-weight:var(--w-medium);white-space:nowrap}
+.e2e-label svg.i{width:var(--icon-sm);height:var(--icon-sm);fill:currentColor}
+/* Whom Send encrypts to, from Send's own list (Mail's To and Cc lines above
+   are Mail's): a field line like the others, its label in the label column,
+   the addresses as supporting text that wraps. */
+.sealed-for{align-items:flex-start;padding-top:var(--s-3);padding-bottom:var(--s-3)}
+.sealed-for > .line-label{flex:0 0 56px;color:var(--c-text-3);white-space:nowrap;line-height:20px}
+.sealed-list{flex:1;min-width:0;padding:0 0 0 2px;color:var(--c-text-2);font-size:var(--t-md);line-height:20px;overflow-wrap:anywhere}
+.sealed-list.empty{color:var(--c-text-3)}
+.sealed-list .bcc{color:var(--c-text-3);font-weight:var(--w-medium)}
+.sealed-list .sealed-from{display:block;color:var(--c-text-3);font-size:var(--t-xs);line-height:16px;overflow-wrap:anywhere}
+.sealed-list .key-note{color:var(--c-text-3);font-size:var(--t-xs);white-space:nowrap}
+.sealed-list .key-note.bad{color:var(--c-danger)}
+/* The text and, at its foot while you type, your mark: its four pictures in
+   two rows on a tonal square the size of a Material 3 medium FAB (80 dp,
+   corner 20 dp, no shadow), wider than the count, the count of the files the reader holds right above it, and on a
+   tap on either a Material 3 rich tooltip that says what they are. The text keeps
+   room under its last line; however short the frame gets, the mark has room,
+   and the text shows beside it. */
+:root{--mark-size:80px}
+.editor-box{position:relative;display:flex;flex:1;min-height:calc(var(--mark-size) + var(--s-3) + var(--s-2));margin:var(--s-2) 0 0}
+.editor-box > .editor{flex:1;margin:0;padding-bottom:calc(var(--mark-size) + var(--s-3) + var(--s-2))}
+.editor-box.with-files > .editor{padding-bottom:calc(var(--mark-size) + var(--h-sm) + var(--s-2) + var(--s-3) + var(--s-2))}
+.editor-box.with-files{min-height:calc(var(--mark-size) + var(--h-sm) + var(--s-2) + var(--s-3) + var(--s-2))}
+/* A frame under 300 px (a small phone with its keyboard up): the list of
+   files moves above the text, under the Subject line, and scrolls away with
+   it, so the count over your mark, the mark and the bar all stay in view. */
+body.short .pane.composer > .fields{order:-2}
+body.short .pane.composer > .attachments{order:-1;margin-bottom:var(--s-2)}
+.mark-dock{position:absolute;right:var(--s-3);bottom:var(--s-3);z-index:2;display:flex;flex-direction:column;align-items:center;gap:var(--s-2);
+  opacity:0;transform:translateY(var(--s-2)) scale(.96);transform-origin:100% 100%;pointer-events:none;transition:none}
+/* In with the emphasized decelerate curve; out at once, so no page can keep
+   the mark lit by moving the keyboard here and away. */
+.mark-dock[data-shown=true]{opacity:1;transform:none;transition:opacity var(--d-medium2) var(--ease-emphasized-decel),transform var(--d-medium2) var(--ease-emphasized-decel)}
+/* Only the square, the count and the tooltip take taps; the rest go to the text under them. */
+.mark-dock[data-shown=true] :is(.mark-button,.mark-files,.mark-about){pointer-events:auto}
+.mark-button{position:relative;display:grid;place-items:center;flex:none;width:var(--mark-size);height:var(--mark-size);padding:0;border:0;
+  border-radius:20px;background:var(--c-good-soft);color:var(--c-on-good-soft);cursor:pointer;overflow:hidden;-webkit-tap-highlight-color:transparent}
+/* State layers of the content color: hover 8 %, focus and pressed 10 %. */
+.mark-button::after{content:"";position:absolute;inset:0;background:currentColor;opacity:0;transition:opacity var(--d-short2) linear;pointer-events:none}
+@media (hover:hover){.mark-button:hover::after{opacity:.08}}
+.mark-button:focus-visible::after,.mark-button:active::after{opacity:.1}
+.mark-button:focus-visible{outline:3px solid var(--c-primary);outline-offset:2px}
+/* Four pictures, 24 px each in 26 px cells: about 6 px apart and 13 px from every edge. */
+.mark-tile{display:grid;grid-template-columns:repeat(2,26px);grid-auto-rows:26px;gap:4px;place-items:center;font-size:24px;line-height:26px;
+  white-space:nowrap;-webkit-user-select:none;user-select:none}
+.mark-tile > span{display:block}
+.mark-tile[data-none] > span{width:10px;height:10px;border-radius:var(--r-full);background:currentColor;opacity:.38}
+/* The count: a flat Material 3 assist chip (32 dp, 16 dp each side, label large) on the same tonal color, centered above the square. */
+.mark-files{flex:none;height:var(--h-sm);padding:0 var(--s-4);border-radius:var(--r-sm);background:var(--c-good-soft);color:var(--c-on-good-soft);
+  font:var(--w-medium) var(--t-md)/var(--h-sm) var(--f-sans);white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent}
+/* The rich tooltip, to the left of the mark with its foot level with the
+   square's (more room than above it): surface container, elevation 2,
+   corner 12 dp, at most 320 dp wide; subhead in title small, supporting text in body medium, both
+   on surface variant; text buttons in primary at its foot. */
+.mark-about{position:absolute;right:calc(100% + var(--s-2));bottom:0;display:flex;flex-direction:column;
+  width:min(320px,calc(100vw - var(--mark-size) - 2 * var(--s-3) - var(--s-2)));overflow:hidden;
+  padding:var(--s-3) var(--s-4) var(--s-2);border-radius:var(--r-md);background:var(--c-surface);box-shadow:var(--e-2);color:var(--c-text-2);
+  font:var(--w-regular) var(--t-md)/20px var(--f-sans);text-align:left;cursor:auto;transform-origin:100% 100%;
+  animation:mark-about-in var(--d-short3) var(--ease-emphasized-decel)}
+@keyframes mark-about-in{from{opacity:0;transform:scale(.9)}}
+.mark-about-title{margin:0 0 var(--s-1);font-weight:var(--w-medium)}
+/* On a short frame only the text scrolls: the subhead and the buttons stay in view. */
+.mark-about-text{flex:0 1 auto;min-height:0;overflow:auto}
+.mark-about-text p{margin:0 0 var(--s-2)}
+.mark-about-text a{color:var(--c-primary);font-weight:var(--w-medium);text-decoration:none}@media (hover:hover){.mark-about-text a:hover{text-decoration:underline}}
+.mark-about-title,.mark-about-actions{flex:none}
+.mark-about-actions{display:flex;flex-wrap:wrap;gap:0 var(--s-2);margin:0 calc(-1 * var(--s-3))}
+.mark-about-actions .text{display:inline-flex;align-items:center;height:var(--h-md);margin:0;padding:0 var(--s-3);border-radius:var(--r-full);
+  font-weight:var(--w-medium);text-decoration:none}
+/* Report: in the error color, at the right edge, away from Got it. */
+.mark-about-actions [data-report]{margin-left:auto;color:var(--c-danger)}
+@media (prefers-reduced-motion:reduce){.mark-dock,.mark-dock[data-shown=true]{transition:none}.mark-about{animation:none}}
+.link-card{position:absolute;left:0;right:auto;top:auto;bottom:calc(var(--h-lg) + var(--s-2));width:min(360px,100%);padding:var(--s-3) var(--s-4)}
+.link-card .field{margin:0}
+.link-card .actions{justify-content:flex-end;margin-top:var(--s-2)}
+/* Captions: one line, or lines of even length; paragraphs without a lone last word. */
+.hub-note,.hub-error,.sealed-text p,.reader-alert p,.hint{text-wrap:balance}
+p,li{text-wrap:pretty}
+/* The reader's Send (send.html), in Mail's row of buttons. */
+body.send-frame{overflow:hidden}
+.send-frame .composer-actions{display:inline-flex;flex-wrap:nowrap;align-items:center;gap:var(--s-2);width:max-content;padding:0}
+.send-frame .send{flex:none;white-space:nowrap}
+.send-frame .send-pin{margin:0;width:calc(3 * var(--h-md))}
+.send-frame .send-pin input{height:var(--h-md)}
+/* A letter sealed by its sender's key (seal.mjs): one quiet line over it. */
+.seal-line{display:flex;align-items:center;gap:var(--s-2);margin:0 0 var(--s-3);color:var(--c-text-2);font-size:var(--t-xs)}
+.seal-line span{min-width:0;text-wrap:balance;overflow-wrap:anywhere}
+.seal-line svg.i{flex:none;width:var(--icon-sm);height:var(--icon-sm);fill:var(--c-good)}
+.seal-line.none svg.i{fill:var(--c-text-2)}
+.seal-line .mark-check{flex:none;margin-left:auto;min-height:32px;padding:0 var(--s-3);border:0;border-radius:var(--r-full);background:transparent;color:var(--c-primary);font:var(--w-medium) var(--t-xs) var(--f-sans);cursor:pointer}
+.seal-line .mark-check[hidden]{display:none}
+@media (hover:hover){.seal-line .mark-check:hover{background:var(--c-hover)}}
+.seal-line .mark-check[data-shown]{padding:var(--s-1);cursor:default}
+.mark-tile[data-small]{grid-template-columns:repeat(2,18px);grid-auto-rows:18px;gap:2px;font-size:16px;line-height:18px}
+.badge.plain{background:var(--c-surface-3);color:var(--c-text-2)}

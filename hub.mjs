@@ -1,0 +1,369 @@
+// The reader's hub: one small frame on every page of Mail for someone whose
+// key is set up. It opens the key with one touch of the passkey (Unlock, for
+// every encrypted message on the page at once), keeps it open in the vault
+// while Mail is in use (vault.mjs, sw.js), opens the messages Mail hands it
+// and passes their content to the reader's other frames on the page (the
+// message frames, the lines of a list, the subject) on a BroadcastChannel of
+// this site, which Mail cannot join. Mail learns only whether the key is
+// open and how tall this frame is.
+
+import {MAIL_SITES} from './sites.mjs';
+import {widths} from './width.mjs';
+import {all, valid, forgetWithdrawn} from './store.mjs';
+import {currentKeys} from './seal.mjs';
+import {keyOf} from './seal.mjs';
+import {escape} from './mime.mjs';
+import {icon} from './icons.mjs';
+import * as vault from './vault.mjs';
+import {alarmText, raised} from './alarm.mjs';
+import {canOpen, glance, openWith, openpgpLib, recipients, recipientsOf} from './decrypt.mjs';
+import * as contacts from './contacts.mjs';
+const {keyFor} = contacts;
+
+const view = document.getElementById('hub');
+const opened = new Map();     // slot -> {model, keyId}, while the key is open
+const wants = new Map();      // slot -> Set of kinds: what frames on the page asked to show
+const waiting = new Map();    // slot -> {armored, from, ids}
+// Messages for a key of this mailbox that the vault does not hold open,
+// though it holds others (an older key, still open from before): they ask
+// for Unlock, of that key, rather than end as a key this browser lacks.
+const missing = new Set();
+let parentOrigin = null, channel = null, records = [], minutes = 15, mode = 'quiet', count = 0;
+let unlocked = false, busy = false, failure = '', alarm = false, touched = 0;
+// The passkeys this device made itself (their records are in this browser):
+// Unlock asks only for them, so the device's own Touch ID, Face ID or Windows
+// Hello answers, never a dialog for a phone nearby that may not hold one.
+let here = new Set();
+let me = '';  // the mailbox of the page, as Mail names it
+// Which passkeys this browser made or opened the key with, as Mail remembers
+// them (tags of their IDs): Safari keeps this frame apart from Seal's own
+// tab, so the records a device made there are not in this frame's sight.
+let ownHints = [], usedCredential = '';
+let drawn = null;  // what the frame shows now
+raised().then(at => { if (at) { alarm = true; draw(); } });
+
+const tell = message => { if (parentOrigin) parent.postMessage(message, parentOrigin); };
+const report = () => tell({type: 'reader-height', height: Math.ceil(document.documentElement.getBoundingClientRect().height)});
+new ResizeObserver(report).observe(document.documentElement);
+const post = message => channel?.postMessage(message);
+
+// The keys a page's messages may need: the records Mail keeps for this mailbox.
+const mine = () => records.filter(r => r.rp === location.hostname);
+const ownHere = () => needed().filter(r => here.has(r.credentialId));
+const needed = () => {
+  const ids = new Set((missing.size ? [...missing].map(s => waiting.get(s)) : [...waiting.values()]).flatMap(w => w?.ids || []));
+  const fit = mine().filter(r => ids.has(r.keyId));
+  return fit.length ? fit : mine();
+};
+
+function draw() {
+  const lockedHere = [...waiting.keys()].filter(s => !opened.has(s)).length;
+  const shownCount = Math.max(count, lockedHere);
+  let html = '';
+  if (mode === 'panel') {
+    html = `<div class="hub-panel"><div class="hub-status">${unlocked && !missing.size ? `<span>${icon('lock_open')}Encrypted mail is unlocked on this device.</span><button class="text" type="button" id="lock">Lock now</button>`
+                                          : `<span>${icon('lock')}Encrypted mail is locked.</span>${mine().length ? unlockForm() : ''}`}</div></div>`;
+  } else if ((!unlocked || missing.size) && shownCount > 0 && mine().length) {
+    // A Material 3 list item: the lock, a headline and one line under it,
+    // and Unlock at the end. No mark here: anything shown without a
+    // condition could be cut out by Mail and set beside a field of its own.
+
+    const headline = mode === 'list' ? (shownCount === 1 ? '1 encrypted message' : `${shownCount} encrypted messages`) : 'End-to-end encrypted';
+    const hint = alarm ? 'Locked after your report' : shownCount === 1 ? 'One touch unlocks it' : shownCount === 2 ? 'One touch unlocks both' : `One touch unlocks all ${shownCount}`;
+    html = `<div class="hub-bar"><span class="hub-icon">${icon('lock')}</span>` +
+      `<div class="hub-text"><b>${headline}</b><span class="hub-support">${hint}</span></div>` +
+      unlockForm() + `</div>`;
+  }
+  // Drawn again only when something changed: the frame draws itself at once
+  // and again when the vault answers, and a press on Unlock in between went
+  // to a button no longer there.
+  if (html !== drawn) {
+    drawn = html;
+    view.innerHTML = html;
+    view.querySelector('form.hub-unlock')?.addEventListener('submit', submit);
+    view.querySelector('#lock')?.addEventListener('click', async () => { await vault.lock(); });
+    view.querySelector('#in-tab')?.addEventListener('click', () => tell({type: 'hub-tab'}));
+    // Add your key to this device: Seal's own tab, opened here where the press
+    // is (a page around a frame may not open a tab on a press it only heard
+    // of); Mail is told only to wait for it.
+    view.querySelector('#add-here')?.addEventListener('click', e => {
+      if (!e.isTrusted) return;
+      if (me) window.open(`${location.origin}/setup.html#add=${encodeURIComponent(me)}`, '_blank', 'noopener');
+      tell({type: 'hub-add-here'});
+    });
+    view.querySelector('#try-elsewhere')?.addEventListener('click', e => { if (e.isTrusted) submit(e, true); });
+    view.querySelector('form.hub-unlock button')?.addEventListener('pointerenter', () => openpgpLib(), {once: true});
+  }
+  tell({type: 'hub-state', unlocked, shown: !!html, ...(unlocked && usedCredential ? {credential: usedCredential} : {})});
+  report();
+}
+
+function unlockForm() {
+  if (alarm) return `<p class="hub-error" role="alert">${escape(alarmText())}</p>`;
+  // No passkey of this device's own for the key: adding the key here comes
+  // first (a code for your phone to read); a passkey that came by sync from
+  // another device may still be tried.
+  if (!ownHere().length)
+    return `<div class="hub-add"><button class="tonal" type="button" id="add-here">${icon('key')}<span>Add your key to this device</span></button>` +
+      `<button class="text" type="button" id="try-elsewhere"${busy ? ' disabled' : ''}>My passkey is on this device</button>` +
+      (failure ? `<p class="hub-error" role="alert">${failure}</p>` : '') + `</div>`;
+  const pin = needed().some(r => r.pinSalt);
+  return `<form class="hub-unlock">` +
+    `<button class="tonal" type="submit"${busy ? ' disabled' : ''}>${icon('lock_open')}<span>${busy ? 'Unlocking…' : 'Unlock'}</span></button>` +
+    (pin ? '<label class="field hub-pin"><span>PIN</span><input type="password" id="pin" inputmode="numeric" autocomplete="off"></label>' : '') +
+    (failure ? `<p class="hub-error" role="alert">${failure}</p>` : '') + `</form>`;
+}
+
+async function submit(e, anywhere = false) {
+  e.preventDefault();
+  if (busy) return;
+  busy = true;
+  failure = '';
+  if (e.target.querySelector) {
+    const button = e.target.querySelector('button') || e.target;
+    button.disabled = true;
+    // Said on the button in place: a redraw here would lose the press.
+    if (button.closest('form.hub-unlock') && button.querySelector('span')) button.querySelector('span').textContent = 'Unlocking…';
+  }
+  try {
+    openpgpLib();  // loads while the passkey is asked
+    const opened = await vault.unlock(anywhere || !ownHere().length ? needed() : ownHere(), document.getElementById('pin')?.value || '', minutes);
+    touched = Date.now();
+    // The passkey that opened it is this device's: Mail remembers it, and Unlock asks for it alone.
+    if (opened?.credentialId) { usedCredential = opened.credentialId; here.add(opened.credentialId); }
+    unlocked = true;
+    missing.clear();
+    await openAll();
+    // Never a touch that ends as if nothing happened: what is still shut says why.
+    if (!unlocked) failure = 'The key did not stay open: press Unlock once more.';
+    else if (missing.size) failure = 'That passkey opened another key of yours: this message needs another one.';
+  } catch (err) {
+    failure = escape(err.name === 'NotAllowedError' ? 'Not unlocked: cancelled, or this device has no passkey for your key yet.' : err.name === 'SecurityError' ? 'This browser does not allow passkeys here.' : err.message) +
+              // A device whose passkeys do not open the key (a new computer):
+              // Mail's Add to this browser, from a phone with Link a device;
+              // first, as it is what a new device needs.
+              (err.name === 'NotAllowedError' ? ' <button class="text" type="button" id="add-here">Add your key to this device</button>' : '') +
+              (err.name === 'SecurityError' || err.name === 'NotAllowedError' ? ' <button class="text" type="button" id="in-tab">Open in a tab</button>' : '');
+  } finally {
+    busy = false;
+    drawn = null;  // its button was turned off in place: drawn afresh, even when the same words come back
+    draw();
+  }
+}
+
+// Every message waiting that an open key fits, opened and passed on.
+async function openAll() {
+  const s = await vault.state();
+  unlocked = s.unlocked;
+  if (!unlocked) return;
+  for (const [slot, w] of waiting) {
+    // Only what a frame on the page asked to show: Mail cannot have the hub
+    // open the whole mailbox by handing it everything.
+    if (opened.has(slot) || ![...(wants.get(slot) || [])].some(k => k === 'view' || k === 'line')) continue;
+    w.ids ||= await recipientsOf(w.armored).catch(() => []);
+    const keyId = w.ids.find(id => s.keyIds.includes(id)) || (w.ids.includes('0000000000000000') ? s.keyIds[0] : null);
+    if (!keyId) {
+      if (mine().some(r => w.ids.includes(r.keyId))) { missing.add(slot); post({type: 'locked', slot}); }
+      else post({type: 'failed', slot});
+      continue;
+    }
+    missing.delete(slot);
+    try {
+      const model = await openWith(w.armored, s.infos[keyId], {raw: w.raw, sentFrom: w.from});
+      if (!w.raw) model.sentFrom ||= w.from;  // with the whole message, its own From only
+      opened.set(slot, {model, keyId});
+      send(slot);
+    } catch (err) {
+      if (err.message === 'locked') { unlocked = false; break; }
+      post({type: 'failed', slot, message: err.message});
+    }
+  }
+}
+
+// What a frame of this page asked for: the whole message, or its line.
+function send(slot) {
+  const o = opened.get(slot);
+  if (!o) return;
+  const kinds = wants.get(slot) || new Set();
+  if (kinds.has('view')) post({type: 'open', slot, model: o.model, keyId: o.keyId});
+  if (kinds.has('line') || kinds.has('title')) post({type: 'line', slot, ...glance(o.model)});
+}
+
+function forget() {
+  opened.clear();
+  missing.clear();
+  post({type: 'locked'});
+}
+
+// ---- The list of people you write to, kept alike on your devices: Mail
+// keeps a copy sealed under a key made from yours (vault.peopleBox), which
+// it can neither read nor change; it can only hand over an older one, and
+// then the newer records here stand (contacts.merge). Merged in once your
+// key is open, and handed back whenever it changes here.
+let peopleKeyId = null, remote = null, syncing = false, again = false, pushed = '';
+const b64u = bytes => { let t = ''; for (let i = 0; i < bytes.length; i += 0x8000) t += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(t).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+const unb64u = text => Uint8Array.from(atob(text.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+const canonical = list => JSON.stringify([...list].sort((a, b) => a.address < b.address ? -1 : 1));
+const sha256hex = async text => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))].map(b => b.toString(16).padStart(2, '0')).join('');
+async function syncPeople() {
+  if (!peopleKeyId || !remote) return;
+  if (syncing) { again = true; return; }
+  if (!(await vault.state()).keyIds.includes(peopleKeyId)) return;
+  syncing = true;
+  try {
+    const box = vault.peopleBox(peopleKeyId);
+    let theirs = [];
+    if (remote.blob) {
+      // A copy this key does not open (sealed under another, or changed) is
+      // left as it is: nothing here takes its place.
+      const plain = await box.open(unb64u(remote.blob)).catch(() => null);
+      const d = plain ? JSON.parse(new TextDecoder().decode(plain)) : null;
+      if (!(d?.v === 1 && Array.isArray(d.people))) return;
+      theirs = d.people;
+      await contacts.merge(theirs);
+    }
+    const mine = await contacts.snapshot(), body = canonical(mine);
+    if (body !== canonical(theirs) && body !== pushed && (mine.length || remote.blob)) {
+      const sealed = await box.seal(new TextEncoder().encode(JSON.stringify({v: 1, people: mine})));
+      if (sealed && sealed.length <= 4e6) {
+        const blob = b64u(sealed);
+        tell({type: 'hub-people-save', blob, prev: remote.hash});  // kept only over the copy merged here
+        remote = {blob, hash: await sha256hex(blob)};
+        pushed = body;
+      }
+    }
+  } catch (e) {
+  } finally {
+    syncing = false;
+    if (again) { again = false; syncPeople(); }
+  }
+}
+let peopleTimer = 0;
+try { new BroadcastChannel('seal-people').onmessage = e => { if (e.data?.type !== 'changed') return; clearTimeout(peopleTimer); peopleTimer = setTimeout(syncPeople, 1500); }; } catch (e) {}
+
+vault.watch((open, why) => {
+  if (open) syncPeople();
+  if (open && (!unlocked || missing.size)) { missing.clear(); openAll().then(draw); }
+  if (!open && unlocked) {
+    unlocked = false;
+    // A newer Seal took over just after the touch: its vault starts empty.
+    if (why === 'replaced' && Date.now() - touched < 30000) failure = 'Seal was updated just now: press Unlock once more.';
+    forget();
+    draw();
+  }
+});
+
+// Keeping the vault: every 20 seconds it hears that a page of Mail is open
+// (and in view or not); it locks on its own after 5 minutes out of view.
+setInterval(async () => {
+  if (document.visibilityState === 'visible') await vault.seen(); else await vault.state();
+  const s = await vault.state();
+  if (unlocked && !s.unlocked) { unlocked = false; forget(); draw(); }
+}, 20000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') vault.seen(); });
+
+addEventListener('message', async e => {
+  if (e.source !== parent || !MAIL_SITES.includes(e.origin)) return;
+  const d = e.data || {};
+  parentOrigin = e.origin;
+  if (Number.isFinite(d.vw)) widths(d.vw);
+  if (d.type === 'hub-init' && !channel) {
+    if (typeof d.channel === 'string' && /^page-[\w-]{8,64}$/.test(d.channel)) {
+      channel = new BroadcastChannel(d.channel);
+      channel.onmessage = m => {
+        const x = m.data || {};
+        if (x.type === 'want' && typeof x.slot === 'string' && ['view', 'line', 'title'].includes(x.kind)) {
+          if (!wants.has(x.slot)) wants.set(x.slot, new Set());
+          wants.get(x.slot).add(x.kind);
+          if (opened.has(x.slot)) send(x.slot);
+          else if ((!unlocked || missing.has(x.slot)) && waiting.has(x.slot)) post({type: 'locked', slot: x.slot});
+          else if (unlocked && waiting.has(x.slot) && x.kind !== 'title') openAll().then(draw);
+        } else if (x.type === 'use') vault.used(true);
+      };
+      channel.postMessage({type: 'hub-here'});  // frames that loaded first ask again
+    }
+    await forgetWithdrawn(await currentKeys().catch(() => []));
+    records = Array.isArray(d.records) ? d.records.filter(valid).slice(0, 20) : [];
+    // A key of this mailbox that this browser holds and Mail does not know of
+    // (added in a tab of Seal that Mail did not open, or whose answer never
+    // reached Mail): it counts here at once, and its sealed record goes to
+    // Mail, as after a setup Mail opened. Mail learns nothing it would not
+    // have had then: the record opens only with this browser's passkey.
+    if (typeof d.me === 'string' && d.me.length <= 254 && /^[^@\s]+@[^@\s]+$/.test(d.me)) me = d.me.toLowerCase();
+    if (typeof d.me === 'string' && d.me.length <= 254) {
+      const ours = await keyOf(d.me.toLowerCase()).catch(() => null);
+      peopleKeyId = ours?.subkeys?.[0] || null;
+      const mineHere = ours ? (await all().catch(() => [])).filter(r => valid(r) && ours.subkeys.includes(r.keyId)) : [];
+      // This browser's own copy of a record stands over Mail's, which could
+      // leave a part out (the key that signs).
+      records = records.map(r => mineHere.find(h => h.credentialId === r.credentialId) || r);
+      const local = mineHere.filter(r => !records.some(m => m.credentialId === r.credentialId));
+      if (local.length) {
+        records = [...records, ...local].slice(0, 20);
+        tell({type: 'hub-records', records: local});
+      }
+      // Older keys of this mailbox kept in this browser (made or added here,
+      // then replaced by a new one): they still open the mail encrypted to
+      // them. Mail is not told of them.
+      const me = d.me.toLowerCase();
+      const older = (await all().catch(() => [])).filter(r => valid(r) && r.addresses.some(a => String(a).toLowerCase() === me) && !records.some(m => m.credentialId === r.credentialId));
+      records = [...records, ...older].slice(0, 20);
+    }
+    ownHints = Array.isArray(d.own) ? d.own.filter(t => typeof t === 'string' && /^[A-Za-z0-9_-]{8,16}$/.test(t)).slice(-12) : [];
+    here = new Set([...(await all().catch(() => [])).filter(r => valid(r) && r.rp === location.hostname).map(r => r.credentialId),
+                     ...records.filter(r => ownHints.includes(String(r.credentialId).slice(0, 16))).map(r => r.credentialId)]);
+    minutes = [0, 5, 15, 30, 60].includes(d.minutes) ? d.minutes : 15;
+    mode = ['thread', 'list', 'panel', 'quiet'].includes(d.mode) ? d.mode : 'quiet';
+    count = Number.isInteger(d.count) ? Math.min(d.count, 999) : 0;
+    if (!await canOpen()) { tell({type: 'hub-state', unlocked: false, shown: false, old: true}); return; }
+    // Drawn at once, as locked: on a browser new to Seal its worker installs
+    // first (every file of Seal, checked), and the frame stayed empty for
+    // seconds, a page with nothing to press. The vault's answer redraws it.
+    draw();
+    const s = await vault.state();
+    unlocked = s.unlocked;
+    if (unlocked && count) openpgpLib();
+    if (unlocked) await openAll();  // messages handed over while the vault was asked
+    if (unlocked) syncPeople();
+    draw();
+  } else if (d.type === 'hub-items' && Array.isArray(d.items)) {
+    for (const it of d.items.slice(0, 200)) {
+      if (typeof it.slot !== 'string' || it.slot.length > 64 || typeof it.armored !== 'string' || it.armored.length > 30e6 || waiting.has(it.slot)) continue;
+      // The whole message, where Mail hands it over too: for the signature of
+      // the sender's domain (decrypt.mjs, dkim.mjs).
+      const raw = it.raw instanceof Uint8Array && it.raw.length <= 40e6 ? it.raw : undefined;
+      // The keys it is for, read at once from its first packets: Unlock then
+      // asks only for passkeys of a key the page's messages need.
+      let ids;
+      try { ids = recipients(it.armored); } catch (e) {}
+      waiting.set(it.slot, {armored: it.armored, raw, from: typeof it.from === 'string' ? it.from.slice(0, 320).toLowerCase() : '', ids});
+    }
+    if (unlocked) await openAll();
+    draw();
+  } else if (d.type === 'hub-people' && typeof d.blob === 'string' && d.blob.length <= 6e6) {
+    // The list of people you write to as your other devices left it with
+    // Mail, sealed under your key: merged in once the key is open.
+    remote = {blob: d.blob, hash: d.blob ? await sha256hex(d.blob) : ''};
+    pushed = '';
+    syncPeople();
+  } else if (d.type === 'hub-keys-for' && Array.isArray(d.addresses)) {
+    // Which of these addresses outside our mailboxes have a key here (one
+    // learned from their signed mail, with no new key waiting): yes or no
+    // for each, never a key. Mail knows whom you wrote to anyway.
+    const asked = d.addresses.filter(a => typeof a === 'string' && a.length <= 254).slice(0, 100).map(a => a.toLowerCase());
+    const have = [];
+    for (const a of asked) { const k = await keyFor(a).catch(() => null); if (k?.contact) have.push(a); }
+    tell({type: 'hub-keys', have});
+  } else if (d.type === 'hub-lock') {
+    await vault.lock();
+    unlocked = false;
+    forget();
+    draw();
+    tell({type: 'hub-locked'});
+  } else if (d.type === 'hub-use') {
+    vault.used();
+  }
+});
+
+if (parent !== window) parent.postMessage({type: 'reader-ready'}, '*');  // carries nothing
+vault.warm();

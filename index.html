@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<!-- No network at all beyond this site's own files: connect-src falls back to 'none'. The DKIM keys
+     of senders' domains come from dns.html, in a frame of its own (dkim.mjs). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; frame-src 'self'; form-action 'none'; base-uri 'none'">
+<title>Seal</title>
+<link rel="stylesheet" href="mail.css">
+<link rel="stylesheet" href="frame.css">
+<link rel="modulepreload" href="embed.mjs">
+<link rel="modulepreload" href="store.mjs">
+<link rel="modulepreload" href="mime.mjs">
+<link rel="modulepreload" href="sites.mjs">
+<link rel="modulepreload" href="width.mjs">
+<link rel="modulepreload" href="icons.mjs">
+<link rel="modulepreload" href="letter.mjs">
+<link rel="modulepreload" href="mark.mjs">
+<link rel="modulepreload" href="vault.mjs">
+<link rel="modulepreload" href="decrypt.mjs">
+<link rel="modulepreload" href="sealed-core.mjs">
+<link rel="modulepreload" href="seal.mjs">
+<link rel="modulepreload" href="keys.mjs">
+<link rel="icon" href="data:,">
+<script type="module" src="embed.mjs"></script>
+</head>
+<body class="embed"><main id="view"></main></body>
+</html>
