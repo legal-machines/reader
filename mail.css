@@ -108,7 +108,10 @@ border-radius:var(--r-md);background:var(--c-surface);box-shadow:var(--e-2)}
 .menu-item{display:flex;align-items:center;gap:var(--s-3);width:100%;min-height:var(--h-md);padding:0 var(--s-3);border:0;border-radius:var(--r-sm);
 background:transparent;color:var(--c-text);text-align:left;cursor:pointer;white-space:nowrap}
 @media (hover:hover){.menu-item:hover{background:var(--c-hover)}}.menu-item svg.i{fill:var(--c-text-2)}
-.pop-card .field{margin:var(--s-2) var(--s-3) 0}.pop-card .tonal{justify-self:end;margin:var(--s-2) var(--s-1) var(--s-1)}
+.pop-card .field{margin:var(--s-2) var(--s-3) 0}
+
+.schedule-card .schedule-zone{margin:0 var(--s-3) var(--s-2)}.schedule-card .menu-item small{margin-left:auto;padding-left:var(--s-4);color:var(--c-text-3);font-size:var(--t-xs)}
+.schedule-card .your-time-line{margin:var(--s-1) var(--s-3) 0;color:var(--c-text-2);font-size:var(--t-xs)}.pop-card .tonal{justify-self:end;margin:var(--s-2) var(--s-1) var(--s-1)}
 .pop > summary{list-style:none}.pop > summary::-webkit-details-marker{display:none}
 .pop[open] > summary::before{content:"";position:fixed;inset:0;z-index:29;cursor:default}
 
