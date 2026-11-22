@@ -97,7 +97,7 @@ function bar() {
     `<details class="pop up"><summary class="icon-button" title="${title}" aria-label="${title}">${icon(glyph)}</summary><div class="pop-card">${items}</div></details>`;
   const fonts = '<p class="pop-title">Font</p>' + item('fontName', '', 'Sans serif') +
     [['times new roman, serif', 'Serif'], ['monospace, monospace', 'Fixed width'], ['arial black, sans-serif', 'Wide'], ['arial narrow, sans-serif', 'Narrow'],
-     ['comic sans ms, sans-serif', 'Comic Sans MS'], ['garamond, serif', 'Garamond'], ['georgia, serif', 'Georgia'], ['tahoma, sans-serif', 'Tahoma'],
+     ['arial, sans-serif', 'Arial'], ['comic sans ms, sans-serif', 'Comic Sans MS'], ['garamond, serif', 'Garamond'], ['georgia, serif', 'Georgia'], ['tahoma, sans-serif', 'Tahoma'],
      ['trebuchet ms, sans-serif', 'Trebuchet MS'], ['verdana, sans-serif', 'Verdana']].map(([face, name]) => item('fontName', face, name, ` style="font-family:${face}"`)).join('');
   const sizes = '<p class="pop-title">Text size</p>' + item('fontSize', '2', '<small>Small</small>') + item('fontSize', '3', 'Normal') +
                 item('fontSize', '5', '<span class="big">Large</span>') + item('fontSize', '6', '<span class="huge">Huge</span>');
@@ -306,10 +306,26 @@ const alignButton = tools.querySelector('.menu-item[data-cmd="justifyLeft"]')?.c
 const fontButton = tools.querySelector('.font-button'), fontName = fontButton?.querySelector('.font-name');
 const family = f => f.toLowerCase().replace(/["']/g, '').replace(/\s*,\s*/g, ',').trim();
 const applies = cmd => { try { return document.queryCommandState(cmd); } catch (e) { return false; } };
+// Where the bar looks: the caret, or the first letter a selection holds.
+// Safari begins a selection it has just formatted at the end of the text
+// before it, which is no part of it; the bar named that text's font.
+function spot(sel) {
+  const r = sel.getRangeAt(0), start = r.startContainer;
+  if (!r.collapsed) {
+    const root = r.commonAncestorContainer;
+    const walk = document.createTreeWalker(root.nodeType === 1 ? root : root.parentNode, NodeFilter.SHOW_TEXT);
+    for (let t; (t = walk.nextNode());) {
+      if (r.comparePoint(t, 0) > 0) break;  // past the selection
+      const from = t === r.startContainer ? r.startOffset : 0, to = t === r.endContainer ? r.endOffset : t.length;
+      if (to > from && r.intersectsNode(t)) return t.parentElement;
+    }
+  }
+  return start.nodeType === 1 ? start : start.parentElement;
+}
 function mark() {
   const sel = getSelection();
   if (!sel.rangeCount || !editor.contains(sel.anchorNode)) return;
-  const at = sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement;
+  const near = spot(sel), at = near && editor.contains(near) ? near : sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement;
   const inside = tag => { const e = at?.closest(tag); return !!e && editor.contains(e); };
   for (const cmd of toggles) tools.querySelector(`.icon-button[data-cmd="${cmd}"]`)?.setAttribute('aria-pressed', String(applies(cmd)));
   tools.querySelector('[data-cmd="blockquote"]')?.setAttribute('aria-pressed', String(inside('blockquote:not([style*="border"])')));  // a quote, not an indent
