@@ -9,10 +9,12 @@ import os
 import re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SRC = os.path.join(HERE, "..", "mail", "webmail", "src")
+# The mail repository being published or deployed (MAIL_REPO, as publish.sh and
+# watch-sync.sh hand it on), else the one beside this one.
+SRC = os.path.join(os.environ.get("MAIL_REPO") or os.path.join(HERE, "..", "mail"), "webmail", "src")
 ICONS = ["attach", "image", "download", "open", "lock", "lock_open", "warning", "key", "close", "delete", "pilcrow", "undo", "redo", "text_size", "bold", "italic",
          "underline", "strike", "text_color", "align_left", "align_center", "align_right", "align_justify", "numbers", "bullets",
-         "indent_less", "indent_more", "quote", "link", "emoji", "table", "clear", "verified_user", "shield"]
+         "indent_less", "indent_more", "quote", "link", "emoji", "table", "clear", "verified_user", "shield", "expand_more", "line_spacing"]
 
 
 def by_window(css):

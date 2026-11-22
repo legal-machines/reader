@@ -4,8 +4,15 @@
 // for the text, seals it with your key (seal.mjs; Touch ID first if encrypted mail is
 // locked), encrypts it to the recipients' keys (keys.mjs for our mailboxes,
 // contacts.mjs for people outside, learned from their signed mail) and hands Mail the
-// encrypted message to send. Mail cannot have a draft encrypted behind your
-// back, nor learn from it how much you have written.
+// encrypted message to send. Mail cannot have it encrypted to anyone at any
+// other time, nor point Send at a composer of its own.
+//
+// While you write, it also seals a draft when Mail asks (draft, below):
+// sealed with your key and encrypted to you alone, only while your key is
+// open already and never with a passkey asked for, and only of what you
+// wrote. Mail keeps it in Drafts and can read none of it; it learns when a
+// draft changed and its size, in the 4 KB steps every message here is padded
+// to (compose.mjs, message).
 
 import {MAIL_SITES} from './sites.mjs';
 import {widths} from './width.mjs';
@@ -66,6 +73,63 @@ const ask = (to, cc) => new Promise((resolve, reject) => {
   w.postMessage({type: 'compose-message', id, to, cc, from}, location.origin);
 });
 
+// A draft of what is written end to end, which Mail asks for every few
+// seconds while you write: the composer's text (only what a person wrote,
+// only when it changed), sealed with your key and encrypted to your own key
+// alone, so that only you can read it and only your own Seal takes it back
+// to edit (compose.mjs: answer, restoreMessage). Only while the key is open
+// already: a draft never asks for your passkey; with the key shut Mail is
+// told so and keeps none.
+const askDraft = (to, cc) => new Promise((resolve, reject) => {
+  const composers = readerFrames('compose.html');
+  if (composers.length !== 1) return reject(new Error('Not one composer on this page.'));
+  const id = crypto.randomUUID(), w = composers[0];
+  const done = () => { removeEventListener('message', hear); clearTimeout(timer); };
+  const hear = m => {
+    if (m.source !== w || !fromOurFrame(m, 'compose.html') || m.data?.type !== 'draft' || m.data.id !== id) return;
+    done();
+    if (typeof m.data.text === 'string') resolve(m.data.text); else if (m.data.unchanged) resolve(null); else reject(new Error(m.data.error || 'No draft.'));
+  };
+  const timer = setTimeout(() => { done(); reject(new Error('The message did not answer.')); }, 3000);
+  addEventListener('message', hear);
+  w.postMessage({type: 'compose-draft', id, to, cc, from}, location.origin);
+});
+let drafting = false;
+async function draft(id) {
+  const answer = m => tell({type: 'reader-draft', id, ...m});
+  if (busy || drafting) return answer({skip: true});
+  drafting = true;
+  try {
+    if (!ADDRESS.test(from) || await raised()) return answer({skip: true});
+    const own = await keyFor(from);
+    if (!own?.internal) return answer({skip: true});
+    const fromId = own.subkeys[0], st = await vault.state();
+    if (!st.keyIds.includes(fromId)) {
+      for (const w of readerFrames('compose.html')) w.postMessage({type: 'draft-locked'}, location.origin);  // the composer offers Unlock
+      return answer({locked: true});
+    }
+    const text = await askDraft([...people.to], [...people.cc]);
+    if (text === null) return answer({unchanged: true});
+    const openpgp = await openpgpLib();
+    await measure();
+    const at = now(), signer = st.signers?.[fromId] || null;
+    const sealed = await seal(openpgp, text, fromId, vault.deriver(fromId), [fromId]);
+    const data = new TextEncoder().encode(sealed);
+    const message = signer ? await signedPackets(openpgp, data, signer, vault.signer(fromId), at) : await openpgp.createMessage({binary: data, date: new Date(at)});
+    const key = await openpgp.readKey({armoredKey: own.armored || await armoredFor(openpgp, from, own.entry)});
+    const sessionKey = {data: crypto.getRandomValues(new Uint8Array(32)), algorithm: 'aes256'};
+    try {
+      answer({armored: await openpgp.encrypt({message, encryptionKeys: [key], sessionKey, format: 'armored', date: new Date(at)})});
+    } finally {
+      sessionKey.data.fill(0);
+    }
+  } catch (e) {
+    answer({skip: true});
+  } finally {
+    drafting = false;
+  }
+}
+
 // The composer shows whom the message will be encrypted to, from the very
 // list this button uses, inside the reader where Mail cannot change it.
 // With each address, what Seal has for it: 'ours' (a mailbox here), 'known'
@@ -80,6 +144,8 @@ const share = async () => {
   for (const w of readerFrames('compose.html')) w.postMessage({type: 'send-shows', ...people, from, keys}, location.origin);
 };
 addEventListener('message', e => { if (e.data?.type === 'compose-hello' && fromOurFrame(e, 'compose.html')) share(); });
+// Unlocked in the composer for drafts: one is kept at once, not at Mail's next ask.
+addEventListener('message', e => { if (e.data?.type === 'draft-now' && fromOurFrame(e, 'compose.html') && ready) draft('now'); });
 onKeysChanged(share);  // a newer Seal took over: the keys of the people shown, again
 
 // Where the browser can tell (Chrome), Send works only while it is in plain
@@ -223,6 +289,8 @@ addEventListener('message', e => {
     if (JSON.stringify(next) !== JSON.stringify(people)) changedAt = Date.now();
     people = next;
     share();
+  } else if (d.type === 'send-draft' && typeof d.id === 'string' && ready) {
+    draft(d.id.slice(0, 100));
   } else if (d.type === 'send-label' && typeof d.label === 'string') {
     // Send now, or Schedule send once a time is picked in Mail's menu.
     label = d.label === 'schedule' ? 'Schedule send' : 'Send now';

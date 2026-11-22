@@ -24,6 +24,7 @@ import {openWith, recipientsOf} from './decrypt.mjs';
 import {fromOurFrame, readerFrames} from './tab.mjs';
 import {NOTICES} from './notices.mjs';
 import {alarmText, raised} from './alarm.mjs';
+import {all, valid} from './store.mjs';
 
 const form = document.getElementById('compose'), subject = document.getElementById('subject'), editor = document.getElementById('editor');
 const tools = document.getElementById('tools'), filesBox = document.getElementById('files'), dock = document.getElementById('mark-dock');
@@ -78,7 +79,9 @@ const tell = m => { if (parentOrigin) parent.postMessage(m, parentOrigin); };
 // Mail hears once that the text changed (so an old encrypted copy is not
 // sent), not at every key: the timing of keys is the writer's own.
 let lastUse = 0, dirty = false;
+let version = 0, drafted = -1;  // the text's changes, and the one the last draft held (send.mjs, draft)
 const touched = () => {
+  version++;
   if (!dirty) { dirty = true; tell({type: 'reader-dirty'}); }
   // The key stays open for a writer at work: only after an action of yours,
   // never for a change Mail made happen (a message put back to edit).
@@ -92,8 +95,14 @@ function bar() {
   const item = (cmd, value, label, extra = '') => `<button type="button" class="menu-item" data-cmd="${cmd}" data-value="${escape(value)}"${extra}>${label}</button>`;
   const pop = (glyph, title, items) =>
     `<details class="pop up"><summary class="icon-button" title="${title}" aria-label="${title}">${icon(glyph)}</summary><div class="pop-card">${items}</div></details>`;
+  const fonts = '<p class="pop-title">Font</p>' + item('fontName', '', 'Sans serif') +
+    [['times new roman, serif', 'Serif'], ['monospace, monospace', 'Fixed width'], ['arial black, sans-serif', 'Wide'], ['arial narrow, sans-serif', 'Narrow'],
+     ['comic sans ms, sans-serif', 'Comic Sans MS'], ['garamond, serif', 'Garamond'], ['georgia, serif', 'Georgia'], ['tahoma, sans-serif', 'Tahoma'],
+     ['trebuchet ms, sans-serif', 'Trebuchet MS'], ['verdana, sans-serif', 'Verdana']].map(([face, name]) => item('fontName', face, name, ` style="font-family:${face}"`)).join('');
   const sizes = '<p class="pop-title">Text size</p>' + item('fontSize', '2', '<small>Small</small>') + item('fontSize', '3', 'Normal') +
                 item('fontSize', '5', '<span class="big">Large</span>') + item('fontSize', '6', '<span class="huge">Huge</span>');
+  const spacing = '<p class="pop-title">Line spacing</p>' +
+    [['1.2', '1.0'], ['1.38', '1.15'], ['1.8', '1.5'], ['2.4', '2.0'], ['3', '2.5'], ['3.6', '3.0']].map(([height, name]) => item('lineHeight', height, name)).join('');
   const swatch = (cmd, hex, name) => `<button type="button" class="swatch" data-cmd="${cmd}" data-value="${hex}" title="${name}" aria-label="${name}" style="background:${hex}"></button>`;
   const colors = '<p class="pop-title">Text color</p><div class="swatches">' +
     [['#1f1f1f', 'Black'], ['#5f6368', 'Gray'], ['#d93025', 'Red'], ['#e8710a', 'Orange'], ['#188038', 'Green'], ['#12a4af', 'Teal'], ['#1a73e8', 'Blue'], ['#9334e6', 'Purple']]
@@ -111,9 +120,11 @@ function bar() {
   for (let r = 1; r <= 6; r++) for (let c = 1; c <= 8; c++) table += `<button type="button" data-cmd="insertTable" data-value="${c}x${r}" aria-label="${c} by ${r} table"></button>`;
   table += '</div>';
   return '<span class="tool-group">' + tool('undo', 'undo', 'Undo') + tool('redo', 'redo', 'Redo') + '</span>' +
-    '<span class="tool-group">' + pop('text_size', 'Text size', sizes) + tool('bold', 'bold', 'Bold', 'B') + tool('italic', 'italic', 'Italic', 'I') +
+    '<span class="tool-group">' +
+    `<details class="pop up"><summary class="font-button" title="Font" aria-label="Font"><span class="font-name">Sans serif</span>${icon('expand_more')}</summary><div class="pop-card">${fonts}</div></details>` +
+    pop('text_size', 'Text size', sizes) + tool('bold', 'bold', 'Bold', 'B') + tool('italic', 'italic', 'Italic', 'I') +
     tool('underline', 'underline', 'Underline', 'U') + tool('strikeThrough', 'strike', 'Strikethrough', 'Shift+X') + pop('text_color', 'Text color', colors) +
-    '</span><span class="tool-group">' + pop('align_left', 'Align', aligns) + tool('insertOrderedList', 'numbers', 'Numbered list', 'Shift+7') +
+    '</span><span class="tool-group">' + pop('align_left', 'Align', aligns) + pop('line_spacing', 'Line spacing', spacing) + tool('insertOrderedList', 'numbers', 'Numbered list', 'Shift+7') +
     tool('insertUnorderedList', 'bullets', 'Bulleted list', 'Shift+8') + tool('outdent', 'indent_less', 'Indent less', '[') +
     tool('indent', 'indent_more', 'Indent more', ']') + tool('blockquote', 'quote', 'Quote', 'Shift+9') +
     '</span><span class="tool-group pictures">' + tool('attachFiles', 'attach', 'Attach files') + tool('insertImage', 'image', 'Insert picture') + '</span><span class="tool-group">' + tool('createLink', 'link', 'Link', 'K') +
@@ -160,8 +171,97 @@ document.getElementById('link-insert').addEventListener('click', insertLink);
 document.getElementById('link-cancel').addEventListener('click', () => { linkCard.hidden = true; restore(linkRange); });
 linkAddress.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); insertLink(); } if (e.key === 'Escape') { linkCard.hidden = true; restore(linkRange); } });
 
+// Line spacing, as Mail sets it (its app.js): on each paragraph the
+// selection touches, a run of text outside any block becoming a block of its
+// own. No command of the browser sets it, and paragraphs put in again
+// through the editor nest into their neighbours, so it is set in place and
+// kept here: Undo and Redo, from the bar or the keys, take it back and make
+// it again while the text is as it left it.
+const spacing = (() => {
+  const BLOCKS = /^(DIV|P|BLOCKQUOTE|UL|OL|TABLE|H[1-6]|PRE|DL|CENTER|ADDRESS|FIGURE|SECTION|ARTICLE|HEADER|FOOTER|HR)$/;
+  const done = [], undone = [];
+  const shape = () => editor.innerHTML.replace(/<img\b[^>]*>/g, '<img>');
+  const keepSelection = act => {
+    const sel = getSelection();
+    const ends = sel.rangeCount && editor.contains(sel.anchorNode)
+      ? [[sel.anchorNode, sel.anchorOffset], [sel.focusNode, sel.focusOffset]].map(([n, o]) => n.nodeType === 3 ? {n, o} : {in: n, before: n.childNodes[o] || null})
+      : null;
+    act();
+    if (!ends) return;
+    const at = e => e.n ? (editor.contains(e.n) ? [e.n, e.o] : null)
+      : e.before ? (editor.contains(e.before) ? [e.before.parentNode, [...e.before.parentNode.childNodes].indexOf(e.before)] : null)
+      : editor.contains(e.in) ? [e.in, e.in.childNodes.length] : null;
+    const a = at(ends[0]), f = at(ends[1]);
+    if (a && f) sel.setBaseAndExtent(a[0], a[1], f[0], f[1]);
+  };
+  const apply = step => keepSelection(() => {
+    for (const w of step.wrappers) { w.nodes[0].before(w.div); w.div.append(...w.nodes); w.div.style.lineHeight = step.value; }
+    for (const s of step.styles) s.block.style.lineHeight = step.value;
+  });
+  const revert = step => keepSelection(() => {
+    for (const s of step.styles) { if (s.was === null) s.block.removeAttribute('style'); else s.block.setAttribute('style', s.was); }
+    for (const w of step.wrappers) w.div.replaceWith(...w.nodes);
+  });
+  editor.addEventListener('input', e => { if (e.isTrusted && !String(e.inputType).startsWith('history')) undone.length = 0; });
+  return {
+    set(value) {
+      const sel = getSelection();
+      if (!sel.rangeCount || !editor.contains(sel.getRangeAt(0).commonAncestorContainer)) return;
+      const range = sel.getRangeAt(0), units = [];
+      let run = null;
+      for (const node of editor.childNodes) {
+        if (node.nodeType === 1 && BLOCKS.test(node.tagName)) { run = null; units.push({nodes: [node], block: node}); continue; }
+        if (!run) { run = {nodes: []}; units.push(run); }
+        run.nodes.push(node);
+      }
+      const shows = u => u.block ? u.block.tagName !== 'HR' : u.nodes.some(n => n.nodeType === 1 || (n.nodeType === 3 && n.data.trim()));
+      let touchedUnits = units.filter(u => shows(u) && u.nodes.some(n => range.intersectsNode(n)));
+      if (!touchedUnits.length) {
+        let n = range.startContainer;
+        if (n === editor) n = editor.childNodes[range.startOffset] || editor.childNodes[range.startOffset - 1];
+        while (n && n.parentNode !== editor) n = n.parentNode;
+        touchedUnits = units.filter(u => u.nodes.includes(n) && shows(u));
+      }
+      const step = {value, styles: [], wrappers: [], before: shape()};
+      if (!touchedUnits.length) {
+        if (units.some(shows)) return;
+        step.added = document.createElement('div');
+        step.added.append(document.createElement('br'));
+        editor.append(step.added);
+        step.styles.push({block: step.added, was: null});
+      }
+      for (const u of touchedUnits) {
+        if (u.block) step.styles.push({block: u.block, was: u.block.getAttribute('style')});
+        else step.wrappers.push({div: document.createElement('div'), nodes: u.nodes});
+      }
+      apply(step);
+      if (step.added) sel.collapse(step.added, 0);
+      step.after = shape();
+      done.push(step);
+      undone.length = 0;
+    },
+    undo() {
+      const step = done.at(-1);
+      if (!step || shape() !== step.after) return false;
+      revert(step);
+      step.added?.remove();
+      undone.push(done.pop());
+      return true;
+    },
+    redo() {
+      const step = undone.at(-1);
+      if (!step || shape() !== step.before) return false;
+      if (step.wrappers.some(w => w.nodes.some(n => n.parentNode !== editor)) || step.styles.some(s => s.block !== step.added && !editor.contains(s.block))) return false;
+      if (step.added) editor.append(step.added);
+      apply(step);
+      done.push(undone.pop());
+      return true;
+    },
+  };
+})();
 const format = (cmd, value) => {
   restore(saved);
+  if ((cmd === 'undo' && spacing.undo()) || (cmd === 'redo' && spacing.redo())) { touched(); closeMenus(); mark(); return; }
   if (cmd === 'createLink') { closeMenus(); askLink(); return; }
   if (cmd === 'insertImage') { closeMenus(); pictureInput.click(); return; }
   if (cmd === 'attachFiles') { closeMenus(); filesInput.click(); return; }
@@ -187,7 +287,12 @@ const format = (cmd, value) => {
     document.execCommand('styleWithCSS', false, true);
     document.execCommand('hiliteColor', false, value);
     document.execCommand('styleWithCSS', false, false);
-  } else document.execCommand(cmd, false, value || null);
+  } else if (cmd === 'fontName') {
+    // Sans serif is the editor's own font: named exactly as the editor has
+    // it, the browser takes the other fonts off and writes no face.
+    document.execCommand('fontName', false, value || getComputedStyle(editor).fontFamily);
+  } else if (cmd === 'lineHeight') spacing.set(value);
+  else document.execCommand(cmd, false, value || null);
   touched();
   closeMenus();
   mark();
@@ -198,6 +303,8 @@ tools.addEventListener('click', e => { const b = e.target.closest('[data-cmd]');
 // The bar follows the caret, as in Mail.
 const toggles = ['bold', 'italic', 'underline', 'strikeThrough', 'insertOrderedList', 'insertUnorderedList'];
 const alignButton = tools.querySelector('.menu-item[data-cmd="justifyLeft"]')?.closest('details')?.querySelector('summary');
+const fontButton = tools.querySelector('.font-button'), fontName = fontButton?.querySelector('.font-name');
+const family = f => f.toLowerCase().replace(/["']/g, '').replace(/\s*,\s*/g, ',').trim();
 const applies = cmd => { try { return document.queryCommandState(cmd); } catch (e) { return false; } };
 function mark() {
   const sel = getSelection();
@@ -210,6 +317,18 @@ function mark() {
   tools.querySelector('[data-cmd="deleteTable"]')?.toggleAttribute('hidden', !inside('table'));
   const sized = at?.closest('font[size]'), size = sized && editor.contains(sized) ? sized.getAttribute('size') : '3';
   for (const item of tools.querySelectorAll('.menu-item[data-cmd="fontSize"]')) item.setAttribute('aria-checked', String(item.dataset.value === size));
+  if (at && fontName) {
+    const here = family(getComputedStyle(at).fontFamily), mine = family(getComputedStyle(editor).fontFamily);
+    const known = [...tools.querySelectorAll('.menu-item[data-cmd="fontName"]')].find(i => (i.dataset.value ? family(i.dataset.value) : mine) === here);
+    for (const item of tools.querySelectorAll('.menu-item[data-cmd="fontName"]')) item.setAttribute('aria-checked', String(item === known));
+    const name = known ? known.textContent : here.split(',')[0].replace(/^./, c => c.toUpperCase());
+    if (fontName.textContent !== name) fontName.textContent = name;
+    if (fontButton.getAttribute('aria-label') !== 'Font, ' + name) fontButton.setAttribute('aria-label', 'Font, ' + name);
+  }
+  let spaced = at;
+  while (spaced && spaced !== editor && !spaced.style.lineHeight) spaced = spaced.parentElement;
+  const lines = spaced && spaced !== editor ? spaced.style.lineHeight : '';
+  for (const item of tools.querySelectorAll('.menu-item[data-cmd="lineHeight"]')) item.setAttribute('aria-checked', String(item.dataset.value === lines));
   const align = ['justifyCenter', 'justifyRight', 'justifyFull'].find(applies) || 'justifyLeft';
   for (const item of tools.querySelectorAll('.menu-item[data-cmd^="justify"]')) item.setAttribute('aria-checked', String(item.dataset.cmd === align));
   if (alignButton && alignButton.dataset.align !== align) {
@@ -290,6 +409,11 @@ const shiftKeys = {KeyX: 'strikeThrough', Digit7: 'insertOrderedList', Digit8: '
   KeyL: 'justifyLeft', KeyE: 'justifyCenter', KeyR: 'justifyRight', KeyJ: 'justifyFull'};
 editor.addEventListener('keydown', e => {
   if (!(mac ? e.metaKey : e.ctrlKey) || e.altKey) return;
+  // Undo and Redo: a line spacing first, when it was the last change.
+  if (e.code === 'KeyZ' || (!mac && e.code === 'KeyY')) {
+    if (e.code === 'KeyZ' && !e.shiftKey ? spacing.undo() : spacing.redo()) { e.preventDefault(); touched(); mark(); }
+    return;
+  }
   const cmd = (e.shiftKey ? shiftKeys : plainKeys)[e.code];
   if (cmd) { e.preventDefault(); format(cmd); }
 });
@@ -607,7 +731,7 @@ async function answer(armored, mode) {
   try {
     const ids = await recipientsOf(armored), s = await vault.state();
     const keyId = ids.find(id => s.keyIds.includes(id));
-    if (!keyId) return;
+    if (!keyId) { if (mode === 'edit') shutDraft(armored, ids); return; }
     const m = await openWith(armored, s.infos[keyId]);
     // Only a message you sealed comes back to edit: anyone can encrypt one
     // to your key, with any words and files in it.
@@ -632,10 +756,12 @@ async function answer(armored, mode) {
   } catch (e) {}  // locked, or not a message for this key: the subject stays to write
 }
 
-// A message of yours to change (Edit on a scheduled one): its subject, its
-// text with the pictures in place, and its files come back into this
-// composer. The text is cleaned as anything Mail hands over is: anyone can
-// encrypt a message to your key, so the text earns no more trust than that.
+// A message of yours to change (a draft, or Edit on a scheduled one): its
+// subject, its text with the pictures in place, and its files come back into
+// this composer. Only one your own seal holds comes here (answer): anyone
+// can encrypt a message to your key, but only your key seals one, so it
+// keeps its formatting; still nothing that runs or loads, and no type too
+// small or faint to read.
 function restoreMessage(m) {
   subject.value = m.subject || '';
   const isInline = f => f.id && isPicture(f) && (m.html || '').includes('cid:' + f.id);
@@ -647,7 +773,7 @@ function restoreMessage(m) {
     pictures.set(n, new File([f.data], f.name || 'picture', {type: f.type}));
     return `\ue000${n}\ue001`;  // a mark that cleaning keeps, for the picture to come back
   });
-  editor.innerHTML = clean(html, true).replace(/\ue000(\d+)\ue001/g, (all, n) =>
+  editor.innerHTML = clean(html, true, true).replace(/\ue000(\d+)\ue001/g, (all, n) =>
     `<img src="${URL.createObjectURL(pictures.get(Number(n)))}" data-pic="${n}" alt="${escape(pictures.get(Number(n)).name)}">`);
   attach(m.files.filter(f => !isInline(f)).map(f => new File([f.data], f.name || 'attachment', {type: f.type || 'application/octet-stream'})));
   placeNotices();
@@ -660,9 +786,10 @@ function restoreMessage(m) {
 // or loads, no quote (only this composer quotes, from a message it opened
 // itself), no runs of empty lines, and no more than a signature's length. A
 // message of your own put back to edit keeps its quotes (ownWords).
-function clean(html, ownWords = false) {
+function clean(html, ownWords = false, sealed = false) {
   const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
-  const keep = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'BR', 'P', 'DIV', 'SPAN', 'A', 'FONT', 'UL', 'OL', 'LI', ...(ownWords ? ['BLOCKQUOTE'] : [])]);
+  const keep = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'BR', 'P', 'DIV', 'SPAN', 'A', 'FONT', 'UL', 'OL', 'LI', ...(ownWords ? ['BLOCKQUOTE'] : []),
+                        ...(sealed ? ['S', 'STRIKE', 'SUB', 'SUP', 'H1', 'H2', 'H3', 'H4', 'PRE', 'CODE', 'HR', 'TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'TD', 'TH'] : [])]);
   const walk = node => {
     for (const child of [...node.childNodes]) {
       if (child.nodeType === 3) { child.data = child.data.replace(HIDDEN, ''); continue; }
@@ -676,8 +803,10 @@ function clean(html, ownWords = false) {
                    // reader's own notices (placeNotices), so Mail cannot dress a text of
                    // its own as one.
                    (child.tagName === 'FONT' && a.name === 'color' && /^#5f6368$/i.test(a.value)) ||
-                   (a.name === 'class' && (a.value === 'signature' || (ownWords && a.value === 'quoted')));
+                   (a.name === 'class' && (a.value === 'signature' || (ownWords && a.value === 'quoted'))) ||
+                   (sealed && sealedKeeps(child, a));
         if (!ok) child.removeAttribute(a.name);
+        else if (sealed && a.name === 'style') child.setAttribute('style', sealedStyle(a.value));
       }
       // A link that reads as one address and goes to another shows where it goes.
       if (child.tagName === 'A' && child.hasAttribute('href')) {
@@ -707,6 +836,112 @@ function clean(html, ownWords = false) {
     cut(doc.body);
   }
   return doc.body.innerHTML;
+}
+
+// The formatting a sealed message of yours keeps: the styles Mail's bar and
+// this one write, each value plain (no url(), no escapes), none that hides
+// its words (type under 8 px, a colour one cannot see), and the old font and
+// alignment attributes editors still write.
+const STYLES = new Set(['color', 'background-color', 'text-align', 'line-height', 'font-size', 'font-family', 'font-weight', 'font-style', 'text-decoration',
+  'text-decoration-line', 'margin', 'margin-left', 'margin-right', 'margin-top', 'margin-bottom', 'padding', 'padding-left', 'padding-right', 'padding-top',
+  'padding-bottom', 'border', 'border-top', 'border-right', 'border-bottom', 'border-left', 'border-collapse', 'width', 'min-width', 'max-width', 'vertical-align', 'white-space']);
+function sealedStyle(text) {
+  return String(text).split(';').map(d => {
+    const at = d.indexOf(':'), name = d.slice(0, at).trim().toLowerCase(), value = d.slice(at + 1).trim();
+    if (at < 0 || !STYLES.has(name) || !/^[#\w\s.,%()'"+-]{1,120}$/.test(value) || /url\s*\(|expression/i.test(value)) return '';
+    if (name === 'font-size' && /^\d+(\.\d+)?px$/.test(value) && parseFloat(value) < 8) return '';
+    if (name === 'color' && /transparent|rgba\([^)]*,\s*0?\.[0-3]\d*\s*\)|rgba\([^)]*,\s*0\s*\)/i.test(value)) return '';
+    return name + ': ' + value;
+  }).filter(Boolean).join('; ');
+}
+const sealedKeeps = (el, a) => a.name === 'style' || (a.name === 'align' && /^(left|right|center|justify)$/i.test(a.value)) ||
+  (el.tagName === 'FONT' && (a.name === 'color' || a.name === 'face') && /^[#\w\s,'"-]{1,100}$/.test(a.value)) ||
+  (el.tagName === 'FONT' && a.name === 'size' && /^[1-7]$/.test(a.value)) ||
+  ((el.tagName === 'TD' || el.tagName === 'TH') && (a.name === 'colspan' || a.name === 'rowspan') && /^[1-9]\d?$/.test(a.value));
+
+// A draft of yours sealed with your key, while the key is shut: said here,
+// with Unlock (this browser's passkey for the key), and opened as soon as
+// the key is open, here or anywhere in Mail.
+let shut = null;
+function shutDraft(armored, ids) {
+  if (shut) return;
+  shut = document.createElement('p');
+  shut.className = 'notice-strip';
+  shut.innerHTML = `${icon('lock')}<span>Your draft is sealed with your key. Unlock to open it.</span><button class="text-link" type="button">Unlock</button>`;
+  form.prepend(shut);
+  const opened = async () => {
+    const s = await vault.state();
+    if (!shut || !ids.some(id => s.keyIds.includes(id))) return false;
+    shut.remove();
+    shut = null;
+    await answer(armored, 'edit');
+    return true;
+  };
+  vault.watch(() => { opened(); });
+  const button = shut.querySelector('button'), said = shut.querySelector('span');
+  button.addEventListener('click', async e => {
+    if (!e.isTrusted || button.disabled) return;
+    button.disabled = true;
+    try {
+      await unlockHere(ids);
+      if (!await opened()) throw new Error('That passkey opened another key of yours: unlock encrypted mail in Mail, and the draft opens here.');
+    } catch (err) {
+      said.textContent = err.name === 'NotAllowedError' ? 'Not unlocked: Touch ID was cancelled. Press Unlock again.' : err.message;
+    } finally {
+      button.disabled = false;
+    }
+  });
+}
+
+// Unlock in this composer, with this browser's passkey for your key: for a
+// sealed draft while the key is shut, and for drafts to be kept at all (Send
+// keeps none while it is shut). The sealed records Mail hands over count, as
+// they do for Send, and this browser's own copy of one stands over Mail's
+// (Safari keeps this frame's storage apart from Seal's own tab, where the key
+// was added). A key with a PIN opens in Mail.
+let records = [], minutes = 15;
+async function unlockHere(ids) {
+  const mine = records.filter(r => ids.includes(r.keyId));
+  try {
+    for (const r of await all()) {
+      if (!valid(r) || !ids.includes(r.keyId)) continue;
+      const at = mine.findIndex(m => m.credentialId === r.credentialId);
+      if (at >= 0) mine[at] = r; else mine.push(r);
+    }
+  } catch (e) {}
+  const use = mine.filter(r => !r.pinSalt);
+  if (!use.length) throw new Error('This browser has no passkey for your key, or the key asks for its PIN: unlock encrypted mail in Mail.');
+  await vault.unlock(use, '', minutes);
+}
+// Send kept no draft, the key being shut (send.mjs tells this composer, never
+// Mail): said here, with Unlock, after which a draft is kept at once.
+let keepNote = null;
+function draftsShut() {
+  if (keepNote || shut || !own?.subkeys?.length) return;
+  keepNote = document.createElement('p');
+  keepNote.className = 'notice-strip';
+  // Set to ask each time (minutes 0), the key opens for one page alone, never
+  // for Send's: no Unlock here that could not keep a draft.
+  keepNote.innerHTML = minutes === 0 ? `${icon('lock')}<span>Drafts are kept only while your key stays open, and yours is set to ask each time.</span>`
+    : `${icon('lock')}<span>Drafts are kept while your key is open. Unlock to keep this one.</span><button class="text-link" type="button">Unlock</button>`;
+  form.prepend(keepNote);
+  if (minutes === 0) return;
+  const button = keepNote.querySelector('button'), said = keepNote.querySelector('span');
+  const gone = () => { keepNote?.remove(); keepNote = null; };
+  vault.watch(async () => { const s = await vault.state(); if (own?.subkeys?.some(id => s.keyIds.includes(id))) gone(); });
+  button.addEventListener('click', async e => {
+    if (!e.isTrusted || button.disabled) return;
+    button.disabled = true;
+    try {
+      await unlockHere(own.subkeys);
+      gone();
+      for (const w of readerFrames('send.html')) w.postMessage({type: 'draft-now'}, location.origin);
+    } catch (err) {
+      said.textContent = err.name === 'NotAllowedError' ? 'Not unlocked: Touch ID was cancelled. Press Unlock again.' : err.message;
+    } finally {
+      button.disabled = false;
+    }
+  });
 }
 
 // The notices under the signature: the reader writes them, from its own copy
@@ -755,6 +990,8 @@ addEventListener('message', async e => {
     from = typeof d.from === 'string' && ADDRESS.test(d.from.toLowerCase()) ? d.from.toLowerCase() : '';
     if (from) keyOf(from).then(k => { own = k || null; showSeal(); });  // your key, for your mark (keys.mjs knows addresses by hash)
     if (typeof d.subject === 'string') subject.value = d.subject.slice(0, 998);
+    records = Array.isArray(d.records) ? d.records.filter(valid).slice(0, 20) : [];
+    minutes = [0, 5, 15, 30, 60].includes(d.minutes) ? d.minutes : 15;
     editor.innerHTML = clean(d.html);
     placeNotices();
     untouched = editor.innerHTML;
@@ -786,9 +1023,26 @@ addEventListener('message', async e => {
   if (!fromOurFrame(e, 'send.html')) return;
   const x = e.data || {};
   const s = v => Array.isArray(v) ? v.filter(a => typeof a === 'string').map(a => a.toLowerCase()).slice(0, 100) : [];
+  if (x.type === 'draft-locked') { draftsShut(); return; }
   if (x.type === 'send-shows') {
     const keys = x.keys && typeof x.keys === 'object' ? Object.fromEntries(Object.entries(x.keys).filter(([, v]) => typeof v === 'string')) : {};
     listShown(s(x.to), s(x.cc), s(x.bcc), typeof x.from === 'string' && ADDRESS.test(x.from) ? x.from.toLowerCase() : '', keys);
+    return;
+  }
+  // A draft, which Send seals for you alone while you write (send.mjs,
+  // draft): only what a person wrote here, never Mail's own words alone, and
+  // only when it changed since the last draft. Not a sending, so it needs
+  // the composer in view no more than a draft does in Mail.
+  if (x.type === 'compose-draft' && typeof x.id === 'string') {
+    const reply = m => e.source.postMessage({type: 'draft', id: x.id, ...m}, location.origin);
+    if (!wrote || version === drafted) { reply({unchanged: true}); return; }
+    const at = version;
+    try {
+      reply({text: await message({to: s(x.to), cc: s(x.cc), from: typeof x.from === 'string' ? x.from : ''})});
+      drafted = at;
+    } catch (err) {
+      reply({error: err.message});
+    }
     return;
   }
   if (x.type !== 'compose-message' || typeof x.id !== 'string') return;

@@ -14,7 +14,7 @@ cd "$(dirname "$0")"
 # finds this one beside it, on the Mac and in the Windows PC's WSL alike),
 # else where the Mac keeps it. Handed on to make-keys.py and make-notices.py.
 mail_repo="${MAIL_REPO:-$(cd .. && pwd)/mail}"
-[ -d "$mail_repo/.git" ] || mail_repo="$HOME/Desktop/Projects/mail"
+[ -e "$mail_repo/.git" ] || mail_repo="$HOME/Desktop/Projects/mail"  # -e: a git worktree has a file there
 export MAIL_REPO="$mail_repo"
 for repo in . "$mail_repo"; do
   if ! git -C "$repo" fetch -q origin main || ! git -C "$repo" merge-base --is-ancestor origin/main HEAD; then

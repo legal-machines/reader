@@ -476,6 +476,12 @@ border-radius:var(--r-md);background:var(--c-surface-2)}
 @media (hover:hover){.editor-tools .icon-button[aria-pressed=true]:hover{background:color-mix(in srgb,var(--c-selected) 86%,var(--c-on-selected))}}
 .editor-tools .menu-item[aria-checked=true]{background:var(--c-selected);color:var(--c-on-selected)}.editor-tools .menu-item[aria-checked=true] svg.i{fill:var(--c-on-selected)}
 .editor-tools .pop-card{min-width:180px}
+
+.editor-tools .font-button{display:inline-flex;align-items:center;gap:2px;width:136px;height:var(--h-sm);padding:0 var(--s-1) 0 var(--s-3);border-radius:var(--r-full);
+color:var(--c-text-2);font-size:var(--t-md);cursor:pointer;transition:background-color var(--fast) var(--ease);corner-shape:round}
+.editor-tools .font-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.editor-tools .font-button svg.i{width:var(--icon-sm);height:var(--icon-sm)}
+@media (hover:hover){.editor-tools .font-button:hover{background:var(--c-hover)}}.editor-tools .font-button:active,.pop[open] > summary.font-button{background:var(--c-hover)}
 .menu-item small{font-size:var(--t-xs)}.menu-item .big{font-size:var(--t-xl)}.menu-item .huge{font-size:var(--t-3xl)}
 .swatches{display:grid;grid-template-columns:repeat(8,24px);gap:var(--s-2);padding:var(--s-1) var(--s-3) var(--s-2)}
 .swatch{width:24px;height:24px;padding:0;border:0;border-radius:var(--r-full);cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12);corner-shape:round}
@@ -1035,7 +1041,7 @@ dialog.picture-editor{width:100vw;height:100dvh;border-radius:0}.pe-bar h2{displ
 .line{min-height:var(--tap)}.line input{height:var(--tap)}
 .line input,.editor,.pane.composer textarea,.field input,.field textarea,.form.inline input[type=text],.form.inline select,ul.rules input[type=text]{font-size:var(--t-lg)}
 .editor-tools{flex-wrap:nowrap;overflow-x:auto;gap:var(--s-1) var(--s-3)}.editor-tools .tool-group.pictures{order:-1}
-.editor-tools .icon-button,.composer-actions .icon-button{width:var(--tap);height:var(--tap)}
+.editor-tools .icon-button,.composer-actions .icon-button{width:var(--tap);height:var(--tap)}.editor-tools .font-button{flex:none;height:var(--tap)}
 .composer-actions .filled,.composer-actions .text{height:var(--tap)}
 .steps{padding-left:var(--s-7);padding-right:var(--s-4)}details.guide > summary{padding:0 var(--s-3) 0 var(--s-4)}details.guide > .hint{padding:0 var(--s-4) var(--s-4)}
 .settings{padding:var(--s-2) var(--s-2) var(--s-7)}.card{padding:var(--s-4)}

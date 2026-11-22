@@ -223,7 +223,10 @@ the seal holds.
 to end is on, in its own look: a For line with the addresses Send will
 encrypt to (Bcc too), the formatting bar with its own clip for files, the
 signature, pictures in the text. The subject, the text and the files stay
-there. The Mail app hands over the signature alone; the notices under it
+there. The Mail app hands over the signature, or what was written in Mail
+before End to end went on, which the composer takes as plain markup and
+2,000 characters at most (the Mail app asks first when that would lose
+anything); the notices under it
 (the end-to-end one and the domain's own) Seal writes itself, from
 `notices.mjs` (made by `make-notices.py` from the mail repository), so the
 mail server has no say in what they tell the recipient.
@@ -243,9 +246,22 @@ line names each recipient's key: from their mail, checked, new, none). A
 message goes sealed or not at all (no key of yours in this browser, no
 sending), with its own Message-ID inside; the seal goes to our mailboxes
 only. The
-Mail app gets the encrypted message and sends it; it cannot have a draft
-encrypted at any other time. A time picked in Schedule send waits for that
-press. A reply quotes an encrypted message as "X wrote" only when its seal
+Mail app gets the encrypted message and sends it; it cannot have a message
+encrypted to anyone at any other time. A time picked in Schedule send waits
+for that press.
+
+* **Drafts, sealed for you alone.** While you write and your key is open
+  already, Send seals a draft when the Mail app asks (every 15 seconds): what
+  you typed, only when it changed, sealed with your key and encrypted to
+  your own key alone, which the Mail app keeps in Drafts and cannot read. No
+  draft asks for your passkey: with the key shut, none is made, the Mail app
+  says so, and this composer offers Unlock, after which one is kept at once. A draft opened again comes back into this composer, its
+  subject, files and formatting with it, only when your own seal holds
+  (anyone can encrypt a message to your key, but only your key seals one);
+  with the key shut, the composer says the draft is sealed and opens it
+  with Unlock. What the Mail app learns: when a draft changed, and its size
+  in the 4 KB steps every message is padded to (the owner's decision of
+  2026-11-22). A reply quotes an encrypted message as "X wrote" only when its seal
 holds, and says "not sealed" otherwise.
 
 `keys.mjs` lists no addresses: it has one entry a key, with the SHA-256 of
@@ -366,7 +382,8 @@ service worker on that device. Exactly what that allows:
   person only (see No network, and watched).
 * **The mail page** (its server, its hosting company) can hand Seal
   stored encrypted messages and have them shown in frames on the screen,
-  without a touch. It cannot read what is shown; it learns each frame's
+  without a touch, and have Send seal a draft of what you wrote, for you
+  alone, as often as it asks (it learns when the text changed). It cannot read what is shown; it learns each frame's
   height at a few fixed widths, in steps of 32 pixels: about the length of
   the text, which the size of the encrypted message tells anyway. It
   chooses the time without use and reports use, so a page that lies can
