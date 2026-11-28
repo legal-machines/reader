@@ -2,6 +2,8 @@
 // protected headers, its text or HTML, and its attachments. Nothing here
 // touches the network or the page outside the reader.
 
+import {all as addressesIn} from './addresses.mjs';
+
 const latin1 = bytes => Array.from(bytes, b => String.fromCharCode(b)).join('');
 
 function decoder(charset) {
@@ -138,7 +140,41 @@ export const addressOf = text => (/<([^<>\s]+@[^<>\s]+)>/.exec(text)?.[1] || /[^
 
 export const escape = text => text.replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 
-// Plain text as HTML, with web addresses as links that open in a new tab.
+// Plain text as HTML, its addresses as links, as the Mail app makes them
+// (addresses.mjs): each opens in a new tab with no referrer, a web address
+// on the web, an email address in the reader's own mail app (mailto:).
 export function linkify(text) {
-  return escape(text).replace(/\bhttps?:\/\/[^\s<>"']+[^\s<>"'.,;:!?)]/g, url => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`);
+  let out = '', from = 0;
+  for (const f of addressesIn(text)) {
+    out += escape(text.slice(from, f.start)) +
+      `<a href="${escape(f.email ? 'mailto:' + f.href : f.href)}" target="_blank" rel="noopener noreferrer">${escape(text.slice(f.start, f.end))}</a>`;
+    from = f.end;
+  }
+  return out + escape(text.slice(from));
+}
+
+// The same in an HTML letter's text (a document made by DOMParser): each
+// address written out becomes a link, made as the letter's own links are;
+// none inside a link, a style or a title.
+export function linkText(doc) {
+  const walk = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT), texts = [];
+  for (let n = walk.nextNode(); n; n = walk.nextNode()) if (!n.parentElement.closest('a, style, title')) texts.push(n);
+  for (const n of texts) {
+    const found = addressesIn(n.data);
+    if (!found.length) continue;
+    const parts = [];
+    let from = 0;
+    for (const f of found) {
+      if (f.start > from) parts.push(doc.createTextNode(n.data.slice(from, f.start)));
+      const a = doc.createElement('a');
+      a.setAttribute('href', f.email ? 'mailto:' + f.href : f.href);
+      a.setAttribute('target', '_blank');
+      a.setAttribute('rel', 'noopener noreferrer');
+      a.textContent = n.data.slice(f.start, f.end);
+      parts.push(a);
+      from = f.end;
+    }
+    if (from < n.data.length) parts.push(doc.createTextNode(n.data.slice(from)));
+    n.replaceWith(...parts);
+  }
 }

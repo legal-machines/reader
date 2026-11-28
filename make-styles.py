@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""The Mail app's own stylesheet and the icons the reader uses, copied from
-the Mail app's source (../mail/webmail/src) into mail.css and icons.mjs, so
-that a message opened here looks exactly like one in the Mail app. From the
+"""The Mail app's own stylesheet, the icons the reader uses and its rule for
+addresses written out, copied from the Mail app's source (../mail/webmail/src)
+into mail.css, icons.mjs and addresses.mjs, so that a message opened here
+looks and links exactly like one in the Mail app. From the
 source on this computer, never from the mail server: the server's hosting
 company must not choose how the reader looks (it could hide a warning)."""
 import json
@@ -103,10 +104,27 @@ with open(os.path.join(HERE, "letter.mjs"), "w") as f:
     f.write("// The stylesheet of an HTML message's page in the Mail app (its /body route), copied by make-styles.py. Do not edit here.\n"
             f"export const LETTER_CSS = {json.dumps(letter_css)};\n")
 
+# The Mail app's rule for addresses written out (app.js's addresses, the
+# same rule as the server's Links.cpp), so that a letter here has the links
+# it has in Mail. Code, unlike the styles: plain work on the text it is
+# given, which may reach nothing else (no page, storage, network or timer).
+app = assets[assets.index("inline const std::string &app_js()"):]
+try:
+    begin = app.index("const addresses = (() => {")
+    rule = app[begin:app.index("\n})();\n", begin) + len("\n})();")]
+except ValueError:
+    raise SystemExit("make-styles: the Mail app's rule for addresses (app.js, addresses) was not found")
+if re.search(r"\b(document|window|self|globalThis|parent|top|opener|frames|fetch|XMLHttpRequest|WebSocket|EventSource|Worker|import|require|eval|Function|"
+             r"location|navigator|localStorage|sessionStorage|indexedDB|caches|cookie|postMessage|BroadcastChannel|setTimeout|setInterval|crypto)\b", rule):
+    raise SystemExit("make-styles: the Mail app's rule for addresses reaches beyond the text it is given")
+with open(os.path.join(HERE, "addresses.mjs"), "w") as f:
+    f.write("// The Mail app's rule for addresses written out (app.js's addresses, in webmail/src/Assets.h; the server's Links.cpp),\n"
+            "// copied by make-styles.py. Do not edit here.\n" + rule + "\nexport const {at, all} = addresses;\n")
+
 icons = open(os.path.join(SRC, "Icons.h")).read()
 paths = {name: re.search(r'\{"' + name + r'", "([^"]+)"\}', icons).group(1) for name in ICONS}
 with open(os.path.join(HERE, "icons.mjs"), "w") as f:
     f.write("// The Mail app's icons (Material, 24 px), copied by make-styles.py from webmail/src/Icons.h. Do not edit here.\n"
             f"const PATHS = {json.dumps(paths, indent=1)};\n"
             "export const icon = name => PATHS[name] ? `<svg class=\"i\" viewBox=\"0 0 24 24\" aria-hidden=\"true\" focusable=\"false\"><path d=\"${PATHS[name]}\"/></svg>` : '';\n")
-print(f"make-styles: mail.css ({len(css)} bytes), icons.mjs ({len(paths)} icons)")
+print(f"make-styles: mail.css ({len(css)} bytes), icons.mjs ({len(paths)} icons), addresses.mjs ({len(rule)} bytes)")

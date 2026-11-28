@@ -74,12 +74,16 @@ Never weaken one of these without the owner's explicit decision.
 - `watch/watch.py` is a copy of `../mail/scripts/reader-watch.py`: change it
   there; `scripts/watch-sync.sh` in the mail repository copies it here.
   Deploy the mail server no later than a new `.github/workflows/watch.yml`.
-- `mail.css`, `icons.mjs` and `letter.mjs` come from the webmail
-  (`make-styles.py`); change them in the mail repository.
+- `mail.css`, `icons.mjs`, `letter.mjs` and `addresses.mjs` come from the
+  webmail (`make-styles.py`); change them in the mail repository.
+  `addresses.mjs` is code (the rule for addresses written out, app.js's
+  `addresses`): make-styles.py takes it only while it reaches nothing but the
+  text it is given.
 - Tests, all of which must pass before a publish:
   - `node tests/learning.mjs`;
   - `node tests/key-verdict.mjs`;
   - `node tests/link.mjs` (Link a device: its codes, and the key reaching only the device whose code was read);
+  - `node tests/links.mjs` (addresses written out in a letter are links, as in Mail);
   - `python3 -m unittest tests/test_watch.py`.
   A change to what Seal trusts comes with a test.
 - Never rewrite the history of `main`: the watch accepts files of the last few

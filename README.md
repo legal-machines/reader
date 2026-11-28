@@ -161,7 +161,12 @@ the seal holds.
 * **The message looks like any other.** Inside a conversation Seal
   draws the text, pictures and attachments with the Mail app's own
   stylesheet and icons (`mail.css`, `icons.mjs`, `letter.mjs`, copied from
-  its source by `make-styles.py`, never from the mail server). The subject
+  its source by `make-styles.py`, never from the mail server). The addresses
+  a letter writes out are links as in Mail, by Mail's own rule
+  (`addresses.mjs`, copied the same way, which `make-styles.py` takes only
+  as plain work on text): a web address with or without its scheme, and an
+  email address (mailto:), each opening in a new tab with no referrer; a
+  file's name (README.md) is not one. The subject
   goes to the Mail app's title line through `title.html`, a frame of this
   site that the message's frame hands it to on a BroadcastChannel; the Mail
   app learns only its size.
@@ -453,8 +458,9 @@ tab), `seal.mjs` (the sender's seal and key lookup by hash), `dkim.mjs`
 `people.html` (keys of people outside), `keys.mjs` and
 `keys.html` (our public keys, from `make-keys.py`), `notices.mjs` (from
 `make-notices.py`), `setup.mjs`, `width.mjs`, `publish.sh` (both sites, with
-`make-styles.py` and `make-pins.py`), `tests/` (plain `node` and `python3`, nothing
+`make-styles.py` and `make-pins.py`), `addresses.mjs` (Mail's rule for
+addresses written out, from `make-styles.py`), `tests/` (plain `node` and `python3`, nothing
 to install: `node tests/learning.mjs`, `node tests/key-verdict.mjs`, `node tests/link.mjs`,
-`python3 tests/test_watch.py`), and
+`node tests/links.mjs`, `python3 tests/test_watch.py`), and
 OpenPGP.js 6.3.2, unmodified (`openpgp.min.mjs`, LGPL-3.0,
 https://openpgpjs.org).

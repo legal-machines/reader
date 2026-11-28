@@ -8,7 +8,7 @@
 // signing key of a sender's domain comes from dns.html, in a frame (dkim.mjs).
 
 import {all, valid} from './store.mjs';
-import {addressOf, escape, linkify} from './mime.mjs';
+import {addressOf, escape, linkify, linkText} from './mime.mjs';
 import {MAIL_SITES} from './sites.mjs';
 import {widths} from './width.mjs';
 import {icon} from './icons.mjs';
@@ -83,6 +83,7 @@ function inert(html, files) {
       }
     }
   }
+  linkText(doc);  // the addresses its text writes out, as links (mime.mjs)
   return doc.body.innerHTML;
 }
 function base64(bytes) {
